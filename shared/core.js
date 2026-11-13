@@ -32,6 +32,7 @@
   };
   // Escalada de armas: una baja con el arma actual sube de nivel; la última es el cuchillo
   const LADDER = ['ar', 'fr9', 'lmg', 'smg', 'es12', 'tr7', 'sr', 'r50', 'ap18', 'p9', 'knife'];
+  const TDM = { goal: 50, time: 480, respawn: 3, protect: 2.5, guns: ['ar', 'fr9', 'smg', 'es12', 'lmg', 'tr7', 'sr'] };
   const GG_TIME = 600;
   const NADES = {
     he: { id: 'he', name: 'Granada HE', price: 300, max: 1 },
@@ -57,7 +58,9 @@
   // Camuflajes de armas que se desbloquean con el nivel del jugador
   const CAMOS = [
     { id: 'bosque', name: 'Bosque', lvl: 2 }, { id: 'digital', name: 'Digital', lvl: 4 }, { id: 'desierto', name: 'Desierto', lvl: 6 },
-    { id: 'tigre', name: 'Tigre', lvl: 9 }, { id: 'carbono', name: 'Carbono', lvl: 12 }, { id: 'carmesi', name: 'Carmesí', lvl: 16 }, { id: 'oro', name: 'Oro', lvl: 20 }
+    { id: 'acero', name: 'Acero cepillado', lvl: 7 }, { id: 'tigre', name: 'Tigre', lvl: 9 }, { id: 'cobre', name: 'Cobre', lvl: 11 }, { id: 'carbono', name: 'Carbono', lvl: 12 },
+    { id: 'oceano', name: 'Océano anodizado', lvl: 14 }, { id: 'carmesi', name: 'Carmesí', lvl: 16 }, { id: 'grafito', name: 'Grafito', lvl: 18 }, { id: 'oro', name: 'Oro', lvl: 20 },
+    { id: 'aurora', name: 'Aurora · temporada', lvl: 1, top: 10 }
   ];
   // Progresión compartida (servidor y cliente): experiencia por nivel y desafíos diarios
   const CH_POOL = [
@@ -375,7 +378,7 @@
       this.mapId = MAPS[opts.map] ? opts.map : MAP_IDS[(Math.random() * MAP_IDS.length) | 0];
       this.W = new World(this.mapId); this.M = this.W.map;
       this.isPublic = opts.isPublic !== false;
-      this.mode = opts.mode === 'elim' || opts.mode === 'gg' ? opts.mode : 'bomb';
+      this.mode = opts.mode === 'elim' || opts.mode === 'gg' || opts.mode === 'tdm' ? opts.mode : 'bomb';
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
       this.actors = []; this.events = []; this.now = 0; this.tickN = 0; this.teamRadio = [0, 0]; this.cond = { night: false, weather: null }; this.votes = new Map();
       for (let t = 0; t < 2; t++) for (let i = 0; i < 4; i++) this.actors.push(this.makeActor(t, i));
@@ -408,7 +411,41 @@
       this.scores = [0, 0]; this.round = 0; this.swap = false; this.lossStreak = { atk: 0, def: 0 };
       for (const a of this.actors) { a.kills = a.deaths = a.assists = a.score = 0; this.resetLoadout(a, true); a.money = MONEY.start; }
       if (this.mode === 'gg') return this.startGG();
+      if (this.mode === 'tdm') return this.startTDM();
       this.startRound();
+    }
+    /* --- combate por equipos: reaparición, gana el primero en TDM.goal bajas --- */
+    startTDM() {
+      this.round = 1; this.phase = 'live'; this.phaseEnd = this.now + TDM.time; this.liveStart = this.now;
+      this.drops = []; this.nades = []; this.smokes = [];
+      this.bomb = { st: 'none', by: -1, x: 0, y: 0, z: 0, site: null, explodeAt: 0, pp: 0, dp: 0, planter: -1, defuser: -1 };
+      for (const a of this.actors) { a.alive = false; a.tdmGun = null; }
+      for (const a of this.actors) this.spawnTDM(a);
+      this.ev({ k: 'tdm', t: TDM.time, goal: TDM.goal }); this.rosterDirty = true;
+    }
+    equipTDM(a) {
+      const p = a.tdmGun || (a.human ? 'ar' : TDM.guns[(Math.random() * TDM.guns.length) | 0]);
+      a.inv = { p, s: 'p9', n: { he: 1, fl: 1, sm: 0 } }; a.cur = p; a.ammo = WEAPONS[p].mag; a.reloadT = 0; a.armor = 100; a.helmet = true; a.kit = false; a.money = 0; a.pdirty = true;
+    }
+    spawnTDM(a) {
+      let best = null, bs = -1e9;
+      for (const p of this.ggPoints()) { let md = 60, mf = 60; for (const t of this.actors) { if (!t.alive || t === a) continue; const d = Math.hypot(t.pos.x - p[0], t.pos.z - p[1]); if (t.team !== a.team) md = Math.min(md, d); else mf = Math.min(mf, d); }
+        const sc = Math.min(md, 32) - Math.max(0, Math.min(mf, 30) - 12) * .25 + Math.random() * 8; if (sc > bs) { bs = sc; best = p; } }
+      this.equipTDM(a); this.spawn(a, best);
+    }
+    killTDM(v, att, head, wid) {
+      v.respawnAt = this.now + TDM.respawn; v.pdirty = true; this.rosterDirty = true;
+      if (WEAPONS[v.cur] && WEAPONS[v.cur].slot === 1) v.tdmGun = v.cur;
+      const valid = att && att !== v && att.team !== v.team; const ast = [];
+      if (valid) for (const [id, dm] of v.damagers) { if (id !== att.id && dm >= 40) { const a = this.actors[id]; a.assists++; a.score += 1; ast.push(id); } }
+      this.ev({ k: 'kill', a: att ? att.id : -1, v: v.id, h: head ? 1 : 0, w: wid, ast, dist: att ? Math.round(d2(att.pos, v.pos)) : 0 });
+      if (!valid) return;
+      att.kills++; att.score += 2 + (head ? 1 : 0); this.scores[att.team]++;
+      if (this.scores[att.team] >= TDM.goal) this.endTDM(att.team);
+    }
+    endTDM(team) {
+      if (this.phase === 'over') return; this.phase = 'over'; this.phaseEnd = this.now + ROUND.over;
+      this.ev({ k: 'mend', tdm: 1, w: team, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); this.rosterDirty = true;
     }
     /* --- escalada de armas --- */
     startGG() {
@@ -480,7 +517,7 @@
       a.pos = V(x + rand(-.3, .3), 0, z + rand(-.3, .3)); a.vel = V(); a.hp = 100; a.alive = true; a.h = 1.8; a.crouch = false; a.damagers.clear();
       const cx = (this.M.bounds[0] + this.M.bounds[2]) / 2, cz = (this.M.bounds[1] + this.M.bounds[3]) / 2;
       a.yaw = Math.atan2(-(cx - a.pos.x), -(cz - a.pos.z)); a.pitch = 0; a.target = null; a.path = null; a.goalKey = ''; a.lastKnown = null; a.lastHit = -99; a.blindUntil = 0; a.act = false; a.planting = false; a.dmgRound = 0;
-      a.ammo = WEAPONS[a.cur] ? WEAPONS[a.cur].mag : 0; a.reloadT = 0; a.pdirty = true; a.protectUntil = this.now + (this.mode === 'gg' ? 1.6 : 0);
+      a.ammo = WEAPONS[a.cur] ? WEAPONS[a.cur].mag : 0; a.reloadT = 0; a.pdirty = true; a.protectUntil = this.now + (this.mode === 'gg' ? 1.6 : this.mode === 'tdm' ? TDM.protect : 0);
       this.ev({ k: 'sp', v: a.id, p: [r2(a.pos.x), 0, r2(a.pos.z)], y: r2(a.yaw) });
     }
     endRound(winSide, reason) {
@@ -517,6 +554,7 @@
       if (!a) { this.lastErr = 'full'; return null; }
       a.human = cid; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = CAMOS.some(c => c.id === camo) ? camo : null;
       if (this.mode === 'gg') { a.lvl = 0; this.equipGG(a); }
+      else if (this.mode === 'tdm') { a.tdmGun = null; this.equipTDM(a); }
       else if (this.phase === 'buy' && a.snap) { Object.assign(a, { inv: JSON.parse(JSON.stringify(a.snap.inv)), armor: a.snap.armor, helmet: a.snap.helmet, kit: a.snap.kit, money: a.snap.money, cur: a.snap.cur }); }
       this.clients.set(cid, a.id);
       if (a.alive) this.ev({ k: 'sp', v: a.id, p: [r2(a.pos.x), r2(a.pos.y), r2(a.pos.z)], y: r2(a.yaw) });
@@ -530,7 +568,7 @@
       this.ev({ k: 'leave', id, n }); this.rosterDirty = true;
     }
     canBuy(a) {
-      if (!a.alive || this.mode === 'gg') return false;
+      if (!a.alive || this.mode === 'gg' || this.mode === 'tdm') return false;
       const zone = this.M.buy[this.side(a.team)];
       return (this.phase === 'buy' || (this.phase === 'live' && this.now - this.liveStart < ROUND.buyWindow)) && inRect(zone, a.pos.x, a.pos.z);
     }
@@ -602,7 +640,8 @@
       if (this.now - a.lastShot < 60 / w.rpm * .7) return;
       a.lastShot = this.now; a.cur = wid; if (!w.melee) a.firedAt = this.now;
       let o = [num(m.o[0]), num(m.o[1]), num(m.o[2])]; const eye = eyeOf(a);
-      if (Math.hypot(o[0] - eye[0], o[1] - eye[1], o[2] - eye[2]) > 2.5) o = eye;
+      // el origen que manda el cliente debe estar cerca del ojo y sin pared de por medio
+      if (Math.hypot(o[0] - eye[0], o[1] - eye[1], o[2] - eye[2]) > 1.5 || !this.W.visible(eye, o)) o = eye;
       const rays = w.pellets && Array.isArray(m.pel) ? m.pel.slice(0, w.pellets) : [m];
       const dmgBy = new Map(); let first = null;
       for (const r of rays) {
@@ -613,7 +652,7 @@
         let ok = false, zone = 'c'; const v = (typeof r.hit === 'number') ? this.actors[r.hit | 0] : null;
         if (v && v.alive && v.team !== a.team) {
           const tol = 1.3 + Math.hypot(v.vel.x, v.vel.z) * .3; const hy = end[1] - v.pos.y;
-          if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.visible(o, end)) {
+          if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.visible(o, end) && this.exposed(o, v)) {
             ok = true; zone = ['h', 'c', 'l'].includes(r.z) ? r.z : 'c'; if (zone === 'h' && hy < v.h - .5) zone = 'c';
           }
         }
@@ -624,6 +663,13 @@
       if (!first) return;
       if (!w.melee) { this.ev({ k: 'shot', s: a.id, w: wid, e: first.end.map(r2), n: first.n, hit: first.hit ? 1 : 0 }); this.alert(a, 40); }
       else this.ev({ k: 'slash', s: a.id, hit: first.hit ? 1 : 0 });
+    }
+    // ¿Alguna parte del cuerpo de v (en su posición actual en el servidor) se ve desde o? Evita impactos a través de paredes
+    exposed(o, v) {
+      const x = v.pos.x, y = v.pos.y, z = v.pos.z, h = v.h;
+      for (const p of [[x, y + h - .12, z], [x, y + h * .62, z], [x, y + .35, z], [x + .3, y + h * .62, z], [x - .3, y + h * .62, z], [x, y + h * .62, z + .3], [x, y + h * .62, z - .3], [x + .25, y + .35, z], [x - .25, y + .35, z]])
+        if (this.W.visible(o, p)) return true;
+      return false;
     }
     alert(sh, R) { for (const b of this.actors) { if (b.human || !b.alive || b.team === sh.team || b.target) continue; if (d2(b.pos, sh.pos) < R) { b.lastKnown = V(sh.pos.x, sh.pos.y, sh.pos.z); b.lastKnownT = this.now; } } }
 
@@ -641,6 +687,7 @@
     kill(v, att, head, wid) {
       v.alive = false; v.hp = 0; v.deaths++; v.act = false; v.planting = false;
       if (this.mode === 'gg') return this.killGG(v, att, head, wid);
+      if (this.mode === 'tdm') return this.killTDM(v, att, head, wid);
       if (att && att !== v && att.team !== v.team) {
         att.kills++; att.score += 2 + (head ? 1 : 0);
         const w = WEAPONS[wid]; this.give(att, w ? w.kill : 300);
@@ -832,7 +879,7 @@
     }
     objective(b) {
       const side = this.side(b.team), B = this.bomb; b.mx = 0; b.mz = 0; b.walkSpeed = 4.6;
-      if (this.mode === 'gg') {
+      if (this.mode === 'gg' || this.mode === 'tdm') {
         if (b.lastKnown && this.now - b.lastKnownT < 4) { this.goTo(b, b.lastKnown.x, b.lastKnown.z, 'lk' + Math.round(b.lastKnownT)); return; }
         let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
         if (n) this.goTo(b, n.pos.x + rand(-4, 4), n.pos.z + rand(-4, 4), 'hunt' + n.id + Math.floor(this.now / 3)); else this.lookAround(b, b.yaw);
@@ -956,7 +1003,8 @@
       if (this.now >= this.phaseEnd) {
         if (this.phase === 'buy') { this.phase = 'live'; this.phaseEnd = this.now + ROUND.live; this.liveStart = this.now; this.ev({ k: 'live' }); }
         else if (this.phase === 'live') {
-          if (this.mode === 'gg') { const lead = this.actors.slice().sort((p, q) => (q.lvl - p.lvl) || (q.kills - p.kills))[0]; this.endGG(lead); }
+          if (this.mode === 'tdm') this.endTDM(this.scores[0] === this.scores[1] ? -1 : this.scores[0] > this.scores[1] ? 0 : 1);
+          else if (this.mode === 'gg') { const lead = this.actors.slice().sort((p, q) => (q.lvl - p.lvl) || (q.kills - p.kills))[0]; this.endGG(lead); }
           else if (this.mode === 'elim') { const al = { atk: 0, def: 0 }; for (const a of this.actors) if (a.alive) al[this.side(a.team)]++; this.endRound(al.atk > al.def ? 'atk' : 'def', 'time'); }
           else if (this.bomb.st !== 'planted') this.endRound('def', 'time');
         }
@@ -966,7 +1014,7 @@
       // pasos audibles para los bots
       if (this.tickN % 6 === 0) for (const a of this.actors) { if (!a.alive || !a.human || a.walking || a.crouch) continue; if (Math.hypot(a.vel.x, a.vel.z) > 3.2) this.alert(a, 16); }
       for (const a of this.actors) {
-        if (!a.alive) { if (this.mode === 'gg' && this.phase === 'live' && this.now >= a.respawnAt) this.spawnGG(a); continue; }
+        if (!a.alive) { if (this.phase === 'live' && this.now >= a.respawnAt) { if (this.mode === 'gg') this.spawnGG(a); else if (this.mode === 'tdm') this.spawnTDM(a); } continue; }
         if (!a.human) this.updateBot(a, dt);
         // recoger armas del suelo si el espacio está libre
         for (let i = 0; i < this.drops.length; i++) {
@@ -981,7 +1029,7 @@
       this.stepNades(dt);
       this.bombTick(dt);
       // eliminación
-      if (this.phase === 'live' && this.mode !== 'gg') {
+      if (this.phase === 'live' && this.mode !== 'gg' && this.mode !== 'tdm') {
         const alive = { atk: 0, def: 0 }; for (const a of this.actors) if (a.alive) alive[this.side(a.team)]++;
         if (alive.def === 0) this.endRound('atk', 'elim');
         else if (alive.atk === 0 && this.bomb.st !== 'planted') this.endRound('def', 'elim');
@@ -1010,5 +1058,5 @@
     roster() { return { t: 'r', code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '']) }; }
   }
 
-  return { WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

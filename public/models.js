@@ -35,6 +35,7 @@ const TXW = texWear(), TXG = texGrain(), TXWOOD = texWoodG(), TXCLOTH = texCloth
 /* ---------- Camuflajes de armas ---------- */
 function blobs(x, base, cols, n, rmin, rmax) { x.fillStyle = base; x.fillRect(0, 0, 256, 256); for (let i = 0; i < n; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; x.save(); x.translate(rand(0, 256), rand(0, 256)); x.rotate(rand(0, 3)); x.beginPath(); x.ellipse(0, 0, rand(rmin, rmax), rand(rmin * .5, rmax * .55), 0, 0, 7); x.fill(); x.restore(); } }
 const CAMO_SW = {};
+function blobs2(x, col, n) { for (let i = 0; i < n; i++) { x.fillStyle = col; x.beginPath(); x.ellipse(rand(0, 256), rand(0, 256), rand(6, 22), rand(4, 14), rand(0, 3), 0, 7); x.fill(); } }
 function camoTex(id) {
   const [c, x] = cnv(256, 256);
   if (id === 'bosque') blobs(x, '#4b5b33', ['#2e3a1e', '#6b7a45', '#5a4a30', '#3c4a26'], 70, 12, 34);
@@ -43,6 +44,10 @@ function camoTex(id) {
   else if (id === 'tigre') { x.fillStyle = '#d4892a'; x.fillRect(0, 0, 256, 256); x.fillStyle = '#17110b'; for (let i = 0; i < 22; i++) { const y0 = rand(-40, 256); x.beginPath(); x.moveTo(0, y0); for (let k = 0; k <= 16; k++) x.lineTo(k * 16, y0 + k * 6 + Math.sin(k * 1.3 + i) * 7); for (let k = 16; k >= 0; k--) x.lineTo(k * 16, y0 + k * 6 + 6 + Math.sin(k * 1.7 + i) * 5 * rand(.5, 1.3)); x.fill(); } }
   else if (id === 'carbono') { for (let yy = 0; yy < 256; yy += 8) for (let xx = 0; xx < 256; xx += 8) { const o = ((xx + yy) / 8) % 2; const g = x.createLinearGradient(xx, yy, xx + 8, yy + 8); g.addColorStop(0, o ? '#2c2e31' : '#18191b'); g.addColorStop(1, o ? '#1a1b1d' : '#2a2c2f'); x.fillStyle = g; x.fillRect(xx, yy, 8, 8); } }
   else if (id === 'carmesi') blobs(x, '#8e1d1d', ['#5c0f12', '#b02a24', '#741518'], 50, 14, 36);
+  else if (id === 'acero' || id === 'cobre') { x.fillStyle = id === 'acero' ? '#a3aab2' : '#b46c3d'; x.fillRect(0, 0, 256, 256); for (let i = 0; i < 900; i++) { const v = rand(-1, 1); x.fillStyle = v > 0 ? `rgba(255,255,255,${v * .12})` : `rgba(0,0,0,${-v * .14})`; x.fillRect(0, rand(0, 256), 256, rand(.5, 1.6)); } if (id === 'cobre') blobs2(x, 'rgba(60,120,100,.18)', 8); }
+  else if (id === 'oceano') { const g = x.createLinearGradient(0, 0, 256, 256); g.addColorStop(0, '#1d7480'); g.addColorStop(.55, '#15506a'); g.addColorStop(1, '#0f3550'); x.fillStyle = g; x.fillRect(0, 0, 256, 256); }
+  else if (id === 'grafito') { x.fillStyle = '#2b2e33'; x.fillRect(0, 0, 256, 256); x.strokeStyle = 'rgba(160,170,180,.16)'; x.lineWidth = 1.4; for (let yy = 0; yy < 270; yy += 14) for (let xx = 0; xx < 270; xx += 24) { const ox = (yy / 14) % 2 ? 12 : 0; x.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 6 * Math.PI * 2; x.lineTo(xx + ox + Math.cos(a) * 8, yy + Math.sin(a) * 8); } x.stroke(); } }
+  else if (id === 'aurora') { const g = x.createLinearGradient(0, 256, 256, 0); g.addColorStop(0, '#0d2a3a'); g.addColorStop(.3, '#1fae8a'); g.addColorStop(.55, '#3fd6e0'); g.addColorStop(.8, '#7a5ad8'); g.addColorStop(1, '#2a1a4a'); x.fillStyle = g; x.fillRect(0, 0, 256, 256); for (let i = 0; i < 12; i++) { x.strokeStyle = `rgba(255,255,255,${rand(.05, .14)})`; x.lineWidth = rand(2, 6); x.beginPath(); const y0 = rand(0, 256); x.moveTo(0, y0); x.bezierCurveTo(80, y0 - 40, 170, y0 + 40, 256, y0 - 10); x.stroke(); } }
   else { x.fillStyle = '#e8c35c'; x.fillRect(0, 0, 256, 256); for (let i = 0; i < 220; i++) { x.strokeStyle = `rgba(255,250,220,${rand(.1, .35)})`; x.lineWidth = rand(.5, 1.5); x.beginPath(); const px = rand(0, 256), py = rand(0, 256); x.moveTo(px, py); x.lineTo(px + rand(-20, 20), py + rand(-3, 3)); x.stroke(); } }
   speck(x, 256, 256, 3000, .08);
   CAMO_SW[id] = c.toDataURL('image/png');
@@ -69,9 +74,10 @@ const MG = {
 };
 
 const MCAMO = {};
-for (const id of ['bosque', 'digital', 'desierto', 'tigre', 'carbono', 'carmesi', 'oro']) {
+const CAMO_PBR = { acero: [.95, .3], cobre: [.92, .32], oceano: [.7, .24], grafito: [.45, .4], aurora: [.75, .2] };
+for (const id of ['bosque', 'digital', 'desierto', 'tigre', 'carbono', 'carmesi', 'oro', 'acero', 'cobre', 'oceano', 'grafito', 'aurora']) {
   const t = camoTex(id);
-  MCAMO[id] = id === 'oro' ? S({ map: t, metalness: 1, roughness: .22 }) : id === 'carbono' ? S({ map: t, metalness: .45, roughness: .3 }) : id === 'carmesi' ? S({ map: t, metalness: .35, roughness: .38 }) : S({ map: t, roughness: .62, metalness: .1 });
+  MCAMO[id] = CAMO_PBR[id] ? S({ map: t, metalness: CAMO_PBR[id][0], roughness: CAMO_PBR[id][1] }) : id === 'oro' ? S({ map: t, metalness: 1, roughness: .22 }) : id === 'carbono' ? S({ map: t, metalness: .45, roughness: .3 }) : id === 'carmesi' ? S({ map: t, metalness: .35, roughness: .38 }) : S({ map: t, roughness: .62, metalness: .1 });
 }
 const CAMO_KEYS = new Set(['poly', 'tan', 'od', 'park', 'wood']);
 
@@ -395,6 +401,7 @@ function fpArms(gun, pos, s) {
 
 window.PCM = {
   buildGun, buildSoldier, fpArms, setFpTeam, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
+  setEnv(env) { for (const m of Object.values(MCAMO).concat(Object.values(MG))) if (m && m.isMeshStandardMaterial && m.metalness > .3) { m.envMap = env; m.envMapIntensity = .9; m.needsUpdate = true; } },
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };
 })();

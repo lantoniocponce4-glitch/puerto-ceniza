@@ -13,12 +13,19 @@ const TICK = 1 / 20;
 const PUBLIC = path.join(__dirname, 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
+// Casillas por bando para la lista de salas: personas primero, luego los bots (lugares libres)
+function teamSlots(r) {
+  const out = { atk: [], def: [] };
+  for (const a of r.actors) { const sd = r.side(a.team); if (out[sd]) out[sd].push({ n: a.human ? a.name : '', h: a.human ? 1 : 0 }); }
+  for (const k in out) out[k].sort((x, y) => y.h - x.h);
+  return out;
+}
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname.startsWith('/api/') && url.pathname !== '/api/rooms') return api(req, res, url);
   if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify({ ok: true, cuentas: ACC.store.kind, baseLista: ACC.ok === true, error: ACC.err || null, version: String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7) })); }
   if (url.pathname === '/api/rooms') {
-    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode, diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8) })).sort((a, b) => b.players - a.players);
+    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode, diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8), teams: teamSlots(r) })).sort((a, b) => b.players - a.players);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify(list));
   }
   let file = url.pathname === '/' ? '/index.html' : url.pathname;
@@ -46,7 +53,7 @@ async function api(req, res, url) {
     if (req.method === 'GET' && p === '/api/ranking') { const a = await ACC.fromToken(bearer(req)); return json(res, 200, await ACC.ranking(url.searchParams.get('by'), a)); }
     if (req.method === 'POST' && p === '/api/logout') { await ACC.logout(bearer(req)); return json(res, 200, { ok: true }); }
     if (req.method === 'GET' && p === '/api/me') { const a = await ACC.fromToken(bearer(req)); return a ? json(res, 200, { me: ACC.view(a) }) : json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); }
-    if (req.method === 'POST' && p === '/api/camo') { const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); const b = await body(req); return ACC.setCamo(a, b.camo === null ? null : String(b.camo || '')) ? json(res, 200, { me: ACC.view(a) }) : json(res, 400, { error: 'Ese camuflaje aún no está desbloqueado.' }); }
+    if (req.method === 'POST' && p === '/api/camo') { const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); const b = await body(req); const camoId = b.camo === null ? null : String(b.camo || ''); return (await ACC.setCamo(a, camoId)) ? json(res, 200, { me: ACC.view(a) }) : json(res, 400, { error: (PC.CAMOS.find(c => c.id === camoId) || {}).top ? 'Aurora es solo para el top 10 de experiencia de la temporada. Revisa el ranking.' : 'Ese camuflaje aún no está desbloqueado.' }); }
     return json(res, 404, { error: 'No encontrado' });
   } catch (e) { console.error('api', e); return json(res, 500, { error: 'Error del servidor. Intenta de nuevo.' }); }
 }
@@ -103,7 +110,7 @@ wss.on('connection', ws => {
       acct = m.token ? await ACC.fromToken(String(m.token)) : null;
       joining = false; if (ws.readyState !== 1) return;
       let r = null;
-      const gm = m.gm === 'elim' || m.gm === 'gg' ? m.gm : 'bomb';
+      const gm = m.gm === 'elim' || m.gm === 'gg' || m.gm === 'tdm' ? m.gm : 'bomb';
       if (m.mode === 'create') r = createRoom(!!m.pub, m.diff, m.map, gm);
       else if (m.mode === 'code') {
         r = rooms.get(String(m.code || '').toUpperCase().trim());

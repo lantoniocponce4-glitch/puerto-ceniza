@@ -124,7 +124,8 @@ class Accounts {
     const row = await this.store.getUser(s.userId); return row ? this.load(row) : null;
   }
   async logout(token) { if (typeof token === 'string') await this.store.deleteSession(sha(token)); }
-  setCamo(a, camo) { const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; } if (!c || a.profile.lvl < c.lvl) return false; a.profile.camo = c.id; a.dirty = true; return true; }
+  async setCamo(a, camo) { const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; } if (!c || a.profile.lvl < c.lvl) return false;
+    if (c.top) { await this.flush(); const ss = freshSeason(a.stats); if (!(ss.xp > 0)) return false; const pos = await this.store.rankOf(seasonId(), 'xp', ss.xp, a.id); if (!(pos <= c.top)) return false; } a.profile.camo = c.id; a.dirty = true; return true; }
   // Aplica la experiencia de un evento de juego; devuelve lo que hay que avisarle al jugador
   award(a, gains) {
     const p = freshDaily(a.profile); const ss = freshSeason(a.stats); const msgs = []; let up = false, done = [];

@@ -176,6 +176,7 @@ h1 em{font-style:normal;color:transparent;-webkit-text-stroke:1.5px var(--sand)}
 .seg button:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
 .row2{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
 .sens input{width:170px;accent-color:var(--amber)}
+.mix{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 14px}.mix label{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;font-size:12px;color:var(--dim)}.mix input{grid-column:1/-1;width:100%;accent-color:var(--amber);min-height:24px}.mix output{font-family:var(--f-mono);font-size:11px;color:var(--sand)}
 .go{all:unset;cursor:pointer;background:var(--amber);color:#1a1206;font-family:var(--f-display);font-weight:800;font-size:21px;letter-spacing:.12em;text-transform:uppercase;padding:13px 26px;border-radius:2px;display:inline-flex;align-items:center;gap:10px;width:max-content}
 .go:hover{filter:brightness(1.08)} .go:focus-visible{outline:2px solid var(--sand);outline-offset:3px}
 .go.ghost{background:transparent;color:var(--sand);border:1px solid var(--line)}
@@ -263,6 +264,7 @@ tr.dead td{opacity:.5}
 .ping.enemy{color:var(--bad)}.ping.enemy i{background:rgba(255,77,58,.25)}
 #bRadio{width:46px;height:40px;border-radius:4px;left:calc(8px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
 #bPing{width:46px;height:40px;border-radius:4px;left:calc(60px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px;border-color:var(--amber)}
+#bInsp{width:46px;height:40px;border-radius:4px;left:calc(110px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
 #bChat{width:46px;height:40px;border-radius:4px;left:calc(112px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
 .prof{display:flex;align-items:center;gap:12px}
 .prof .lvl{width:54px;height:54px;border:2px solid var(--amber);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
@@ -290,9 +292,17 @@ tr.dead td{opacity:.5}
 .room .rn{font-family:var(--f-display);font-weight:800;font-size:17px;line-height:1.1}
 .room .rn code{font-family:var(--f-mono);font-size:12px;color:var(--amber);margin-left:8px;letter-spacing:.12em}
 .room .rd{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.room button{all:unset;cursor:pointer;grid-row:1/3;grid-column:2;background:var(--amber);color:#1a1206;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:14px;padding:10px 14px;border-radius:2px;text-align:center}
-.room button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
-.room button[aria-disabled="true"]{background:rgba(233,220,192,.15);color:var(--dim);cursor:not-allowed}
+.room .auto[aria-disabled="true"]{background:rgba(233,220,192,.15);color:var(--dim);cursor:not-allowed}
+.room .auto{all:unset;cursor:pointer;grid-row:1/3;grid-column:2;background:var(--amber);color:#1a1206;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:13px;padding:10px 14px;border-radius:2px;text-align:center}
+.room .teams{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px}
+.room .tcol{display:flex;flex-direction:column;gap:4px}
+.room .thd{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:36px;padding:0 10px;border-radius:2px;font-family:var(--f-display);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+.room .atk .thd{background:#8c3a2b;color:#fbe9e2}.room .def .thd{background:#2f5f80;color:#e4f0f8}
+.room .slot{all:unset;box-sizing:border-box;min-height:32px;display:flex;align-items:center;padding:0 10px;border:1px dashed var(--line);border-radius:2px;font-size:12px;color:var(--dim);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room button.slot:hover,.room .thd:hover{filter:brightness(1.15)}.room button.slot:hover{color:var(--sand);border-color:var(--amber)}
+.room .slot.on{border-style:solid;color:var(--sand);background:rgba(233,220,192,.06);cursor:default}
+.room .thd:focus-visible,.room .slot:focus-visible,.room .auto:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
+.room [aria-disabled="true"].slot,.room [aria-disabled="true"].thd{opacity:.45;cursor:not-allowed}
 #acctBox{background:rgba(20,25,30,.7);border:1px solid var(--line);border-radius:3px;padding:12px;gap:10px}
 .acctForm{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:flex-end}
 .acctForm .field{flex:1 1 150px;min-width:0}
@@ -397,6 +407,7 @@ tr.dead td{opacity:.5}
     <div class="tb" id="bPause" aria-label="Menú">II</div>
     <div class="tb" id="bRadio" aria-label="Radio rápida">Radio</div>
     <div class="tb" id="bPing" aria-label="Marcar">Marcar</div>
+    <div class="tb" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
     <div class="tb" id="bChat" aria-label="Chat de equipo">Chat</div>
   </div>
 
@@ -415,7 +426,7 @@ tr.dead td{opacity:.5}
           <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
         </div>
         <div class="sec"><div class="lbl">Modo (salas nuevas)</div>
-          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button></div>
+          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button></div>
         </div>
       </div>
       <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Escalada de armas: cada baja te da un arma nueva y reapareces al instante; gana quien llegue al cuchillo y mate con él.</div>
@@ -425,10 +436,11 @@ tr.dead td{opacity:.5}
           <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
         </div>
         <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+        <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
       <div class="keys" id="keysHelp">
-        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>F</kbd>linterna de noche</span>
+        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>F</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span>
       </div>
       <div class="modes">
         <button class="go" id="quick" type="button">Partida rápida ▸</button>
@@ -459,6 +471,7 @@ tr.dead td{opacity:.5}
       <p class="lead">La ronda sigue corriendo mientras estás aquí.</p>
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+      <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       <div class="btns"><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
     </div>
@@ -493,9 +506,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=15"></script>
-<script src="/models.js?v=15"></script>
-<script src="/client.js?v=15"></script>
+<script src="/core.js?v=16"></script>
+<script src="/models.js?v=16"></script>
+<script src="/client.js?v=16"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>
