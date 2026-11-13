@@ -87,14 +87,22 @@ class Accounts {
     this.fails = new Map(); // clave de intento -> { n, until }
     const start = () => this.store.init().then(() => { this.ok = true; this.err = null; console.log('Cuentas: usando', this.store.kind); }).catch(e => { this.ok = false; this.err = (e.code ? e.code + ': ' : '') + scrub(e.message); console.error('Cuentas: no se pudo iniciar la base de datos:', this.err); setTimeout(() => { this.ready = start(); }, 20000); });
     this.ready = start();
-    setInterval(() => this.flush(), 10000).unref();
+    setInterval(() => { this.flush().then(() => this.sweep()); }, 10000).unref();
+  }
+  // Limpia intentos vencidos y saca de memoria las cuentas que nadie usa hace 30 minutos
+  sweep() {
+    const now = Date.now();
+    for (const [k, f] of this.fails) if (f.until < now && (f.n === 0 || now - (f.t || 0) > 15 * 60e3)) this.fails.delete(k);
+    if (this.fails.size > 20000) this.fails.clear();
+    for (const [id, a] of this.cache) if (!a.dirty && !a.inRoom && now - (a.lastUse || 0) > 30 * 60e3) this.cache.delete(id);
   }
   limited(key) { const f = this.fails.get(key); return f && f.until > Date.now(); }
-  fail(key) { const f = this.fails.get(key) || { n: 0, until: 0 }; f.n++; if (f.n >= 6) { f.until = Date.now() + 10 * 60 * 1000; f.n = 0; } this.fails.set(key, f); }
+  fail(key) { const f = this.fails.get(key) || { n: 0, until: 0 }; f.n++; f.t = Date.now(); if (f.n >= 6) { f.until = Date.now() + 10 * 60 * 1000; f.n = 0; } this.fails.set(key, f); }
   view(a) { freshDaily(a.profile); return { user: a.username, name: a.display, profile: a.profile, stats: a.stats }; }
   load(row) {
     let a = this.cache.get(row.id);
-    if (!a) { a = { id: row.id, username: row.username, display: row.display, profile: freshDaily(Object.assign(newProfile(), row.profile || {})), stats: Object.assign(newStats(), row.stats || {}), dirty: false }; this.cache.set(row.id, a); }
+    if (a) a.lastUse = Date.now();
+    if (!a) { a = { lastUse: Date.now(), id: row.id, username: row.username, display: row.display, profile: freshDaily(Object.assign(newProfile(), row.profile || {})), stats: Object.assign(newStats(), row.stats || {}), dirty: false }; this.cache.set(row.id, a); }
     return a;
   }
   async session(userId) { const token = crypto.randomBytes(32).toString('hex'); await this.store.createSession(sha(token), userId, Date.now() + SESSION_DAYS * 864e5); return token; }
@@ -103,24 +111,31 @@ class Accounts {
     const username = cleanUser(user);
     if (!USER_RE.test(username)) return { error: 'El usuario debe tener entre 3 y 16 caracteres: letras, números, punto o guion bajo.' };
     if (typeof pass !== 'string' || pass.length < 8 || pass.length > 100) return { error: 'La clave debe tener al menos 8 caracteres.' };
-    if (this.limited('reg:' + ip)) return { error: 'Demasiados intentos. Espera unos minutos.' };
+    if (this.limited('reg:' + ip) || this.limited('regok:' + ip)) return { error: 'Demasiados intentos. Espera unos minutos.' };
     if (await this.store.findUser(username)) { this.fail('reg:' + ip); return { error: 'Ese usuario ya existe. Elige otro o ingresa con tu clave.' }; }
     const salt = crypto.randomBytes(16).toString('hex');
-    const row = await this.store.createUser({ username, display: cleanDisplay(display) || username, salt, pass_hash: await hashPass(pass, salt), profile: newProfile(), stats: newStats() });
+    const hash = await hashPass(pass, salt);
+    if (await this.store.findUser(username)) return { error: 'Ese usuario ya existe. Elige otro o ingresa con tu clave.' };
+    let row; try { row = await this.store.createUser({ username, display: cleanDisplay(display) || username, salt, pass_hash: hash, profile: newProfile(), stats: newStats() }); }
+    catch (e) { if (e && e.code === '23505') return { error: 'Ese usuario ya existe. Elige otro o ingresa con tu clave.' }; throw e; }
+    for (let i = 0; i < 2; i++) this.fail('regok:' + ip);
     const a = this.load(row); return { token: await this.session(row.id), me: this.view(a) };
   }
   async login(user, pass, ip) {
     await this.ready; if (!this.ok) return { error: 'La base de datos no está disponible. Intenta más tarde.' };
     const username = cleanUser(user);
-    if (this.limited('ip:' + ip) || this.limited('u:' + username)) return { error: 'Demasiados intentos fallidos. Espera 10 minutos.' };
+    const uk = 'u:' + username + '|' + ip;
+    if (this.limited('ip:' + ip) || this.limited(uk)) return { error: 'Demasiados intentos fallidos. Espera 10 minutos.' };
     const row = await this.store.findUser(username);
-    if (!row || typeof pass !== 'string' || !(await checkPass(pass, row.salt, row.pass_hash))) { this.fail('ip:' + ip); this.fail('u:' + username); return { error: 'Usuario o clave incorrectos.' }; }
+    // si el usuario no existe igual se calcula un hash, para no revelar qué usuarios existen por el tiempo de respuesta
+    const okPass = typeof pass === 'string' && (row ? await checkPass(pass, row.salt, row.pass_hash) : (await hashPass(pass, 'x'.repeat(32)), false));
+    if (!row || !okPass) { this.fail('ip:' + ip); this.fail(uk); return { error: 'Usuario o clave incorrectos.' }; }
     const a = this.load(row); return { token: await this.session(row.id), me: this.view(a) };
   }
   async fromToken(token) {
     await this.ready; if (!this.ok || typeof token !== 'string' || token.length !== 64) return null;
     const s = await this.store.getSession(sha(token)); if (!s) return null;
-    const a = this.cache.get(s.userId); if (a) return a;
+    const a = this.cache.get(s.userId); if (a) { a.lastUse = Date.now(); return a; }
     const row = await this.store.getUser(s.userId); return row ? this.load(row) : null;
   }
   async logout(token) { if (typeof token === 'string') await this.store.deleteSession(sha(token)); }

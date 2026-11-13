@@ -39,11 +39,12 @@ const server = http.createServer((req, res) => {
 });
 
 /* ---------- API de cuentas ---------- */
-const ipOf = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+// Render agrega la IP real al final de X-Forwarded-For; los valores iniciales los controla el cliente
+const ipOf = req => { const x = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean); return x.length ? x[x.length - 1] : String(req.socket.remoteAddress || ''); };
 const bearer = req => { const h = String(req.headers.authorization || ''); return h.startsWith('Bearer ') ? h.slice(7).trim() : ''; };
 function json(res, code, obj) { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); }
 function body(req) {
-  return new Promise((ok) => { let d = ''; req.on('data', c => { d += c; if (d.length > 4096) { d = ''; req.destroy(); } }); req.on('end', () => { try { ok(JSON.parse(d || '{}')); } catch (e) { ok({}); } }); req.on('error', () => ok({})); });
+  return new Promise((ok) => { let d = ''; req.on('data', c => { d += c; if (d.length > 4096) { d = ''; req.destroy(); ok({}); } }); req.on('close', () => ok({})); req.on('end', () => { try { ok(JSON.parse(d || '{}')); } catch (e) { ok({}); } }); req.on('error', () => ok({})); });
 }
 async function api(req, res, url) {
   try {
@@ -73,7 +74,7 @@ function createRoom(isPublic, diff, map, mode) {
       const teamOf = id => room.actors[id] ? room.actors[id].team : -1;
       for (const [cid, acct] of room.accts) {
         const id = room.clients.get(cid); if (id == null) continue; const me = room.actors[id]; const gains = [];
-        for (const e of msg.ev) gains.push(...PC.xpFromEvent(e, id, me.team, teamOf));
+        for (const e of msg.ev) { if (e.k === 'mend' && !(room.now - (me.joinedAt || 0) > 150 || room.round - (me.joinedRound || 0) >= 2)) continue; gains.push(...PC.xpFromEvent(e, id, me.team, teamOf)); }
         if (!gains.length) continue;
         const r = ACC.award(acct, gains);
         if (r.msgs.length || r.up || r.done.length) room.onSend(cid, { t: 'xp', msgs: r.msgs, up: r.up, done: r.done, me: ACC.view(acct) });
@@ -93,7 +94,7 @@ function quickRoom(side, mode) {
   }
   return best || createRoom(true, 'veterano', null, mode);
 }
-const cleanName = n => (String(n || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14)) || 'Operador';
+const cleanName = n => (String(n || '').replace(/[\p{Cf}\p{Cc}\u3164\u115F\u1160\u2800\uFFA0]/gu, '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14)) || 'Operador';
 
 let nextCid = 1;
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8192, perMessageDeflate: { zlibDeflateOptions: { level: 1 }, threshold: 256 } });
@@ -102,7 +103,10 @@ wss.on('connection', ws => {
   let room = null;
   ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; });
   let joining = false, acct = null;
-  ws.on('message', async raw => {
+  let tok = 80, tokT = Date.now();
+  ws.on('message', async raw => { try {
+    // límite de mensajes por conexión (cubo de fichas: 60 por segundo, ráfaga de 80)
+    const nowMs = Date.now(); tok = Math.min(80, tok + (nowMs - tokT) * .06); tokT = nowMs; if (--tok < 0) { if (tok < -200) ws.terminate(); return; }
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m !== 'object') return;
     if (m.t === 'join' && !room && !joining) {
@@ -123,17 +127,17 @@ wss.on('connection', ws => {
         const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';
         return ws.send(JSON.stringify({ t: 'err', msg: r.lastErr === 'side' ? `El bando ${sideName} ya tiene 4 personas. Elige el otro bando o «Automático».` : 'No se pudo entrar a la sala.' }));
       }
-      room = r; r.sockets.set(cid, ws); if (acct) r.accts.set(cid, acct);
+      room = r; r.sockets.set(cid, ws); if (acct) { r.accts.set(cid, acct); acct.inRoom = (acct.inRoom || 0) + 1; }
       ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId, gm: r.mode, cond: r.cond }));
       ws.send(JSON.stringify(r.privateState(a)));
       ws.send(JSON.stringify(r.roster()));
       return;
     }
     if (room) room.message(cid, m);
-  });
+  } catch (e) { console.error('Error al procesar un mensaje:', e && e.message); } });
   ws.on('close', () => {
     if (!room) return;
-    room.removeHuman(cid); room.sockets.delete(cid); room.accts.delete(cid); if (acct) ACC.flush();
+    room.removeHuman(cid); room.sockets.delete(cid); room.accts.delete(cid); if (acct) { acct.inRoom = Math.max(0, (acct.inRoom || 1) - 1); acct.lastUse = Date.now(); ACC.flush(); }
     if (room.humanCount === 0) rooms.delete(room.code);
   });
 });

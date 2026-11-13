@@ -116,7 +116,7 @@ button{font:inherit;color:inherit}
 #reloadBar s{position:absolute;inset:0 auto 0 0;background:var(--sand);width:0}
 #spec{position:absolute;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:6px 14px;font-size:13px;text-align:center}
 #spec b{font-family:var(--f-display);font-size:20px;letter-spacing:.04em}
-#bombTag{display:inline-block;font-family:var(--f-mono);font-size:10px;color:#1a0f02;background:var(--amber);padding:2px 6px;border-radius:2px;letter-spacing:.06em}
+.bombTag{display:inline-block;font-family:var(--f-mono);font-size:10px;color:#1a0f02;background:var(--amber);padding:2px 6px;border-radius:2px;letter-spacing:.06em}
 #roomChip{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);font-size:11px;color:var(--dim);display:flex;gap:8px;align-items:center;background:var(--panel);padding:3px 10px;border-radius:2px}
 #roomChip b{font-family:var(--f-mono);color:var(--sand);letter-spacing:.14em}
 #clickPlay{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--amber);padding:10px 18px;border-radius:3px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
@@ -265,7 +265,7 @@ tr.dead td{opacity:.5}
 #bRadio{width:46px;height:40px;border-radius:4px;left:calc(8px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
 #bPing{width:46px;height:40px;border-radius:4px;left:calc(60px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px;border-color:var(--amber)}
 #bInsp{width:46px;height:40px;border-radius:4px;left:calc(110px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
-#bChat{width:46px;height:40px;border-radius:4px;left:calc(112px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
+#bChat{width:46px;height:40px;border-radius:4px;left:calc(160px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
 .prof{display:flex;align-items:center;gap:12px}
 .prof .lvl{width:54px;height:54px;border:2px solid var(--amber);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
 .prof .lvl b{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1;color:var(--amber)}
@@ -506,9 +506,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=16"></script>
-<script src="/models.js?v=16"></script>
-<script src="/client.js?v=16"></script>
+<script src="/core.js?v=17"></script>
+<script src="/models.js?v=17"></script>
+<script src="/client.js?v=17"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

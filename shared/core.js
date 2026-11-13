@@ -9,7 +9,9 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
-  const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
+  const TAU = Math.PI * 2;
+  const angDiff = (a, b) => { let d = (b - a) % TAU; if (!isFinite(d)) return 0; if (d > Math.PI) d -= TAU; else if (d < -Math.PI) d += TAU; return d; };
+  const has = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
   const V = (x = 0, y = 0, z = 0) => ({ x, y, z });
   const d2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const r2 = v => Math.round(v * 100) / 100;
@@ -374,8 +376,8 @@
   class Room {
     constructor(opts = {}) {
       this.code = opts.code || 'LOCAL';
-      this.diffKey = DIFF[opts.diff] ? opts.diff : 'veterano'; this.D = DIFF[this.diffKey];
-      this.mapId = MAPS[opts.map] ? opts.map : MAP_IDS[(Math.random() * MAP_IDS.length) | 0];
+      this.diffKey = has(DIFF, opts.diff) ? opts.diff : 'veterano'; this.D = DIFF[this.diffKey];
+      this.mapId = has(MAPS, opts.map) ? opts.map : MAP_IDS[(Math.random() * MAP_IDS.length) | 0];
       this.W = new World(this.mapId); this.M = this.W.map;
       this.isPublic = opts.isPublic !== false;
       this.mode = opts.mode === 'elim' || opts.mode === 'gg' || opts.mode === 'tdm' ? opts.mode : 'bomb';
@@ -512,6 +514,7 @@
       this.rosterDirty = true;
     }
     spawn(a, at) {
+      a.mvT = undefined; a.mvB = 3; a.mags = {}; a.rlW = null; a.mvIgnore = this.now + .35;
       const side = this.side(a.team); const pts = this.M.spawns[side]; const i = this.actors.filter(x => x.team === a.team).indexOf(a);
       const [x, z] = at || pts[i % pts.length];
       a.pos = V(x + rand(-.3, .3), 0, z + rand(-.3, .3)); a.vel = V(); a.hp = 100; a.alive = true; a.h = 1.8; a.crouch = false; a.damagers.clear();
@@ -552,17 +555,17 @@
       let a = this.actors.find(x => x.team === team && !x.human && !x.alive) || this.actors.find(x => x.team === team && !x.human);
       if (!a && !forced) { team = 1 - team; a = this.actors.find(x => x.team === team && !x.human); }
       if (!a) { this.lastErr = 'full'; return null; }
-      a.human = cid; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = CAMOS.some(c => c.id === camo) ? camo : null;
+      a.human = cid; a.joinedAt = this.now; a.joinedRound = this.round; a.mvT = undefined; a.mvB = 3; a.mags = {}; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = CAMOS.some(c => c.id === camo) ? camo : null;
       if (this.mode === 'gg') { a.lvl = 0; this.equipGG(a); }
       else if (this.mode === 'tdm') { a.tdmGun = null; this.equipTDM(a); }
-      else if (this.phase === 'buy' && a.snap) { Object.assign(a, { inv: JSON.parse(JSON.stringify(a.snap.inv)), armor: a.snap.armor, helmet: a.snap.helmet, kit: a.snap.kit, money: a.snap.money, cur: a.snap.cur }); }
+      else if (this.phase === 'buy' && a.snap && a.humanRound !== this.round) { Object.assign(a, { inv: JSON.parse(JSON.stringify(a.snap.inv)), armor: a.snap.armor, helmet: a.snap.helmet, kit: a.snap.kit, money: a.snap.money, cur: a.snap.cur }); }
       this.clients.set(cid, a.id);
       if (a.alive) this.ev({ k: 'sp', v: a.id, p: [r2(a.pos.x), r2(a.pos.y), r2(a.pos.z)], y: r2(a.yaw) });
       a.pdirty = true; this.ev({ k: 'join', id: a.id, n: name }); this.rosterDirty = true;
       return a;
     }
     removeHuman(cid) {
-      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid);
+      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid); this.actors[id].humanRound = this.round;
       const a = this.actors[id]; const n = a.name; a.human = null; a.camo = null; a.name = BOT_NAMES[a.team][a.slot]; a.act = false; a.path = null; a.goalKey = '';
       a.kills = a.deaths = a.assists = a.score = 0; a.cur = a.inv.p || a.inv.s || 'knife'; a.ammo = WEAPONS[a.cur].mag;
       this.ev({ k: 'leave', id, n }); this.rosterDirty = true;
@@ -575,7 +578,8 @@
     buy(a, item) {
       if (!this.canBuy(a)) return false;
       const side = this.side(a.team);
-      const w = WEAPONS[item];
+      if (typeof item !== 'string') return false;
+      const w = has(WEAPONS, item) ? WEAPONS[item] : null;
       if (w && w.price && !w.melee) {
         if (a.money < w.price) return false;
         const slot = w.slot === 1 ? 'p' : 's';
@@ -583,7 +587,7 @@
         if (a.inv[slot]) this.dropWeapon(a, a.inv[slot]);
         a.money -= w.price; a.inv[slot] = item; a.cur = item; a.ammo = w.mag; a.pdirty = true; return true;
       }
-      const n = NADES[item];
+      const n = (has(NADES, item) && NADES[item]);
       if (n) {
         const tot = a.inv.n.he + a.inv.n.fl + a.inv.n.sm;
         if (a.money < n.price || a.inv.n[item] >= n.max || tot >= 4) return false;
@@ -594,37 +598,55 @@
       if (item === 'kit') { if (side !== 'def' || a.kit || a.money < 400) return false; a.money -= 400; a.kit = true; a.pdirty = true; return true; }
       return false;
     }
+    inBounds(p) { const B = this.M.bounds; p.x = clamp(p.x, B[0] + .6, B[2] - .6); p.z = clamp(p.z, B[1] + .6, B[3] - .6); }
     dropWeapon(a, wid, fwd) {
       if (!wid || wid === 'knife') return;
       const slot = WEAPONS[wid].slot === 1 ? 'p' : 's';
       if (a.inv[slot] === wid) a.inv[slot] = null;
       const f = fwd ? 1.3 : .2; const x = a.pos.x - Math.sin(a.yaw) * f, z = a.pos.z - Math.cos(a.yaw) * f;
-      const p = { x, z, y: 0 }; this.W.resolve({ pos: p, h: .3 });
+      const p = { x, z, y: 0 }; this.W.resolve({ pos: p, h: .3 }); this.inBounds(p);
       this.drops.push({ id: nextEnt++, w: wid, x: r2(p.x), y: r2(this.W.groundAt(p.x, p.z, a.pos.y + .3)), z: r2(p.z), t: this.now });
       if (a.cur === wid) a.cur = a.inv.p || a.inv.s || 'knife';
       a.pdirty = true;
     }
+    // Movimiento del cliente con validación: presupuesto de velocidad, sin cruzar paredes y sin volar
+    applyMove(a, cid, x, y, z) {
+      const B = this.M.bounds; x = clamp(x, B[0] + .4, B[2] - .4); z = clamp(z, B[1] + .4, B[3] - .4);
+      const el = Math.min(1, Math.max(0, this.now - (a.mvT === undefined ? this.now : a.mvT))); a.mvT = this.now;
+      const vmax = ((WEAPONS[a.cur] && WEAPONS[a.cur].speed) || 5.4) * 1.45 + .6;
+      a.mvB = Math.min(3, (a.mvB === undefined ? 3 : a.mvB) + vmax * el);
+      let dx = x - a.pos.x, dz = z - a.pos.z; const d = Math.hypot(dx, dz);
+      if (d > a.mvB) { const k = a.mvB / d; dx *= k; dz *= k; a.mvFix = (a.mvFix || 0) + 1; }
+      const nx = a.pos.x + dx, nz = a.pos.z + dz;
+      if (d > .05) { const ys = [.5, 1.05, 1.6]; if (ys.every(h => !this.W.visible([a.pos.x, a.pos.y + h, a.pos.z], [nx, y + h, nz]))) { a.mvFix = (a.mvFix || 0) + 3; this.fixPos(a, cid); return; } }
+      a.mvB -= Math.hypot(dx, dz);
+      const g = this.W.groundAt(nx, nz, Math.max(0, y));
+      a.pos.x = nx; a.pos.z = nz; a.pos.y = clamp(y, g - .05, g + 1.7); a.grounded = a.pos.y - g < .12;
+      if ((a.mvFix || 0) >= 6) this.fixPos(a, cid);
+    }
+    fixPos(a, cid) { a.mvFix = 0; this.onSend(cid, { t: 'fix', p: [r2(a.pos.x), r2(a.pos.y), r2(a.pos.z)] }); }
     message(cid, m) {
       const id = this.clients.get(cid); if (id == null || !m || typeof m !== 'object') return; const a = this.actors[id];
       switch (m.t) {
         case 'in': {
           if (!a.alive || !Array.isArray(m.p) || !Array.isArray(m.v)) return;
-          if (this.phase !== 'buy') { a.pos.x = num(m.p[0], a.pos.x); a.pos.y = clamp(num(m.p[1], 0), 0, 8); a.pos.z = num(m.p[2], a.pos.z); const B = this.M.bounds; a.pos.x = clamp(a.pos.x, B[0], B[2]); a.pos.z = clamp(a.pos.z, B[1], B[3]); }
+          if (this.phase !== 'buy' && this.now >= (a.mvIgnore || 0)) this.applyMove(a, cid, num(m.p[0], a.pos.x), num(m.p[1], a.pos.y), num(m.p[2], a.pos.z));
           a.vel.x = clamp(num(m.v[0]), -8, 8); a.vel.y = clamp(num(m.v[1]), -20, 9); a.vel.z = clamp(num(m.v[2]), -8, 8);
-          a.yaw = num(m.y, a.yaw); a.pitch = clamp(num(m.pi), -1.5, 1.5); a.h = clamp(num(m.h, 1.8), 1.2, 1.8); a.crouch = a.h < 1.6; a.walking = !!m.w;
+          a.yaw = ((num(m.y, a.yaw) % TAU) + TAU) % TAU; a.pitch = clamp(num(m.pi), -1.5, 1.5); a.h = clamp(num(m.h, 1.8), 1.2, 1.8); a.crouch = a.h < 1.6; a.walking = !!m.w;
           a.act = !!m.act; break;
         }
         case 'shot': this.humanShot(a, m); break;
-        case 'eq': { const w = String(m.w || ''); if (w === 'knife' || a.inv.p === w || a.inv.s === w || (NADES[w] && a.inv.n[w] > 0)) a.cur = w; break; }
+        case 'eq': { const w = String(m.w || ''); if (w === 'knife' || a.inv.p === w || a.inv.s === w || (has(NADES, w) && a.inv.n[w] > 0)) a.cur = w; break; }
         case 'buy': if (this.buy(a, String(m.i || ''))) this.ev({ k: 'bought', v: a.id, i: String(m.i) }); break;
-        case 'drop': if (a.alive && (a.cur === a.inv.p || a.cur === a.inv.s)) this.dropWeapon(a, a.cur, true); else if (a.alive && this.bomb.st === 'carried' && this.bomb.by === a.id && m.bomb) this.dropBomb(a, true); break;
+        case 'drop': if (this.mode === 'gg' || this.mode === 'tdm') return; if (a.alive && (a.cur === a.inv.p || a.cur === a.inv.s)) this.dropWeapon(a, a.cur, true); else if (a.alive && this.bomb.st === 'carried' && this.bomb.by === a.id && m.bomb) this.dropBomb(a, true); break;
         case 'nade': this.throwNade(a, m); break;
+        case 'rl': { const w = WEAPONS[a.cur]; if (a.alive && w && w.mag && !w.melee) { a.rlW = a.cur; a.rlEnd = this.now + w.reload * .8; } break; }
         case 'chat': {
           if (this.now - (a.chatT === undefined ? -9 : a.chatT) < .8) return; a.chatT = this.now;
           const msg = String(m.m || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); if (!msg) return;
           this.ev({ k: 'chat', v: a.id, tm: a.team, m: msg }); break;
         }
-        case 'vote': { if (this.phase !== 'over' || !MAPS[m.map]) return; this.votes.set(cid, m.map); this.ev({ k: 'votes', v: this.tally() }); break; }
+        case 'vote': { if (this.phase !== 'over' || !has(MAPS, m.map) || this.now - (a.voteT === undefined ? -9 : a.voteT) < .5) return; a.voteT = this.now; this.votes.set(cid, m.map); this.ev({ k: 'votes', v: this.tally() }); break; }
         case 'radio': { const c = m.c | 0; if (c < 0 || c >= RADIO.length || this.now - (a.radioT === undefined ? -9 : a.radioT) < 1) return; a.radioT = this.now; this.ev({ k: 'radio', v: a.id, tm: a.team, c }); break; }
         case 'ping': {
           if (!a.alive || !Array.isArray(m.p) || this.now - (a.pingT === undefined ? -9 : a.pingT) < .6) return; a.pingT = this.now;
@@ -635,9 +657,15 @@
     }
     humanShot(a, m) {
       if (!a.alive || this.phase === 'buy' || this.phase === 'over' || !Array.isArray(m.o) || !Array.isArray(m.d)) return;
-      const wid = String(m.w || ''); const w = WEAPONS[wid];
+      const wid = String(m.w || ''); const w = has(WEAPONS, wid) ? WEAPONS[wid] : null;
       if (!w || !(wid === 'knife' || a.inv.p === wid || a.inv.s === wid)) return;
       if (this.now - a.lastShot < 60 / w.rpm * .7) return;
+      if (!w.melee && w.mag) {
+        const mg = a.mags || (a.mags = {}); if (mg[wid] === undefined) mg[wid] = w.mag;
+        if (a.rlW === wid) { if (this.now >= a.rlEnd) { mg[wid] = w.mag; a.rlW = null; } else return; }
+        if (mg[wid] <= 0) { if (this.now - a.lastShot > w.reload * .8) mg[wid] = w.mag; else return; }
+        mg[wid]--;
+      }
       a.lastShot = this.now; a.cur = wid; if (!w.melee) a.firedAt = this.now;
       let o = [num(m.o[0]), num(m.o[1]), num(m.o[2])]; const eye = eyeOf(a);
       // el origen que manda el cliente debe estar cerca del ojo y sin pared de por medio
@@ -713,14 +741,14 @@
       if (wid === LADDER[att.lvl]) { att.lvl++; this.equipGG(att); this.ev({ k: 'lvl', v: att.id, l: att.lvl, w: LADDER[att.lvl] }); }
     }
     dropBomb(a, thrown) {
-      const f = thrown ? 1.3 : 0; const x = a.pos.x - Math.sin(a.yaw) * f, z = a.pos.z - Math.cos(a.yaw) * f; const p = { x, z, y: 0 }; this.W.resolve({ pos: p, h: .3 });
+      const f = thrown ? 1.3 : 0; const x = a.pos.x - Math.sin(a.yaw) * f, z = a.pos.z - Math.cos(a.yaw) * f; const p = { x, z, y: 0 }; this.W.resolve({ pos: p, h: .3 }); this.inBounds(p);
       Object.assign(this.bomb, { st: 'dropped', by: -1, x: r2(p.x), y: r2(this.W.groundAt(p.x, p.z, a.pos.y + .3)), z: r2(p.z), dropT: this.now });
       this.ev({ k: 'bdrop', v: a.id }); a.pdirty = true;
     }
 
     /* --- granadas --- */
     throwNade(a, m) {
-      const k = String(m.k || ''); if (!NADES[k] || !a.alive || a.inv.n[k] <= 0 || this.phase === 'buy' || this.phase === 'over') return;
+      const k = String(m.k || ''); if (!has(NADES, k) || !a.alive || a.inv.n[k] <= 0 || this.phase === 'buy' || this.phase === 'over') return;
       if (!Array.isArray(m.d)) return;
       const d = [num(m.d[0]), num(m.d[1]), num(m.d[2], -1)]; const L = Math.hypot(d[0], d[1], d[2]) || 1;
       const sp = m.lob ? 7.5 : 15; const eye = eyeOf(a);
@@ -795,7 +823,7 @@
           if (B.planter !== a.id) { B.planter = a.id; B.pp = 0; this.ev({ k: 'planting', v: a.id }); }
           B.pp += dt;
           if (B.pp >= ROUND.plant) {
-            Object.assign(B, { st: 'planted', by: -1, x: r2(a.pos.x), y: r2(a.pos.y), z: r2(a.pos.z), site, explodeAt: this.now + ROUND.fuse, pp: 0, planter: -1 });
+            Object.assign(B, { st: 'planted', by: -1, x: r2(a.pos.x), y: r2(this.W.groundAt(a.pos.x, a.pos.z, a.pos.y + .1)), z: r2(a.pos.z), site, explodeAt: this.now + ROUND.fuse, pp: 0, planter: -1 });
             this.give(a, MONEY.plant); a.score += 2; a.planting = false; a.pdirty = true;
             this.ev({ k: 'plant', v: a.id, site, p: [B.x, B.y, B.z] });
             for (const b of this.actors) if (!b.human && b.alive) { b.goalKey = ''; b.path = null; }
@@ -805,7 +833,7 @@
         let defuser = null;
         for (const a of this.actors) {
           if (!a.alive || this.side(a.team) !== 'def') continue;
-          const near = Math.hypot(a.pos.x - B.x, a.pos.z - B.z) < 1.7 && Math.abs(a.pos.y - B.y) < 1.5;
+          const near = Math.hypot(a.pos.x - B.x, a.pos.z - B.z) < 1.7 && a.pos.y - B.y < 1.5 && B.y - a.pos.y < 2.7;
           const wants = a.human ? a.act : a.planting;
           if (near && wants) { defuser = a; break; }
         }
@@ -853,7 +881,8 @@
       const defs = this.actors.filter(a => this.side(a.team) === 'def'), atks = this.actors.filter(a => this.side(a.team) === 'atk');
       defs.forEach((b, i) => { const site = i % 2 === 0 ? 'A' : 'B'; const hs = this.M.holds[site]; b.holdSite = site; b.hold = hs[(i >> 1) % hs.length]; b.route = null; });
       const site = this.plan.site; const routes = this.M.routes[site];
-      atks.forEach((b, i) => { b.route = routes[i % routes.length]; b.ri = 0; b.hold = null; b.holdSite = site; b.lurk = Math.random() < .2; });
+      atks.forEach((b, i) => { b.route = routes[i % routes.length]; b.ri = 0; b.hold = null; b.holdSite = site; b.lurk = Math.random() < .2; b.staged = false; });
+      this.execGo = false; this.stageAt = 0;
     }
     perceive(b) {
       const D = this.D; const e = eyeOf(b); let best = null, bd = 1e9;
@@ -898,6 +927,16 @@
           if (this.siteAt(b.pos.x, b.pos.z) && !b.target) { const dc = Math.hypot(b.pos.x - site.c[0], b.pos.z - site.c[1]); if (dc < 4 || this.siteAt(b.pos.x, b.pos.z) === b.holdSite) { b.planting = true; return; } }
         }
         if (this.now - this.liveStart < (b.lurk ? 14 : 3)) { b.walkSpeed = 2.4; }
+        // reagruparse en la entrada del sitio y entrar juntos (con cegadora)
+        if (b.route && b.ri === b.route.length - 1 && !this.execGo && !b.lurk) {
+          b.staged = true; this.stageAt = this.stageAt || this.now;
+          const team = this.actors.filter(a => a.alive && !a.human && !a.lurk && this.side(a.team) === 'atk');
+          if (team.every(a => a.staged) || this.now - this.stageAt > 6 || this.now - this.liveStart > 50) {
+            this.execGo = true;
+            const fl = team.find(a => a.staged && a.inv.n.fl > 0);
+            if (fl) { const c = site.c, e = eyeOf(fl); const dx = c[0] - fl.pos.x, dz = c[1] - fl.pos.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(12, 4 + L * .4); fl.inv.n.fl--; this.spawnNade(fl, 'fl', e, [dx / L * sp, 5, dz / L * sp]); }
+          } else { b.walkSpeed = 2.4; this.lookAround(b, Math.atan2(-(site.c[0] - b.pos.x), -(site.c[1] - b.pos.z))); return; }
+        }
         if (b.route && b.ri < b.route.length) { const [x, z] = b.route[b.ri]; if (this.goTo(b, x, z, 'r' + b.ri)) { b.ri++; if (b.ri === b.route.length - 1 && b.inv.n.sm > 0 && Math.random() < .6) { const c = site.c, e = eyeOf(b); const dx = c[0] - b.pos.x, dz = c[1] - b.pos.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(13, 4 + L * .45); b.inv.n.sm--; this.spawnNade(b, 'sm', e, [dx / L * sp, 4.5, dz / L * sp]); } } return; }
         if (this.mode === 'elim' && this.now - this.liveStart > 25) {
           let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
@@ -1017,7 +1056,7 @@
         if (!a.alive) { if (this.phase === 'live' && this.now >= a.respawnAt) { if (this.mode === 'gg') this.spawnGG(a); else if (this.mode === 'tdm') this.spawnTDM(a); } continue; }
         if (!a.human) this.updateBot(a, dt);
         // recoger armas del suelo si el espacio está libre
-        for (let i = 0; i < this.drops.length; i++) {
+        if (this.mode !== 'gg' && this.mode !== 'tdm') for (let i = 0; i < this.drops.length; i++) {
           const dr = this.drops[i]; if (this.now - dr.t < .8) continue; if (Math.hypot(a.pos.x - dr.x, a.pos.z - dr.z) > 1.1) continue;
           const w = WEAPONS[dr.w]; const slot = w.slot === 1 ? 'p' : 's';
           if (!a.inv[slot] || (!a.human && slot === 'p' && w.price > (WEAPONS[a.inv.p] || { price: 0 }).price + 900)) {
