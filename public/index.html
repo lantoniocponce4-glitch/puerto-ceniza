@@ -125,6 +125,9 @@ button{font:inherit;color:inherit}
 #app.playing.locked canvas#c{cursor:none}
 #netDot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 
+.tag.dron{color:#ff6a50;font-size:13px}.tag.dron::after{content:' ◇ dron';font-family:var(--f-mono);font-size:10px;opacity:.85}
+#rangeBtn{pointer-events:auto;margin-top:6px;display:block;background:var(--amber);color:#1a1206;border:0;border-radius:2px;font-family:var(--f-display);font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:13px;padding:8px 12px;min-height:40px;cursor:pointer}#rangeBtn[hidden]{display:none}
+#streakBox{font-family:var(--f-mono);font-size:11px;color:var(--sand);background:rgba(14,18,22,.55);border:1px solid rgba(242,179,61,.5);border-radius:3px;padding:2px 7px;margin-top:4px;display:inline-block}#streakBox b{color:var(--amber)}
 .tag{position:absolute;left:0;top:0;font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.05em;white-space:nowrap;text-shadow:0 1px 3px #000;will-change:transform}
 #tags{position:absolute;inset:0;overflow:hidden}
 
@@ -287,6 +290,14 @@ tr.dead td{opacity:.5}
 .pubchk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);cursor:pointer;min-height:44px}
 .pubchk input{width:18px;height:18px;accent-color:var(--amber);margin:0}
 .roomsHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.sqhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:13px;color:var(--dim)}.sqhead code{font-family:var(--f-mono);font-size:18px;color:var(--amber);letter-spacing:.18em}
+.sqmem{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:6px}
+.sqm{display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--line);border-radius:3px;padding:6px 8px;font-size:13px;min-height:36px}
+.sqm .chip{font-family:var(--f-mono);font-size:10px;padding:1px 6px;border-radius:2px;letter-spacing:.06em;text-transform:uppercase}
+.chip.lead{background:rgba(242,179,61,.18);color:var(--amber)}.chip.ok{background:rgba(110,190,120,.18);color:#9fdca8}.chip.wait{background:rgba(233,220,192,.08);color:var(--dim)}
+#sqErr:empty{display:none}#sqErr{color:var(--bad);margin-top:4px}
+#sqStart[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 #roomList{display:flex;flex-direction:column;gap:6px}
 .room{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;background:rgba(20,25,30,.8);border:1px solid var(--line);border-radius:3px;padding:8px 10px}
 .room .rn{font-family:var(--f-display);font-weight:800;font-size:17px;line-height:1.1}
@@ -374,6 +385,8 @@ tr.dead td{opacity:.5}
     <div id="leftbot">
       <div id="ggBox" hidden></div>
       <div id="money">$800<small>en mano</small></div>
+      <div id="streakBox" hidden></div>
+      <button type="button" id="rangeBtn" hidden>Empezar desafío · Enter</button>
       <div id="vitals"><div class="vit"><b id="hpN">100</b><span class="lbl">Salud</span></div><div class="vit"><b id="arN">0</b><span class="lbl" id="arL">Blindaje</span></div></div>
     </div>
     <div id="rightbot">
@@ -449,11 +462,21 @@ tr.dead td{opacity:.5}
         <div class="join"><input id="code" type="text" maxlength="4" placeholder="CÓDIGO" aria-label="Código de sala" autocomplete="off"><button id="joinBtn" type="button">Unirse</button></div>
       </div>
       <div id="err" role="status"></div>
+      <div class="sec" id="squadBox">
+        <div class="roomsHead"><span class="lbl">Escuadra de amigos</span><span class="small" id="sqInfo">Hasta 4 · siempre en el mismo equipo</span></div>
+        <div id="sqOut" class="sqrow"><button class="go ghost sm" id="sqCreate" type="button">Crear escuadra</button><div class="join"><input id="sqCode" type="text" maxlength="5" placeholder="CÓDIGO" aria-label="Código de escuadra" autocomplete="off"><button id="sqJoin" type="button">Unirme</button></div></div>
+        <div id="sqIn" hidden>
+          <div class="sqhead">Código <code id="sqCodeV"></code><button type="button" class="linkbtn" id="sqCopy">Copiar</button><span class="small" id="sqMode"></span></div>
+          <div id="sqMembers" class="sqmem"></div>
+          <div class="sqrow"><button class="go sm" id="sqReady" type="button">Estoy listo</button><button class="go sm" id="sqStart" type="button">Entrar a partida</button><button class="go ghost sm" id="sqLeave" type="button">Salir de la escuadra</button></div>
+        </div>
+        <div class="small" id="sqErr" role="status"></div>
+      </div>
       <div class="sec" id="roomsBox">
         <div class="roomsHead"><span class="lbl">Salas públicas activas</span><button type="button" class="linkbtn" id="roomsRefresh">Actualizar</button></div>
         <div id="roomList"><div class="small">Buscando salas…</div></div>
       </div>
-      <div class="small">¿Sin conexión? <button class="linkbtn" id="offline" type="button">Practica solo contra bots</button></div>
+      <div class="small">¿Sin conexión? <button class="linkbtn" id="offline" type="button">Practica solo contra bots</button> · <button class="linkbtn" id="rangeGo" type="button">Campo de tiro</button></div>
     </div>
   </div>
 
@@ -497,6 +520,16 @@ tr.dead td{opacity:.5}
       <div class="btns"><span class="small mono" id="endCount"></span><button class="go ghost" id="toMenu" type="button">Salir de la sala</button></div>
     </div>
   </div>
+
+  <div id="rangeEnd" class="ov" hidden>
+    <div class="box">
+      <div class="eyebrow">CAMPO DE TIRO · DESAFÍO DE 60 SEGUNDOS</div>
+      <h2 id="rgTitle">Resultado</h2>
+      <div class="stats" id="rgStats"></div>
+      <p class="lead" id="rgTip"></p>
+      <div class="btns"><button class="go" id="rgAgain" type="button">Repetir desafío</button><button class="go ghost" id="rgApply" type="button" hidden>Aplicar sensibilidad sugerida</button><button class="go ghost" id="rgQuit" type="button">Volver al menú</button></div>
+    </div>
+  </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -506,9 +539,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=18"></script>
-<script src="/models.js?v=18"></script>
-<script src="/client.js?v=18"></script>
+<script src="/core.js?v=20"></script>
+<script src="/models.js?v=20"></script>
+<script src="/client.js?v=20"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>
