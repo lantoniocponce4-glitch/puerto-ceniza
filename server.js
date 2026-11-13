@@ -54,6 +54,20 @@ async function api(req, res, url) {
     if (req.method === 'GET' && p === '/api/ranking') { const a = await ACC.fromToken(bearer(req)); return json(res, 200, await ACC.ranking(url.searchParams.get('by'), a)); }
     if (req.method === 'POST' && p === '/api/logout') { await ACC.logout(bearer(req)); return json(res, 200, { ok: true }); }
     if (req.method === 'GET' && p === '/api/me') { const a = await ACC.fromToken(bearer(req)); return a ? json(res, 200, { me: ACC.view(a) }) : json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); }
+    if (p.startsWith('/api/clan')) {
+      if (req.method === 'GET' && p === '/api/clans/top') return json(res, 200, await ACC.topClans());
+      const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Necesitas una cuenta para usar clanes.' });
+      if (req.method === 'GET' && p === '/api/clan') return json(res, 200, { clan: await ACC.clanView(a) });
+      if (req.method === 'POST') {
+        const b = await body(req); let r = null;
+        if (p === '/api/clan/create') r = await ACC.clanCreate(a, b.name, b.tag);
+        else if (p === '/api/clan/join') r = await ACC.clanJoin(a, b.tag);
+        else if (p === '/api/clan/leave') r = await ACC.clanLeave(a);
+        else if (p === '/api/clan/kick') r = await ACC.clanKick(a, b.id);
+        else if (p === '/api/clan/say') r = ACC.clanSay(a, b.m);
+        if (r) return r.error ? json(res, 400, r) : json(res, 200, { clan: await ACC.clanView(a), me: ACC.view(a) });
+      }
+    }
     if (req.method === 'POST' && p === '/api/look') {
       const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' });
       const b = await body(req); if (!ACC.setLook(a, { card: b.card, title: b.title })) return json(res, 400, { error: 'Ese premio aún no lo ganas en el pase de temporada.' });
@@ -189,7 +203,7 @@ wss.on('connection', ws => {
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
       } else r = quickRoom(m.side, gm);
       if (r.humanCount >= 8) return ws.send(JSON.stringify({ t: 'err', msg: 'La sala está llena (8 de 8). Prueba partida rápida o crea otra sala.' }));
-      const a = acct ? r.addHuman(cid, acct.display, m.side, { d: acct.profile.camo || null, w: acct.profile.camos || {} }, { card: acct.profile.card, title: acct.profile.title }) : r.addHuman(cid, cleanName(m.name), m.side, null);
+      const a = acct ? r.addHuman(cid, acct.display, m.side, { d: acct.profile.camo || null, w: acct.profile.camos || {} }, { card: acct.profile.card, title: acct.profile.title, tag: await ACC.clanTag(acct) }) : r.addHuman(cid, cleanName(m.name), m.side, null);
       if (!a) {
         if (r.humanCount === 0) rooms.delete(r.code);
         const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';

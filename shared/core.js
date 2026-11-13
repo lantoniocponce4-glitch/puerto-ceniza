@@ -80,13 +80,19 @@
   const TITLES = [
     { id: 'recluta', name: 'Recluta de temporada' }, { id: 'tirador', name: 'Tirador' }, { id: 'tactico', name: 'Táctico' }, { id: 'franco', name: 'Francotirador' },
     { id: 'demoledor', name: 'Demoledor' }, { id: 'fantasma', name: 'Fantasma' }, { id: 'escudo', name: 'Escudo de hierro' }, { id: 'veterano', name: 'Veterano de Ceniza' },
-    { id: 'cazador', name: 'Cazador' }, { id: 'sinpiedad', name: 'Sin piedad' }, { id: 'comandante', name: 'Comandante' }, { id: 'as', name: 'As de la temporada' }, { id: 'leyenda', name: 'Leyenda de Ceniza' }
+    { id: 'cazador', name: 'Cazador' }, { id: 'campeon', name: 'Campeón de clanes' }, { id: 'sinpiedad', name: 'Sin piedad' }, { id: 'comandante', name: 'Comandante' }, { id: 'as', name: 'As de la temporada' }, { id: 'leyenda', name: 'Leyenda de Ceniza' }
   ];
   const PASS = { tiers: 30, xp: 1200, rewards: [
     ['title', 'recluta'], ['card', 'alba'], ['camo', 'neon'], ['title', 'tirador'], ['card', 'marea'], ['card', 'brasa'], ['title', 'tactico'], ['camo', 'hielo'], ['card', 'selva'], ['title', 'franco'],
     ['card', 'medianoche'], ['camo', 'magma'], ['title', 'demoledor'], ['card', 'tormenta'], ['title', 'fantasma'], ['card', 'oxido'], ['camo', 'obsidiana'], ['title', 'escudo'], ['card', 'boreal'], ['title', 'veterano'],
     ['card', 'ceniza'], ['title', 'cazador'], ['card', 'rayo'], ['title', 'sinpiedad'], ['card', 'corona'], ['title', 'comandante'], ['card', 'prisma'], ['title', 'as'], ['title', 'leyenda'], ['camo', 'prisma']
   ].map(([k, id], i) => ({ t: i + 1, k, id })) };
+  // Clanes: desafíos semanales compartidos (3 por semana, rotan) y título para el clan campeón de cada temporada
+  const CLAN = { max: 20, bonus: 3000, pool: [
+    { id: 'kills', txt: 'Entre todos: {n} bajas', n: 250 }, { id: 'wins', txt: 'Ganen {n} partidas', n: 18 }, { id: 'matches', txt: 'Jueguen {n} partidas', n: 40 },
+    { id: 'waves', txt: 'Superen {n} oleadas', n: 30 }, { id: 'kills', txt: 'Entre todos: {n} bajas', n: 400 }, { id: 'wins', txt: 'Ganen {n} partidas', n: 30 } ] };
+  const weekId = (d = new Date()) => { const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return t.getUTCFullYear() + '-S' + String(Math.ceil(((t - y0) / 864e5 + 1) / 7)).padStart(2, '0'); };
+  const clanWeekly = (wid) => { let h = 0; for (const ch of wid) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const out = [], used = new Set(); for (let k = 0; out.length < 3 && k < 20; k++) { const i = (h + k * 7) % CLAN.pool.length; const c = CLAN.pool[i]; if (used.has(c.id)) continue; used.add(c.id); out.push(Object.assign({ key: c.id + c.n }, c)); } return out; };
   const passTier = xp => Math.min(PASS.tiers, Math.floor((xp || 0) / PASS.xp));
   // Progresión compartida (servidor y cliente): experiencia por nivel y desafíos diarios
   const CH_POOL = [
@@ -105,7 +111,7 @@
   function xpFromEvent(e, id, team, teamOf) {
     const out = [];
     switch (e.k) {
-      case 'wave': if (e.st === 'clear' && e.tm === team) out.push({ n: 80 + 20 * e.n, why: 'oleada ' + e.n + ' superada', ch: [], stat: null }); break;
+      case 'wave': if (e.st === 'clear' && e.tm === team) out.push({ n: 80 + 20 * e.n, why: 'oleada ' + e.n + ' superada', ch: [], stat: 'waves' }); break;
       case 'kill': if (e.a === id && e.v !== id && teamOf(e.v) !== team) { const ch = ['kills']; if (e.h) ch.push('heads'); if (e.w === 'knife') ch.push('knife'); if (e.w === 'he') ch.push('nade'); if (e.w === 'es12') ch.push('shotgun'); if (e.w === 'sr' || e.w === 'tr7') ch.push('sniper'); out.push({ n: 100 + (e.h ? 50 : 0), why: e.h ? 'baja a la cabeza' : 'baja', ch, stat: 'kills' }); } else if (e.ast && e.ast.includes(id)) out.push({ n: 40, why: 'asistencia', ch: [] }); if (e.v === id) out.push({ n: 0, why: '', ch: [], stat: 'deaths' }); break;
       case 'plant': if (e.v === id) out.push({ n: 150, why: 'carga plantada', ch: ['plant'] }); break;
       case 'defused': if (e.v === id) out.push({ n: 200, why: 'carga desactivada', ch: ['defuse'] }); break;
@@ -116,6 +122,7 @@
     return out;
   }
   const RADIO = ['¡Vamos A!', '¡Vamos B!', 'Enemigo a la vista', 'Necesito ayuda', 'Cúbreme', 'Retirada', 'Afirmativo', 'Negativo'];
+  const ORDERS = { follow: 'Síganme', regroup: 'Reagrúpense', wait: 'Esperen aquí', holdA: 'Cubran el sitio A', holdB: 'Cubran el sitio B', push: 'Avancen', smoke: 'Tiren humo' };
   const BOT_NAMES = [['Vega', 'Ríos', 'Tano', 'Brea'], ['Krell', 'Mazur', 'Osei', 'Duarte']];
   const TEAMS = [{ name: 'Halcón' }, { name: 'Cobra' }];
 
@@ -311,12 +318,18 @@
     return best;
   }
 
+  // Destrucción táctica: hp = resistencia; pen = fracción del daño que conserva la bala al atravesar
+  const BREAK = { crate: { hp: 150, pen: .55 }, wood: { hp: 190, pen: .5 }, bench: { hp: 90, pen: .7 }, glassC: { hp: 1, pen: .92 }, plank: { hp: 120, pen: .6 } };
+  const PEN_THIN = { wareDark: .45, metal: .4, vine: .8, hedge: .8, barrier: .3 };
   class World {
     constructor(mapId) {
       const M = MAPS[mapId] || MAPS.alcazaba; this.map = M; this.id = M.id;
       this.colliders = []; this.mapRects = [];
       for (const [x0, z0, x1, z1, h, mat, y0] of M.boxes) {
         const b = { minX: Math.min(x0, x1), maxX: Math.max(x0, x1), minY: y0 || 0, maxY: (y0 || 0) + h, minZ: Math.min(z0, z1), maxZ: Math.max(z0, z1), mat };
+        const thin = Math.min(b.maxX - b.minX, b.maxZ - b.minZ) <= .55;
+        if (BREAK[mat]) { b.bid = this.breakables ? this.breakables.length : 0; (this.breakables || (this.breakables = [])).push(b); b.hp = BREAK[mat].hp; b.pen = BREAK[mat].pen; }
+        else if (thin && PEN_THIN[mat]) b.pen = PEN_THIN[mat];
         this.colliders.push(b); if (!y0 || y0 < 1.5) this.mapRects.push(b);
       }
       const [bx0, bz0, bx1, bz1] = M.bounds, H = M.wallH, T = 1;
@@ -330,7 +343,28 @@
         for (const b of this.colliders) { if (b.minY > 1.5 || b.maxY <= .36) continue; if (x > b.minX - .5 && x < b.maxX + .5 && z > b.minZ - .5 && z < b.maxZ + .5) { ok = 0; break; } }
         this.walk[j * this.GW + i] = ok;
       }
+      if (!this.breakables) this.breakables = [];
       this.gS = new Float32Array(N); this.came = new Int32Array(N); this.stamp = new Uint32Array(N); this.closed = new Uint32Array(N); this.gen = 0;
+    }
+    // recalcula las celdas caminables de un rectángulo (tras romper o reponer objetos)
+    rewalk(b) {
+      const i0 = Math.max(0, Math.floor(b.minX - .5 - this.GX0) - 1), i1 = Math.min(this.GW - 1, Math.ceil(b.maxX + .5 - this.GX0) + 1), j0 = Math.max(0, Math.floor(b.minZ - .5 - this.GZ0) - 1), j1 = Math.min(this.GH - 1, Math.ceil(b.maxZ + .5 - this.GZ0) + 1);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const x = this.GX0 + i + .5, z = this.GZ0 + j + .5; let ok = 1; for (const c of this.colliders) { if (c.minY > 1.5 || c.maxY <= .36) continue; if (x > c.minX - .5 && x < c.maxX + .5 && z > c.minZ - .5 && z < c.maxZ + .5) { ok = 0; break; } } this.walk[j * this.GW + i] = ok; }
+    }
+    breakBox(b) { if (!b || b.gone) return false; b.gone = true; const i = this.colliders.indexOf(b); if (i >= 0) this.colliders.splice(i, 1); const k = this.mapRects.indexOf(b); if (k >= 0) this.mapRects.splice(k, 1); this.rewalk(b); return true; }
+    restoreAll(blocked) { let any = false; for (const b of this.breakables) if (b.gone) { if (blocked && blocked(b)) continue; b.gone = false; b.hp = BREAK[b.mat].hp; this.colliders.push(b); if (b.minY < 1.5) this.mapRects.push(b); this.rewalk(b); any = true; } return any; }
+    // rayo que atraviesa materiales penetrables (máx. 2): devuelve dónde se detiene, el daño conservado y lo atravesado
+    traceShot(o, d, maxT, maxPen = 2) {
+      let ground = maxT; if (d[1] < -1e-6) { const t = -o[1] / d[1]; if (t > 0 && t < ground) ground = t; }
+      const hits = []; for (const b of this.colliders) { const r = rayBox(o, d, b, ground); if (r && r.t < ground) hits.push({ t: r.t, b, n: r.ax >= 0 ? (() => { const n = [0, 0, 0]; n[r.ax] = r.sg; return n; })() : null }); }
+      hits.sort((p, q) => p.t - q.t); let factor = 1; const through = [];
+      for (const h of hits) { if (h.b.pen && through.length < maxPen) { through.push(h); factor *= h.b.pen; continue; } return { t: h.t, n: h.n, stop: h.b, factor, through }; }
+      return { t: ground, n: ground < maxT ? [0, 1, 0] : null, stop: null, factor, through };
+    }
+    // daño conservado entre dos puntos (0 si hay algo sólido de por medio)
+    seeThrough(o, p) {
+      const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]]; const L = Math.hypot(d[0], d[1], d[2]) || 1e-6; d[0] /= L; d[1] /= L; d[2] /= L;
+      const r = this.traceShot(o, d, L); return r.t < L - .08 ? 0 : r.factor;
     }
     traceWorld(o, d, maxT) {
       let best = { t: maxT, n: null };
@@ -424,7 +458,7 @@
       this.W = new World(this.mapId); this.M = this.W.map;
       this.isPublic = opts.isPublic !== false;
       this.mode = ['elim', 'gg', 'tdm', 'range', 'waves'].includes(opts.mode) ? opts.mode : 'bomb';
-      this.reveal = [0, 0];
+      this.reveal = [0, 0]; this.brk = []; this.brkT = 0;
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
       this.actors = []; this.events = []; this.now = 0; this.tickN = 0; this.teamRadio = [0, 0]; this.cond = { night: false, weather: null }; this.votes = new Map();
       for (let t = 0; t < 2; t++) for (let i = 0; i < 4; i++) this.actors.push(this.makeActor(t, i));
@@ -450,7 +484,7 @@
     nextMapId() { const i = MAP_IDS.indexOf(this.mapId); return MAP_IDS[(i + 1) % MAP_IDS.length]; }
     setMap(id) {
       if (!MAPS[id] || id === this.mapId) return;
-      this.mapId = id; this.W = new World(id); this.M = this.W.map; this._gp = null;
+      this.mapId = id; this.W = new World(id); this.M = this.W.map; this._gp = null; this.brk = [];
       for (const a of this.actors) { a.path = null; a.goalKey = ''; a.route = null; a.hold = null; a.post = null; }
     }
     newMatch() {
@@ -478,7 +512,7 @@
         if (a.team === D) { if (!first) this.give(a, 900 + 150 * this.wave); if (!a.alive) { if (!a.inv.p && !a.inv.s) this.resetLoadout(a, true); this.spawn(a); } else { a.hp = 100; a.pdirty = true; } if (!a.human) this.botBuy(a); }
         else { a.alive = false; a.respawnAt = Infinity; }
       }
-      this.waveQuota = 3 + this.wave * 2; this.waveSpawned = 0; this.waveKilled = 0;
+      this.restoreBreakables(); this.waveQuota = 3 + this.wave * 2; this.waveSpawned = 0; this.waveKilled = 0;
       this.ev({ k: 'wave', n: this.wave, st: 'buy', q: this.waveQuota, tm: D }); this.rosterDirty = true;
     }
     beginWave() {
@@ -604,8 +638,9 @@
         this.ev({ k: 'half' });
       }
       this.phase = 'buy'; this.phaseEnd = this.now + (this.round === 1 || this.round === ROUND.half + 1 ? ROUND.buyFirst : ROUND.buy);
-      this.drops = []; this.nades = []; this.smokes = []; this.fires = []; this.decoys = []; this.liveStart = 1e9; this.reveal = [0, 0];
+      this.drops = []; this.nades = []; this.smokes = []; this.fires = []; this.decoys = []; this.liveStart = 1e9; this.reveal = [0, 0]; this.restoreBreakables(true);
       for (const a of this.actors) {
+        a.order = null;
         if (!a.alive) this.resetLoadout(a, true);
         if (!a.inv.s && !a.inv.p) a.inv.s = 'p9';
         a.cur = a.inv.p || a.inv.s || 'knife';
@@ -667,6 +702,7 @@
       let a = this.actors.find(x => x.team === team && !x.human && !x.alive) || this.actors.find(x => x.team === team && !x.human);
       if (!a && !forced) { team = 1 - team; a = this.actors.find(x => x.team === team && !x.human); }
       if (!a) { this.lastErr = 'full'; return null; }
+      a.clanTag = look && typeof look.tag === 'string' && /^[A-Z0-9]{2,4}$/.test(look.tag) ? look.tag : null;
       a.card = look && CARDS.some(c => c.id === look.card) ? look.card : null; a.title = look && TITLES.some(c => c.id === look.title) ? look.title : null;
       a.human = cid; a.streak = 0; a.joinedAt = this.now; a.joinedRound = this.round; a.mvT = undefined; a.mvB = 3; a.mags = {}; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = cleanCamo(camo);
       if (this.mode === 'gg') { a.lvl = 0; this.equipGG(a); }
@@ -679,7 +715,7 @@
       return a;
     }
     removeHuman(cid) {
-      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid); this.actors[id].humanRound = this.round; this.actors[id].streak = 0; this.actors[id].card = this.actors[id].title = null;
+      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid); this.actors[id].humanRound = this.round; this.actors[id].streak = 0; this.actors[id].card = this.actors[id].title = this.actors[id].clanTag = null;
       const a = this.actors[id]; const n = a.name; a.human = null; a.camo = null; a.name = BOT_NAMES[a.team][a.slot]; a.act = false; a.path = null; a.goalKey = '';
       a.kills = a.deaths = a.assists = a.score = 0; a.cur = a.inv.p || a.inv.s || 'knife'; a.ammo = WEAPONS[a.cur].mag;
       this.ev({ k: 'leave', id, n }); this.rosterDirty = true;
@@ -757,6 +793,7 @@
         case 'buy': if (this.buy(a, String(m.i || ''))) this.ev({ k: 'bought', v: a.id, i: String(m.i) }); break;
         case 'drop': if (this.mode === 'gg' || this.mode === 'tdm') return; if (a.alive && (a.cur === a.inv.p || a.cur === a.inv.s)) this.dropWeapon(a, a.cur, true); else if (a.alive && this.bomb.st === 'carried' && this.bomb.by === a.id && m.bomb) this.dropBomb(a, true); break;
         case 'nade': this.throwNade(a, m); break;
+        case 'order': { if (this.now - (a.orderT === undefined ? -9 : a.orderT) < .8) return; const c = String(m.c || ''); if (!has(ORDERS, c)) return; a.orderT = this.now; this.giveOrder(a, c, Array.isArray(m.p) ? [num(m.p[0]), num(m.p[1])] : null); break; }
         case 'rl': { const w = WEAPONS[a.cur]; const mg = a.mags || {}, rs = a.resv || {}; if (a.alive && w && w.mag && !w.melee && (mg[a.cur] === undefined || (mg[a.cur] < w.mag && rs[a.cur] > 0))) { a.rlW = a.cur; a.rlEnd = this.now + w.reload * .8; } break; }
         case 'chat': {
           if (this.now - (a.chatT === undefined ? -9 : a.chatT) < .8) return; a.chatT = this.now;
@@ -798,11 +835,12 @@
         let ok = false, zone = 'c'; const v = (typeof r.hit === 'number') ? this.actors[r.hit | 0] : null;
         if (v && v.alive && v.team !== a.team) {
           const tol = 1.3 + Math.hypot(v.vel.x, v.vel.z) * .3; const hy = end[1] - v.pos.y;
-          if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.visible(o, end) && this.exposed(o, v)) {
+          if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.seeThrough(o, end) > 0 && this.exposed(o, v)) {
             ok = true; zone = ['h', 'c', 'l'].includes(r.z) ? r.z : 'c'; if (zone === 'h' && hy < v.h - .5) zone = 'c';
           }
         }
-        if (ok) { const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt); if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
+        if (!w.melee) { const tr = this.W.traceShot(o, d, Math.min(tt + .06, 200)); for (const h of tr.through) this.dmgBox(h.b, w.dmg * .8); if (tr.stop && tr.t <= tt + .06) this.dmgBox(tr.stop, w.dmg * .8); }
+        if (ok) { const pf = this.W.seeThrough(o, end) || 1; const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt) * pf; if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
         if (!first) first = { end, n: !ok && Array.isArray(r.n) ? [num(r.n[0]), num(r.n[1]), num(r.n[2])] : 0, hit: ok };
       }
       for (const [v, x] of dmgBy) this.damage(v, a, x.dmg, x.zone, wid);
@@ -811,10 +849,17 @@
       else this.ev({ k: 'slash', s: a.id, hit: first.hit ? 1 : 0 });
     }
     // ¿Alguna parte del cuerpo de v (en su posición actual en el servidor) se ve desde o? Evita impactos a través de paredes
+    dmgBox(b, dmg) {
+      if (!b || b.gone || b.bid === undefined || !BREAK[b.mat]) return; b.hp -= dmg;
+      if (b.hp <= 0 && this.W.breakBox(b)) { if (!this.brk.length) this.brkT = this.now; this.brk.push(b.bid); this.ev({ k: 'brk', id: b.bid, p: [r2((b.minX + b.maxX) / 2), r2((b.minY + b.maxY) / 2), r2((b.minZ + b.maxZ) / 2)], m: b.mat }); for (const a of this.actors) if (!a.human) { a.path = null; a.goalKey = ''; } }
+    }
+    restoreBreakables(all) {
+      this.brkT = this.now; const occ = all ? null : b => this.actors.some(a => a.alive && a.pos.x > b.minX - .5 && a.pos.x < b.maxX + .5 && a.pos.z > b.minZ - .5 && a.pos.z < b.maxZ + .5);
+      if (this.W.restoreAll(occ)) { this.brk = this.W.breakables.filter(b => b.gone).map(b => b.bid); this.ev({ k: 'brkreset', keep: this.brk.slice() }); for (const a of this.actors) if (!a.human) { a.path = null; a.goalKey = ''; } } }
     exposed(o, v) {
       const x = v.pos.x, y = v.pos.y, z = v.pos.z, h = v.h;
       for (const p of [[x, y + h - .12, z], [x, y + h * .62, z], [x, y + .35, z], [x + .3, y + h * .62, z], [x - .3, y + h * .62, z], [x, y + h * .62, z + .3], [x, y + h * .62, z - .3], [x + .25, y + .35, z], [x - .25, y + .35, z]])
-        if (this.W.visible(o, p)) return true;
+        if (this.W.seeThrough(o, p) > 0) return true;
       return false;
     }
     alert(sh, R) { for (const b of this.actors) { if (b.human || !b.alive || b.team === sh.team || b.target) continue; if (d2(b.pos, sh.pos) < R) { b.lastKnown = V(sh.pos.x, sh.pos.y, sh.pos.z); b.lastKnownT = this.now; } } }
@@ -946,6 +991,7 @@
       const p = g.p; const owner = this.actors[g.by];
       if (g.k === 'he') {
         this.ev({ k: 'boomhe', p: [r2(p.x), r2(p.y), r2(p.z)] });
+        for (const b of this.W.breakables) if (!b.gone) { const cx = clamp(p.x, b.minX, b.maxX), cy = clamp(p.y, b.minY, b.maxY), cz = clamp(p.z, b.minZ, b.maxZ); const dd = Math.hypot(p.x - cx, p.y - cy, p.z - cz); if (dd < 3.6) this.dmgBox(b, 260 * (1 - dd / 3.6) + 40); }
         for (const a of this.actors) {
           if (!a.alive) continue; const dist = Math.hypot(a.pos.x - p.x, a.pos.y + 1 - p.y, a.pos.z - p.z); if (dist > 7.5) continue;
           if (!this.W.visible([p.x, p.y + .3, p.z], [a.pos.x, a.pos.y + 1.1, a.pos.z])) continue;
@@ -1076,8 +1122,34 @@
       b.mx = dx / d; b.mz = dz / d; const dy = Math.atan2(-dx, -dz); b.yaw += clamp(angDiff(b.yaw, dy), -5 * this.dt, 5 * this.dt); b.pitch = lerp(b.pitch, 0, this.dt * 4);
       return false;
     }
+    /* --- órdenes de personas a los bots de su equipo --- */
+    giveOrder(a, c, p) {
+      const bots = this.actors.filter(b => !b.human && b.alive && b.team === a.team); this.ev({ k: 'order', v: a.id, tm: a.team, c });
+      if (!bots.length) return;
+      bots.forEach((b, i) => { b.order = c; b.orderBy = a.id; b.orderI = i; b.orderUntil = this.now + (c === 'wait' ? 20 : 30); b.path = null; b.goalKey = ''; });
+      if (c === 'holdA' || c === 'holdB') { const site = c === 'holdA' ? 'A' : 'B'; bots.forEach((b, i) => { b.holdSite = site; if (this.mode === 'bomb' || this.mode === 'elim') { if (this.side(b.team) === 'def') { const hs = this.M.holds[site]; b.hold = hs[i % hs.length]; } else { b.route = null; b.ri = 0; } b.order = null; } }); }
+      if (c === 'smoke') { for (const b of bots) b.order = null; if (p) { const b = bots.filter(x => x.inv.n.sm > 0).sort((x, y) => Math.hypot(x.pos.x - p[0], x.pos.z - p[1]) - Math.hypot(y.pos.x - p[0], y.pos.z - p[1]))[0]; if (b) { const e = eyeOf(b); const dx = p[0] - b.pos.x, dz = p[1] - b.pos.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(13, 3 + L * .5); b.inv.n.sm--; this.spawnNade(b, 'sm', e, [dx / L * sp, 4.5, dz / L * sp]); } else this.ev({ k: 'radio', v: bots[0].id, tm: a.team, c: 7 }); } }
+      const ack = bots[(Math.random() * bots.length) | 0]; this.ev({ k: 'radio', v: ack.id, tm: a.team, c: 6 });
+    }
+    followOrder(b) {
+      const L = this.actors[b.orderBy];
+      if (b.order === 'follow' || b.order === 'regroup') {
+        if (!L || !L.alive) { b.order = null; return false; }
+        const ang = L.yaw + Math.PI + (b.orderI - 1) * .7; let gx = L.pos.x - Math.sin(ang) * 2.6, gz = L.pos.z - Math.cos(ang) * 2.6; const d = Math.hypot(b.pos.x - L.pos.x, b.pos.z - L.pos.z);
+        { const k = this.W.nearestWalk(this.W.cIdx(gx, gz)); if (k >= 0) { gx = this.W.GX0 + (k % this.W.GW) + .5; gz = this.W.GZ0 + ((k / this.W.GW) | 0) + .5; } }
+        if (b.order === 'regroup' && d < 3.5) { b.order = null; return false; }
+        if (d > 3.2) { b.walkSpeed = d > 10 ? 5 : 4.4; this.goTo(b, gx, gz, 'fol' + Math.round(gx) + ',' + Math.round(gz)); } else this.lookAround(b, L.yaw);
+        return true;
+      }
+      if (b.order === 'wait') { this.lookAround(b, b.yaw); return true; }
+      if (b.order === 'holdA' || b.order === 'holdB') { const s = this.M.sites[b.order === 'holdA' ? 'A' : 'B']; let gx = s.c[0] + ((b.orderI % 3) - 1) * 2.2, gz = s.c[1] + ((b.orderI / 3 | 0) - .5) * 2.2; const k = this.W.nearestWalk(this.W.cIdx(gx, gz)); if (k >= 0) { gx = this.W.GX0 + (k % this.W.GW) + .5; gz = this.W.GZ0 + ((k / this.W.GW) | 0) + .5; } if (this.goTo(b, gx, gz, 'hold' + b.order + b.orderI)) this.lookAround(b, b.yaw); return true; }
+      if (b.order === 'push') { let n = null, nd = 1e9; for (const t of this.actors) if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } if (!n) return false; this.goTo(b, n.pos.x, n.pos.z, 'push' + n.id + Math.floor(this.now / 3)); return true; }
+      return false;
+    }
     objective(b) {
       const side = this.side(b.team), B = this.bomb; b.mx = 0; b.mz = 0; b.walkSpeed = 4.6;
+      if (b.order && this.now < b.orderUntil && !(side === 'atk' && B.st === 'carried' && B.by === b.id && b.order === 'wait') && this.followOrder(b)) return;
+      if (b.order && this.now >= b.orderUntil) b.order = null;
       if (this.mode === 'gg' || this.mode === 'tdm' || this.mode === 'waves') {
         if (b.lastKnown && this.now - b.lastKnownT < 4) {
           let gx = b.lastKnown.x, gz = b.lastKnown.z;
@@ -1226,11 +1298,13 @@
       }
     }
     fireBullet(sh, o, d, w, silent) {
-      const wt = this.W.traceWorld(o, d, 200); let hitA = null, hitT = wt.t, zone = 'c';
+      const wt = this.W.traceShot(o, d, 200); let hitA = null, hitT = wt.t, zone = 'c';
       for (const a of this.actors) { if (a === sh || !a.alive || a.team === sh.team) continue; const r = rayActor(o, d, a, hitT); if (r && r.t < hitT) { hitT = r.t; hitA = a; zone = r.zone; } }
+      let pf = 1; for (const h of wt.through) if (h.t < hitT) { pf *= h.b.pen; this.dmgBox(h.b, w.dmg * .8); }
+      if (!hitA && wt.stop) this.dmgBox(wt.stop, w.dmg * .8);
       const end = [o[0] + d[0] * hitT, o[1] + d[1] * hitT, o[2] + d[2] * hitT];
       if (!silent) this.ev({ k: 'shot', s: sh.id, w: w.id, e: end.map(r2), n: hitA ? 0 : (wt.n || 0), hit: hitA ? 1 : 0 });
-      if (hitA) this.damage(hitA, sh, weaponDamage(w, hitT, zone, hitA), zone, w.id);
+      if (hitA) this.damage(hitA, sh, weaponDamage(w, hitT, zone, hitA) * pf, zone, w.id);
       this.alert(sh, 40);
     }
 
@@ -1266,6 +1340,7 @@
       this.stepNades(dt);
       this.bombTick(dt);
       // eliminación
+      if ((this.mode === 'tdm' || this.mode === 'gg' || this.mode === 'range') && this.brk.length && this.now - this.brkT > 60) this.restoreBreakables();
       if (this.mode === 'range') for (const a of this.actors) if (a.human && a.money < 99999) { a.money = 99999; a.pdirty = true; }
       if (this.phase === 'live' && this.mode !== 'gg' && this.mode !== 'tdm' && this.mode !== 'range' && this.mode !== 'waves') {
         const alive = { atk: 0, def: 0 }; for (const a of this.actors) if (a.alive) alive[this.side(a.team)]++;
@@ -1293,8 +1368,8 @@
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
     }
     privateState(a) { return { t: 'p', stk: a.streak | 0, lvl: a.lvl | 0, m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
-    roster() { return { t: 'r', code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '']) }; }
+    roster() { return { t: 'r', brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
   }
 
-  return { PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

@@ -116,6 +116,7 @@ button{font:inherit;color:inherit}
 #reloadBar s{position:absolute;inset:0 auto 0 0;background:var(--sand);width:0}
 #spec{position:absolute;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:6px 14px;font-size:13px;text-align:center}
 #spec b{font-family:var(--f-display);font-size:20px;letter-spacing:.04em}
+.ctag{color:var(--amber);font-family:var(--f-mono);font-size:.85em}
 .bombTag{display:inline-block;font-family:var(--f-mono);font-size:10px;color:#1a0f02;background:var(--amber);padding:2px 6px;border-radius:2px;letter-spacing:.06em}
 #roomChip{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);font-size:11px;color:var(--dim);display:flex;gap:8px;align-items:center;background:var(--panel);padding:3px 10px;border-radius:2px}
 #roomChip b{font-family:var(--f-mono);color:var(--sand);letter-spacing:.14em}
@@ -259,6 +260,12 @@ tr.dead td{opacity:.5}
 #radioWheel{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:auto}
 #radioWheel button{position:absolute;left:0;top:0;transform:rotate(var(--a)) translate(0,-132px) rotate(calc(-1 * var(--a))) translate(-50%,-50%);background:var(--panel2);border:1px solid var(--line);border-radius:3px;color:var(--sand);font:600 13px var(--f-body);padding:8px 12px;white-space:nowrap;cursor:pointer;min-height:36px}
 #radioWheel button:hover,#radioWheel button:focus-visible{border-color:var(--amber);outline:none}
+#orderWheel{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:auto}
+#orderWheel button{position:absolute;left:0;top:0;transform:rotate(var(--a)) translate(0,-128px) rotate(calc(-1 * var(--a))) translate(-50%,-50%);background:var(--panel2);border:1px solid var(--line);color:var(--sand);border-radius:3px;padding:8px 12px;font-size:13px;white-space:nowrap;cursor:pointer;min-height:40px}
+#orderWheel button:hover,#orderWheel button:focus-visible{border-color:var(--amber);outline:none}#orderWheel kbd{font-family:var(--f-mono);font-size:10px;color:var(--amber);margin-right:6px}
+#orderWheel .hub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);text-align:center;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:50%;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center}#orderWheel .hub small{font-weight:500;letter-spacing:0;text-transform:none;font-size:10px;color:var(--dim)}
+#voiceInd{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--amber);border-radius:3px;padding:8px 14px;display:flex;gap:10px;align-items:center;font-size:13px;max-width:min(520px,90vw)}#voiceInd .dot{width:10px;height:10px;border-radius:50%;background:#ff4d3a;animation:vpulse 1s infinite}#voiceTxt{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@keyframes vpulse{50%{opacity:.3}}@media (prefers-reduced-motion:reduce){#voiceInd .dot{animation:none}}
+#bVoice{width:46px;height:40px;border-radius:4px;left:calc(210px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px;border-color:var(--amber)}
 #radioWheel kbd{font-family:var(--f-mono);font-size:10px;color:var(--amber);margin-right:6px}
 #radioWheel .hub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);text-align:center;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:50%;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center}
 #radioWheel .hub small{font-family:var(--f-body);font-weight:500;letter-spacing:0;text-transform:none;font-size:10px;color:var(--dim)}
@@ -322,6 +329,12 @@ tr.dead td{opacity:.5}
 .invMeta{display:flex;gap:10px;align-items:baseline}.invMeta b{font-family:var(--f-display);font-size:22px}
 #invSkins .camo small{font-family:var(--f-mono);font-size:9px;color:var(--dim)}
 @media (max-width:700px){.invGrid{grid-template-columns:1fr}.invList{max-height:none;flex-direction:row;flex-wrap:wrap}.invList .lbl{width:100%}.invW{grid-template-columns:30px auto}.invW small{display:none}}
+.clanIn{all:unset;box-sizing:border-box;background:rgba(20,25,30,.85);border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:14px;color:var(--sand);min-height:38px;flex:1 1 150px}.clanIn.tagIn{flex:0 0 80px;text-transform:uppercase;font-family:var(--f-mono)}.clanIn:focus-visible{border-color:var(--amber)}
+.clanHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}.clanHead b{font-family:var(--f-display);font-size:20px}.clanHead b code{color:var(--amber);font-family:var(--f-mono);font-size:15px;margin-right:6px}
+.clanMem summary{cursor:pointer}.clanRow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(233,220,192,.06)}.clanRow small{color:var(--dim);font-family:var(--f-mono)}.clanRow .linkbtn{font-size:11px}
+.clanChat{max-height:150px;overflow-y:auto;font-size:13px;display:flex;flex-direction:column;gap:3px;padding:6px;border:1px solid var(--line);border-radius:3px;background:rgba(14,18,22,.5)}.clanChat .sys{color:var(--amber);font-size:12px}.clanChat b{color:var(--sand)}
+.join.grow{flex:1 1 200px}.join.grow input{flex:1}
+#clanErr:empty{display:none}#clanErr{color:var(--bad)}
 .sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .sqhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:13px;color:var(--dim)}.sqhead code{font-family:var(--f-mono);font-size:18px;color:var(--amber);letter-spacing:.18em}
 .sqmem{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:6px}
@@ -432,6 +445,8 @@ tr.dead td{opacity:.5}
     <div id="chatBox" aria-live="polite"></div>
     <input id="chatIn" type="text" maxlength="90" placeholder="Mensaje al equipo · Enter envía, Esc cancela" autocomplete="off" hidden>
     <div id="radioWheel" hidden></div>
+    <div id="orderWheel" hidden></div>
+    <div id="voiceInd" hidden><span class="dot"></span><b>Escuchando…</b><span id="voiceTxt"></span></div>
     <div id="killcam" hidden><div class="kcb"><span class="tagr">REPETICIÓN</span><span class="small">Te eliminó</span><div id="kcCard" hidden><b id="kcName">—</b><span id="kcTitle"></span></div><span id="kcInfo"></span><div class="bar"><s id="kcBar"></s></div><span class="hint">Clic o espacio para saltar</span></div></div>
     <div id="clickPlay" hidden><b>Haz clic para jugar</b><span>El mouse queda capturado para apuntar. Esc lo suelta.</span></div>
   </div>
@@ -454,6 +469,7 @@ tr.dead td{opacity:.5}
     <div class="tb" id="bPing" aria-label="Marcar">Marcar</div>
     <div class="tb" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
     <div class="tb" id="bChat" aria-label="Chat de equipo">Chat</div>
+    <div class="tb" id="bVoice" aria-label="Órdenes por voz a los bots">Voz</div>
   </div>
 
   <div id="menu" class="ov">
@@ -485,7 +501,7 @@ tr.dead td{opacity:.5}
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
       <div class="keys" id="keysHelp">
-        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>F</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span>
+        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>F</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span><span><kbd>T</kbd>órdenes por voz (mantén)</span>
       </div>
       <div class="modes">
         <button class="go" id="quick" type="button">Partida rápida ▸</button>
@@ -494,6 +510,22 @@ tr.dead td{opacity:.5}
         <div class="join"><input id="code" type="text" maxlength="4" placeholder="CÓDIGO" aria-label="Código de sala" autocomplete="off"><button id="joinBtn" type="button">Unirse</button></div>
       </div>
       <div id="err" role="status"></div>
+      <div class="sec" id="clanBox" hidden>
+        <div class="roomsHead"><span class="lbl">Clan</span><span class="small" id="clanInfo"></span></div>
+        <div id="clanOut">
+          <div class="small">Únete a un clan con su etiqueta o funda el tuyo (hasta 20 integrantes).</div>
+          <div class="sqrow"><div class="join"><input id="clanTagIn" type="text" maxlength="4" placeholder="ETIQUETA" aria-label="Etiqueta del clan" autocomplete="off"><button id="clanJoin" type="button">Unirme</button></div></div>
+          <div class="sqrow"><input id="clanNameIn" class="clanIn" type="text" maxlength="20" placeholder="Nombre del clan" aria-label="Nombre del clan nuevo" autocomplete="off"><input id="clanNewTag" class="clanIn tagIn" type="text" maxlength="4" placeholder="TAG" aria-label="Etiqueta del clan nuevo (2 a 4)" autocomplete="off"><button class="go ghost sm" id="clanCreate" type="button">Fundar clan</button></div>
+        </div>
+        <div id="clanIn" hidden>
+          <div class="clanHead"><b id="clanTitle"></b><span class="small" id="clanStats"></span></div>
+          <div class="lbl small">Desafíos de la semana · cada uno da +3.000 al clan</div><div id="clanWeekly" class="daily"></div>
+          <details class="clanMem"><summary class="lbl small" id="clanMemSum">Integrantes</summary><div id="clanMembers"></div></details>
+          <div class="lbl small">Chat del clan</div><div id="clanChat" class="clanChat" aria-live="polite"></div>
+          <div class="sqrow"><div class="join grow"><input id="clanMsg" type="text" maxlength="120" placeholder="Escribe a tu clan" aria-label="Mensaje para el clan" autocomplete="off"><button id="clanSend" type="button">Enviar</button></div><button class="go ghost sm" id="clanLeave" type="button">Salir del clan</button></div>
+        </div>
+        <div class="small" id="clanErr" role="status"></div>
+      </div>
       <div class="sec" id="squadBox">
         <div class="roomsHead"><span class="lbl">Escuadra de amigos</span><span class="small" id="sqInfo">Hasta 4 · siempre en el mismo equipo</span></div>
         <div id="sqOut" class="sqrow"><button class="go ghost sm" id="sqCreate" type="button">Crear escuadra</button><div class="join"><input id="sqCode" type="text" maxlength="5" placeholder="CÓDIGO" aria-label="Código de escuadra" autocomplete="off"><button id="sqJoin" type="button">Unirme</button></div></div>
@@ -535,7 +567,7 @@ tr.dead td{opacity:.5}
   <div id="rank" class="ov" hidden>
     <div class="box">
       <div class="rankHead"><h2>Ranking</h2><span class="small" id="rankSeason"></span></div>
-      <div class="seg" id="rankTabs"><button type="button" data-by="xp" aria-pressed="true">Experiencia</button><button type="button" data-by="kills" aria-pressed="false">Bajas</button><button type="button" data-by="wins" aria-pressed="false">Victorias</button></div>
+      <div class="seg" id="rankTabs"><button type="button" data-by="xp" aria-pressed="true">Experiencia</button><button type="button" data-by="kills" aria-pressed="false">Bajas</button><button type="button" data-by="wins" aria-pressed="false">Victorias</button><button type="button" data-by="clans" aria-pressed="false">Clanes</button></div>
       <div class="tblw" id="rankT"></div>
       <div class="btns"><button class="go ghost sm" id="rankClose" type="button">Cerrar</button></div>
     </div>
@@ -603,9 +635,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=26"></script>
-<script src="/models.js?v=26"></script>
-<script src="/client.js?v=26"></script>
+<script src="/core.js?v=30"></script>
+<script src="/models.js?v=30"></script>
+<script src="/client.js?v=30"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

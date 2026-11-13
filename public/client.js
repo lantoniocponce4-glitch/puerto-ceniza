@@ -211,6 +211,17 @@ const TEXSCALE = { city: 8, city2: 8, stationH: 3, slabC: 6, concrete2: 4, stone
 let worldGroup = null, WORLD = null, CURMAP = null;
 function addMesh(geo, mat, x, y, z, shadow = true, recv = true) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = shadow; m.receiveShadow = recv; worldGroup.add(m); return m; }
 function boxAt(x0, y0, z0, x1, y1, z1, mat, s, shadow = true) { const w = x1 - x0, h = y1 - y0, d = z1 - z0; return addMesh(uvBox(w, h, d, s), mat, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, shadow); }
+const BRKM = new Map();
+const BRK_COL = { crate: [.55, .4, .24], wood: [.5, .36, .22], bench: [.5, .36, .22], plank: [.55, .4, .24], glassC: [.75, .88, .95] };
+function applyBreak(id, fx) {
+  const b = WORLD.breakables[id]; if (!b || b.gone) return; WORLD.breakBox(b); const m = BRKM.get(id); if (m) m.visible = false;
+  if (!fx) return; const p = { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, z: (b.minZ + b.maxZ) / 2 }; const col = BRK_COL[b.mat] || [.6, .5, .4];
+  for (let i = 0; i < 4; i++) burst(p, [rand(-1, 1), 1, rand(-1, 1)], col, 3.2, 12);
+  const pa = posAudio(p.x, p.z), v = clamp(1 - pa.d / 45, .05, 1);
+  if (b.mat === 'glassC') { for (let i = 0; i < 6; i++) sTone(rand(2600, 5200), rand(.08, .25), .06 * v, 'triangle', 0, i * .03); sNoise(.4, .45 * v, 5200, 0, pa.pan, 1.2); }
+  else { sNoise(.25, .6 * v, 520, 0, pa.pan, 1.4); sNoise(.5, .35 * v, 260, .05, pa.pan, .9); sNoise(.12, .4 * v, 1900, .02, pa.pan, 2); }
+}
+function restoreBreaks() { WORLD.restoreAll(); for (const m of BRKM.values()) m.visible = true; }
 function buildWorld(mapId) {
   if (CURMAP === mapId && worldGroup) return;
   if (worldGroup) {
@@ -221,7 +232,7 @@ function buildWorld(mapId) {
       for (const m of [].concat(o.material || [])) { if (keepM.has(m)) continue; if (m.map && !keepT.has(m.map)) m.map.dispose(); m.dispose(); }
     });
   }
-  worldGroup = new THREE.Group(); scene.add(worldGroup);
+  worldGroup = new THREE.Group(); scene.add(worldGroup); BRKM.clear();
   WORLD = new PC.World(mapId); CURMAP = mapId; const M = WORLD.map; const T = THEMES[M.theme]; const desert = M.theme === 'desert', rural = M.theme === 'rural', city = M.theme === 'city', snow = M.theme === 'snow';
   post.sat = T.sat || (desert ? 1.06 : 1.04);
   // ambiente
@@ -240,7 +251,8 @@ function buildWorld(mapId) {
     if (b.mat === 'perim') continue;
     if (specialBox(b)) continue;
     const mat = MAT[b.mat] || MAT.stone; const s = TEXSCALE[b.mat] || 0;
-    boxAt(b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ, mat, s);
+    const bm = boxAt(b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ, mat, s);
+    if (b.bid !== undefined) { bm.userData.keep = true; BRKM.set(b.bid, bm); continue; } // rompible: malla propia (no se funde) para poder ocultarla
     if (b.maxY - b.minY > .8 && b.minY < .5) aoStrips(b);
     if (b.mat === 'bld' || b.mat === 'bld2' || b.mat === 'ware' || b.mat === 'ware2') decorateBuilding(b, desert);
     if (b.mat === 'city' || b.mat === 'city2' || b.mat === 'stationH') { boxAt(b.minX - .05, 0, b.minZ - .05, b.maxX + .05, .6, b.maxZ + .05, MAT.concrete2, 3, false); boxAt(b.minX - .2, b.maxY - .1, b.minZ - .2, b.maxX + .2, b.maxY + .16, b.maxZ + .2, MAT.cornice2, 0, false); }
@@ -265,7 +277,7 @@ function mergeStatic(group) {
   group.updateMatrixWorld(true);
   const buckets = new Map(), victims = [];
   group.traverse(o => {
-    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return;
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position || o.userData.keep) return;
     const m = o.material; if (Array.isArray(m)) return;
     const key = m.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + (o.renderOrder || 0);
     let b = buckets.get(key); if (!b) { b = { mat: m, cast: o.castShadow, recv: o.receiveShadow, ro: o.renderOrder || 0, geos: [] }; buckets.set(key, b); }
@@ -760,8 +772,8 @@ function onMsg(m) {
       enterGame(); break;
     }
     case 'r': {
-      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
-      for (const [id, name, team, k, d, as, sc, hum, money, lvl, camo, card, title] of m.r) { const a = getActor(id, team); a.card = card || null; a.title = title || null; a.camo = camo || null; if (a.model && a.model.setCamo) a.model.setCamo(a.camo); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; a.lvl = lvl | 0; if (id === me.id && team !== me.team) { me.team = team; PCM.setFpTeam(team); } }
+      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.brk) { for (const id of m.brk) applyBreak(id, false); if (!m.brk.length && WORLD.breakables.some(b => b.gone)) restoreBreaks(); } if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
+      for (const [id, name, team, k, d, as, sc, hum, money, lvl, camo, card, title, ctag] of m.r) { const a = getActor(id, team); a.card = card || null; a.title = title || null; a.clanTag = ctag || null; a.camo = camo || null; if (a.model && a.model.setCamo) a.model.setCamo(a.camo); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; a.lvl = lvl | 0; if (id === me.id && team !== me.team) { me.team = team; PCM.setFpTeam(team); } }
       $('#roomCode').textContent = G.code; $('#mapName').textContent = '· ' + MAPS[CURMAP].name + ' · ' + m.r.filter(x => x[7]).length + ' en línea';
       break;
     }
@@ -875,6 +887,9 @@ function handleEvent(e) {
       break;
     }
     case 'revive': if (e.v === me.id) { G.reviveAt = nowS() + e.t; toast('Reapareces en ' + e.t + ' s si tu equipo resiste'); } break;
+    case 'brk': applyBreak(e.id, true); break;
+    case 'brkreset': restoreBreaks(); for (const id of e.keep || []) applyBreak(id, false); break;
+    case 'order': if (e.tm === me.team) { addChat(`<span class="rd">Orden</span><b class="t${e.tm}">${esc(nameOf(e.v))}</b> → bots: ${esc(PC.ORDERS[e.c] || '')}`); uiSound(() => sTone(740, .06, .1, 'square')); } break;
     case 'streak': {
       const S = { radar: ['Pulso de radar', 'Enemigos en el radar por 5 segundos'], kit: ['Blindaje y munición', 'Blindaje completo, casco y cargadores llenos'], dron: ['Dron de reconocimiento', 'Enemigos marcados a través de paredes por 12 segundos'] }[e.r] || ['Racha', ''];
       if (e.tm === me.team) {
@@ -955,6 +970,9 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyV') { doPing(); return; }
   if (e.code === 'KeyF') { flashOn = !flashOn; sNoise(.03, .2, 3000); return; }
   if (e.code === 'KeyI') { inspect(); return; }
+  if (orderOpen && /^Digit[1-7]$/.test(e.code)) { const c = Object.keys(PC.ORDERS)[+e.code.slice(5) - 1]; toggleOrders(false); sendOrder(c); return; }
+  if (e.code === 'KeyT') { if (SR && !VOICE.denied) voiceStart(); else toggleOrders(); return; }
+  if (e.code === 'Escape' && orderOpen) { toggleOrders(false); return; }
   if ((e.code === 'Enter' || e.code === 'NumpadEnter') && RG.on && !RG.chal) { rangeChallenge(); return; }
   if (e.code === 'Escape' && wheelOpen) { toggleWheel(false); return; }
   if (e.code === 'KeyB') { toggleBuy(true); return; }
@@ -970,7 +988,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyG') sendMsg({ t: 'drop', bomb: me.cur === 'knife' ? 1 : 0 });
   if (!me.alive && (e.code === 'Space' || e.code === 'KeyD' || e.code === 'KeyA')) me.specIdx++;
 });
-addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') showBoard(false); });
+addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') showBoard(false); if (e.code === 'KeyT') voiceStop(); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; me.fireHeld = me.altHeld = false; me.nadeArm = false; showBoard(false); });
 // salir por accidente: confirmar al cerrar o recargar la pestaña, y bloquear el botón Atrás del navegador o del mouse
 addEventListener('beforeunload', e => { if (G.state === 'playing') { e.preventDefault(); e.returnValue = ''; return ''; } });
@@ -1028,6 +1046,7 @@ function tapBtn(el, fn, up) { el.addEventListener('pointerdown', e => { e.preven
 tapBtn($('#bAds'), el => { const w = WEAPONS[me.cur]; if (w && w.scope) onAlt(); else if (canAds()) { me.adsToggle = !me.adsToggle; } el.classList.toggle('on', !!(me.scoped || me.adsToggle)); });
 tapBtn($('#bReload'), () => { me.reloadReq = true; });
 tapBtn($('#bInsp'), () => inspect());
+tapBtn($('#bVoice'), () => { if (SR && !VOICE.denied) { if (VOICE.on) voiceStop(); else voiceStart(); } else toggleOrders(); });
 tapBtn($('#bJump'), () => { me.jumpReq = true; });
 tapBtn($('#bCrouch'), el => { me.crouchToggle = !me.crouchToggle; el.classList.toggle('on', me.crouchToggle); });
 tapBtn($('#bWeap'), () => { const l = slotList().filter(x => !NADES[x]); const i = l.indexOf(me.cur); setCur(l[(i + 1) % l.length] || 'knife'); });
@@ -1123,7 +1142,7 @@ function aimDir(extraP, extraY, inacc) {
   return [-Math.sin(yy) * Math.cos(py), Math.sin(py), -Math.cos(yy) * Math.cos(py)];
 }
 function traceShot(o, d, maxT) {
-  const wt = WORLD.traceWorld(o, d, maxT); let hit = null, t = wt.t, zone = null;
+  const wt = WORLD.traceShot(o, d, maxT); let hit = null, t = wt.t, zone = null;
   for (const a of actors) { if (!a || a.id === me.id || !a.alive || a.team === me.team) continue; const r = PC.rayActor(o, d, a, t); if (r && r.t < t) { t = r.t; hit = a; zone = r.zone; } }
   return { wt, hit, t, zone };
 }
@@ -1139,7 +1158,9 @@ function shoot(w, am) {
     const end = new THREE.Vector3(o[0] + d[0] * r.t, o[1] + d[1] * r.t, o[2] + d[2] * r.t);
     if (i < 3) tracer(mw, end);
     if (rh) { rangeOnHit(rh, end); anyRange = true; }
+    for (const h of r.wt.through || []) if (h.t < r.t && h.n) { const hp = new THREE.Vector3(o[0] + d[0] * h.t, o[1] + d[1] * h.t, o[2] + d[2] * h.t); burst(hp, h.n, BRK_COL[h.b.mat] || [.62, .55, .45], 2, 4); if (h.b.bid === undefined) decal(hp, h.n); }
     if (r.hit) burst(end, [-d[0], -d[1], -d[2]], [.5, .06, .04], 2.2, 6);
+    else if (r.wt.n && r.wt.stop && r.wt.stop.bid !== undefined) { burst(end, r.wt.n, BRK_COL[r.wt.stop.mat] || [.62, .55, .45], 2.2, 6); }
     else if (r.wt.n) { decal(end, r.wt.n); burst(end, r.wt.n, [.62, .55, .45], 2.2, w.pellets ? 2 : 5); if (Math.random() < .5) sparks(end, r.wt.n, w.pellets ? 1 : 3); }
     const rec = { d: d.map(v => +v.toFixed(4)), tt: +r.t.toFixed(2), hit: r.hit ? r.hit.id : null, z: r.zone, n: r.wt.n };
     pel.push(rec); if (!main) main = rec;
@@ -1346,7 +1367,7 @@ function updateHUD(dt) {
   setTxt('#zoneTag', site ? 'Sitio ' + site : (me.cb ? 'Zona de compra' : ''));
   // espectador
   const kcOn = kcActive(); $('#killcam').hidden = !kcOn;
-  if (kcOn) { const k = actors[kc.killer]; const txt = (k ? k.name : '—') + '|' + kc.w; if ($('#killcam')._t !== txt) { $('#killcam')._t = txt; setTxt('#kcName', k ? k.name : '—'); { const cd = k && PC.CARDS.find(c => c.id === k.card), tl = k && PC.TITLES.find(c => c.id === k.title); $('#kcCard').style.cssText = cd ? cardCss(cd) : ''; $('#kcCard').hidden = !cd && !tl; setTxt('#kcTitle', tl ? tl.name : ''); } setCls('#kcName', k ? 't' + k.team : ''); setTxt('#kcInfo', (WEAPONS[kc.w] ? WEAPONS[kc.w].name : kc.w === 'he' ? 'Granada HE' : kc.w === 'in' ? 'Incendiaria' : 'Carga') + (kc.h ? ' · a la cabeza' : '') + ' · ' + kc.dist + ' m' + (kc.hp != null ? ' · le quedó ' + kc.hp + ' de vida' : '')); } $('#kcBar').style.width = clamp(kc.phase === 'eyes' ? (kc.rt - kc.from) / kc.len * .8 : .8 + kc.orbitT / kc.orbitLen * .2, 0, 1) * 100 + '%'; }
+  if (kcOn) { const k = actors[kc.killer]; const txt = (k ? k.name : '—') + '|' + kc.w; if ($('#killcam')._t !== txt) { $('#killcam')._t = txt; setTxt('#kcName', k ? (k.clanTag ? '[' + k.clanTag + '] ' : '') + k.name : '—'); { const cd = k && PC.CARDS.find(c => c.id === k.card), tl = k && PC.TITLES.find(c => c.id === k.title); $('#kcCard').style.cssText = cd ? cardCss(cd) : ''; $('#kcCard').hidden = !cd && !tl; setTxt('#kcTitle', tl ? tl.name : ''); } setCls('#kcName', k ? 't' + k.team : ''); setTxt('#kcInfo', (WEAPONS[kc.w] ? WEAPONS[kc.w].name : kc.w === 'he' ? 'Granada HE' : kc.w === 'in' ? 'Incendiaria' : 'Carga') + (kc.h ? ' · a la cabeza' : '') + ' · ' + kc.dist + ' m' + (kc.hp != null ? ' · le quedó ' + kc.hp + ' de vida' : '')); } $('#kcBar').style.width = clamp(kc.phase === 'eyes' ? (kc.rt - kc.from) / kc.len * .8 : .8 + kc.orbitT / kc.orbitLen * .2, 0, 1) * 100 + '%'; }
   const sp = $('#spec'); if (kcOn) sp.hidden = true; else if (!me.alive && G.mode === 'waves' && me.deadT <= 1.2) { sp.hidden = false; setTxt('#specName', 'Reapareces en ' + Math.max(0, Math.ceil((G.reviveAt || 0) - nowS())) + ' s'); setCls('#specName', ''); setTxt('#specHint', 'Si todo tu equipo cae, termina la partida'); }
   else if (!me.alive && (G.mode === 'gg' || G.mode === 'tdm')) { sp.hidden = false; setTxt('#specName', 'Reapareces en un momento'); setCls('#specName', ''); setTxt('#specHint', 'Te toca ' + ((WEAPONS[PC.LADDER[me.lvl | 0]] || {}).name || '')); } else if (!me.alive && me.deadT > 1.2) { const tg = specTarget(); sp.hidden = false; setTxt('#specName', tg ? tg.name + ' · ' + Math.max(0, tg.hp | 0) + ' de vida' : 'Nadie en pie'); setCls('#specName', tg ? 't' + tg.team : ''); setTxt('#specHint', (tg && WEAPONS[tg.cur] ? WEAPONS[tg.cur].name + ' · ' : '') + (isTouch ? 'toca para cambiar de compañero' : 'clic para cambiar de compañero')); } else sp.hidden = true;
   // enemigos vistos (radar) y nombres
@@ -1357,7 +1378,7 @@ function updateHUD(dt) {
     const droned = G.drone > t && a.team !== me.team;
     let show = a.alive && (a.team === me.team || a === aim || droned) && !(!me.alive && specTarget() === a);
     el.classList.toggle('dron', droned && a !== aim);
-    if (show) { _p.set(a.pos.x, a.pos.y + a.h + .3, a.pos.z).project(camera); if (_p.z > 1 || _p.z < -1) show = false; else { el.style.transform = `translate(${(_p.x * .5 + .5) * innerWidth}px,${(-_p.y * .5 + .5) * innerHeight}px) translate(-50%,-100%)`; const txt = a.name + (a.flags & 4 ? ' ◆' : ''); if (el._t !== txt) { el.textContent = txt; el._t = txt; } el.style.color = TEAMC[a.team]; } }
+    if (show) { _p.set(a.pos.x, a.pos.y + a.h + .3, a.pos.z).project(camera); if (_p.z > 1 || _p.z < -1) show = false; else { el.style.transform = `translate(${(_p.x * .5 + .5) * innerWidth}px,${(-_p.y * .5 + .5) * innerHeight}px) translate(-50%,-100%)`; const txt = (a.clanTag ? '[' + a.clanTag + '] ' : '') + a.name + (a.flags & 4 ? ' ◆' : ''); if (el._t !== txt) { el.textContent = txt; el._t = txt; } el.style.color = TEAMC[a.team]; } }
     el.style.display = show ? 'block' : 'none';
   }
   drawPings(t);
@@ -1393,7 +1414,7 @@ function teamTable(tm) {
   const gg = G.mode === 'gg'; if (gg) list.sort((x, y) => (y.lvl - x.lvl) || (y.k - x.k));
   const extraH = gg ? '<th>Nivel</th>' : mine ? '<th>$</th>' : '';
   return `<table><caption class="t${tm}">${TEAMN[tm]} · ${G.sc[tm]} <span style="color:var(--dim);font-size:13px">${gg || G.mode === 'tdm' ? 'bajas' : SIDE_N[sideOf(tm)]}</span></caption><tr><th>Jugador</th>${extraH}<th>B</th><th>A</th><th>M</th><th>Pts</th></tr>` +
-    list.map(a => `<tr class="${a.id === me.id ? 'me' : ''}${a.alive ? '' : ' dead'}"><td>${esc(a.name)}${a.human ? '' : '<span class="hum">BOT</span>'}${a.flags & 4 ? ' <span class="bombTag">CARGA</span>' : ''}</td>${gg ? `<td>${a.lvl + 1} · ${SHORT[PC.LADDER[a.lvl]] || ''}</td>` : mine ? `<td>${a.money}</td>` : ''}<td>${a.k}</td><td>${a.as}</td><td>${a.d}</td><td>${a.score}</td></tr>`).join('') + '</table>';
+    list.map(a => `<tr class="${a.id === me.id ? 'me' : ''}${a.alive ? '' : ' dead'}"><td>${a.clanTag ? `<span class="ctag">[${esc(a.clanTag)}]</span> ` : ''}${esc(a.name)}${a.human ? '' : '<span class="hum">BOT</span>'}${a.flags & 4 ? ' <span class="bombTag">CARGA</span>' : ''}</td>${gg ? `<td>${a.lvl + 1} · ${SHORT[PC.LADDER[a.lvl]] || ''}</td>` : mine ? `<td>${a.money}</td>` : ''}<td>${a.k}</td><td>${a.as}</td><td>${a.d}</td><td>${a.score}</td></tr>`).join('') + '</table>';
 }
 function showBoard(on) { if (G.state !== 'playing') return; if (on) { $('#boardT').innerHTML = teamTable(me.team) + teamTable(1 - me.team); $('#board').hidden = false; } else $('#board').hidden = true; }
 function showEnd(e) {
@@ -1520,6 +1541,7 @@ function enterGame() {
   $('#app').classList.add('playing'); blurUI(); resetAim(); applyCond(G.cond); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 2500);
 }
 function leaveToMenu() {
+  toggleOrders(false); voiceStop();
   clearFires();
   rangeStop();
   G.reveal = G.drone = 0; me.streak = 0;
@@ -1593,7 +1615,7 @@ async function apiCall(path, body, method) {
 }
 let acctTab = 'login';
 function drawAccount() {
-  const box = $('#acctBox'); if (!box) return;
+  const box = $('#acctBox'); if (!box) return; if (typeof CLAN !== 'undefined') { if (auth.me && CLAN.lastUser !== auth.me.user) { CLAN.lastUser = auth.me.user; loadClan(); } else if (!auth.me) { CLAN.st = null; CLAN.lastUser = null; } drawClan(); }
   if (location.protocol === 'file:') { box.hidden = true; return; }
   setTimeout(() => { if (!$('#rankBtn')) box.insertAdjacentHTML('beforeend', '<button type="button" class="linkbtn" id="rankBtn">Ver el ranking de la temporada</button>'); $('#rankBtn').onclick = () => openRank(); }, 0);
   $('#pnameWrap').hidden = !!auth.me;
@@ -1703,6 +1725,45 @@ function kcRender(dt) {
   kc.lastRt = rt;
 }
 
+/* ================= ÓRDENES POR VOZ A LOS BOTS ================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const VOICE = { rec: null, on: false, txt: '', handled: false, denied: false };
+let orderOpen = false;
+function parseOrder(raw) {
+  const t = ' ' + String(raw || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  if (/ humo /.test(t)) return 'smoke';
+  if (/reagrup|vuelvan|junten|juntense|regresen/.test(t)) return 'regroup';
+  if (/sigan|siganme|sigueme|conmigo|vengan|seguime|vente|venganse/.test(t)) return 'follow';
+  if (/esperen|espera |alto |quietos|detenganse|aguanten|quedense/.test(t)) return 'wait';
+  if (/avancen|ataquen|empujen|cacen|vamos por ellos|a por ellos|al ataque|presionen/.test(t)) return 'push';
+  const site = / (b|be|bravo|sitio b|punto b) /.test(t) ? 'B' : / (alfa|sitio a|punto a|zona a) /.test(t) || / a $/.test(t) ? 'A' : null;
+  if (site && /cubr|defiend|vayan|vamos|tomen|al sitio|sitio|punto|vayanse|corran/.test(t)) return site === 'A' ? 'holdA' : 'holdB';
+  return null;
+}
+function sendOrder(c) {
+  if (G.state !== 'playing' || !c) return; let p;
+  if (c === 'smoke') { const o = [camera.position.x, camera.position.y, camera.position.z]; const d = aimDir(0, 0, 0); const r = WORLD.traceWorld(o, d, 45); p = [+(o[0] + d[0] * r.t).toFixed(2), +(o[2] + d[2] * r.t).toFixed(2)]; }
+  sendMsg({ t: 'order', c, p });
+}
+function handleVoice(txt) {
+  if (VOICE.handled) return; VOICE.handled = true; const c = parseOrder(txt);
+  if (c) sendOrder(c); else if (txt) toast('No entendí «' + txt + '». Prueba: síganme, esperen, cubran A, avancen o tiren humo');
+}
+function voiceStart() {
+  if (!SR || VOICE.on || G.state !== 'playing') return; let r;
+  try { r = new SR(); } catch (e) { VOICE.denied = true; toggleOrders(true); return; }
+  const lg = navigator.language || ''; r.lang = /^es/i.test(lg) ? lg : 'es-ES'; r.interimResults = true; r.maxAlternatives = 3; r.continuous = false;
+  r.onresult = ev => { let txt = ''; let fin = false; for (let i = ev.resultIndex; i < ev.results.length; i++) { txt += ev.results[i][0].transcript; if (ev.results[i].isFinal) { fin = true; for (let k = 0; k < ev.results[i].length; k++) if (parseOrder(ev.results[i][k].transcript)) { txt = ev.results[i][k].transcript; break; } } } VOICE.txt = txt.trim(); $('#voiceTxt').textContent = VOICE.txt ? '«' + VOICE.txt + '»' : ''; if (fin) handleVoice(VOICE.txt); };
+  r.onerror = ev => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { VOICE.denied = true; toast('Sin permiso de micrófono: usa el menú de órdenes (T) o permite el micrófono en el navegador'); } else if (ev.error === 'network') toast('El reconocimiento de voz necesita internet. Usa el menú de órdenes (T).'); };
+  r.onend = () => { VOICE.on = false; $('#voiceInd').hidden = true; $('#bVoice').classList.remove('on'); if (!VOICE.handled && VOICE.txt) handleVoice(VOICE.txt); };
+  VOICE.rec = r; VOICE.on = true; VOICE.handled = false; VOICE.txt = ''; $('#voiceTxt').textContent = ''; $('#voiceInd').hidden = false; $('#bVoice').classList.add('on');
+  try { r.start(); } catch (e) { VOICE.on = false; $('#voiceInd').hidden = true; }
+}
+function voiceStop() { if (VOICE.rec && VOICE.on) try { VOICE.rec.stop(); } catch (e) { } }
+function drawOrders() { const ks = Object.keys(PC.ORDERS); $('#orderWheel').innerHTML = ks.map((k, i) => `<button type="button" data-o="${k}" style="--a:${i * (360 / ks.length)}deg"><kbd>${i + 1}</kbd>${PC.ORDERS[k]}</button>`).join('') + `<div class="hub">Órdenes<br><small>${SR ? 'o mantén T y habla' : '1-7 o clic · T cierra'}</small></div>`; }
+function toggleOrders(on) { orderOpen = on === undefined ? !orderOpen : !!on; if (orderOpen && G.state !== 'playing') orderOpen = false; if (orderOpen) { drawOrders(); toggleWheel(false); } $('#orderWheel').hidden = !orderOpen; }
+$('#orderWheel').addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); toggleOrders(false); sendOrder(b.dataset.o); });
+
 /* ================= RADIO, CHAT Y MARCAS ================= */
 let chatOpen = false, wheelOpen = false; const pings = [];
 function addChat(html) { const box = $('#chatBox'); const d = document.createElement('div'); d.className = 'cl'; d.innerHTML = html; box.appendChild(d); while (box.children.length > 6) box.firstChild.remove(); setTimeout(() => d.classList.add('old'), 9000); }
@@ -1751,6 +1812,12 @@ async function openRank(by) {
   if (by) rankBy = by; $('#rank').hidden = false;
   document.querySelectorAll('#rankTabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.by === rankBy));
   $('#rankT').innerHTML = '<div class="small">Cargando…</div>';
+  if (rankBy === 'clans') {
+    const c = await apiCall('/api/clans/top'); const [y, mo] = (c.season || '').split('-').map(Number); $('#rankSeason').textContent = 'Clanes · temporada de ' + (MESES[mo - 1] || '') + ' · el n.º 1 gana el título «Campeón de clanes»';
+    const mine = CLAN.st && CLAN.st.tag;
+    $('#rankT').innerHTML = `<table><tr><th>#</th><th>Clan</th><th>Bajas</th><th>Experiencia</th></tr>` + ((c.top || []).length ? c.top.map(x => `<tr class="${x.tag === mine ? 'me' : ''}"><td>${x.pos}</td><td><span class="ctag">[${esc(x.tag)}]</span> ${esc(x.name)}</td><td>${x.kills}</td><td>${x.xp.toLocaleString('es-CL')}</td></tr>`).join('') : '<tr><td colspan="4">Ningún clan suma puntos todavía esta temporada.</td></tr>') + '</table>';
+    return;
+  }
   const r = await apiCall('/api/ranking?by=' + rankBy);
   if (r.error && !r.top) { $('#rankT').innerHTML = `<div class="small">${esc(r.error)}</div>`; return; }
   const [y, mo] = (r.season || '').split('-').map(Number); const end = new Date(Date.UTC(y, mo, 1)); const days = Math.max(0, Math.ceil((end - Date.now()) / 864e5));
@@ -1766,6 +1833,29 @@ async function openRank(by) {
 $('#rankTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) openRank(b.dataset.by); });
 $('#rankClose').onclick = () => { $('#rank').hidden = true; };
 $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $('#rank').hidden = true; });
+
+/* ================= CLAN ================= */
+const CLAN = { st: null, timer: null };
+async function loadClan() { if (!auth.me || location.protocol === 'file:') { CLAN.st = null; drawClan(); return; } const r = await apiCall('/api/clan'); if (r && !r.error) { CLAN.st = r.clan; drawClan(); } }
+function drawClan() {
+  const box = $('#clanBox'); box.hidden = !auth.me; if (!auth.me) return; const c = CLAN.st; $('#clanOut').hidden = !!c; $('#clanIn').hidden = !c;
+  if (!c) { $('#clanInfo').textContent = 'sin clan'; return; }
+  $('#clanInfo').textContent = (c.rank ? 'Puesto ' + c.rank + ' del mes' : 'Sin puesto aún') + (c.champ && c.champ.length ? ' · campeón ' + c.champ.length + '×' : '');
+  $('#clanTitle').innerHTML = `<code>[${esc(c.tag)}]</code>${esc(c.name)}`; $('#clanStats').textContent = c.season.xp.toLocaleString('es-CL') + ' de experiencia · ' + c.season.kills + ' bajas · ' + c.members.length + '/' + c.max + ' integrantes';
+  $('#clanWeekly').innerHTML = c.weekly.map(w => `<div class="ch${w.done ? ' done' : ''}"><span>${esc(w.txt)}</span><b>${w.p}/${w.n}</b><i><s style="width:${w.p / w.n * 100}%"></s></i></div>`).join('');
+  $('#clanMemSum').textContent = 'Integrantes (' + c.members.length + ')';
+  $('#clanMembers').innerHTML = c.members.map(m => `<div class="clanRow"><span>${m.lead ? '★ ' : ''}${esc(m.name)}${m.you ? ' <small>(tú)</small>' : ''}</span><small>Nv ${m.lvl} · ${m.xp.toLocaleString('es-CL')}</small>${c.lead && !m.you ? `<button type="button" class="linkbtn" data-kick="${m.id}">Expulsar</button>` : '<span></span>'}</div>`).join('');
+  const ch = $('#clanChat'); const atEnd = ch.scrollTop + ch.clientHeight >= ch.scrollHeight - 8;
+  ch.innerHTML = c.chat.length ? c.chat.map(m => m.sys ? `<div class="sys">${esc(m.m)}</div>` : `<div><b>${esc(m.n)}:</b> ${esc(m.m)}</div>`).join('') : '<div class="small">Todavía no hay mensajes.</div>'; if (atEnd) ch.scrollTop = ch.scrollHeight;
+}
+async function clanDo(path, body) { $('#clanErr').textContent = ''; const r = await apiCall(path, body || {}); if (r.error) { $('#clanErr').textContent = r.error; return false; } if (r.me) applyMe(r.me); CLAN.st = r.clan; drawClan(); return true; }
+$('#clanJoin').onclick = () => clanDo('/api/clan/join', { tag: $('#clanTagIn').value });
+$('#clanCreate').onclick = () => clanDo('/api/clan/create', { name: $('#clanNameIn').value, tag: $('#clanNewTag').value });
+$('#clanSend').onclick = async () => { const i = $('#clanMsg'); if (!i.value.trim()) return; if (await clanDo('/api/clan/say', { m: i.value })) i.value = ''; };
+$('#clanMsg').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#clanSend').click(); } });
+$('#clanLeave').onclick = () => { if ($('#clanLeave').dataset.sure) { delete $('#clanLeave').dataset.sure; $('#clanLeave').textContent = 'Salir del clan'; clanDo('/api/clan/leave'); } else { $('#clanLeave').dataset.sure = 1; $('#clanLeave').textContent = 'Confirmar salida'; setTimeout(() => { delete $('#clanLeave').dataset.sure; $('#clanLeave').textContent = 'Salir del clan'; }, 3500); } };
+$('#clanMembers').addEventListener('click', e => { const b = e.target.closest('[data-kick]'); if (b) clanDo('/api/clan/kick', { id: +b.dataset.kick }); });
+CLAN.timer = setInterval(() => { if (G.state === 'menu' && auth.me && !document.hidden) loadClan(); }, 7000);
 
 /* ================= PASE DE TEMPORADA ================= */
 const PAT = { diag: 'repeating-linear-gradient(135deg,rgba(255,255,255,.10) 0 6px,transparent 6px 14px)', dots: 'radial-gradient(rgba(255,255,255,.16) 1.5px,transparent 1.6px) 0 0/10px 10px', grid: 'linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px) 0 0/12px 12px,linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px) 0 0/12px 12px', wave: 'repeating-radial-gradient(circle at 0 100%,rgba(255,255,255,.09) 0 4px,transparent 4px 12px)' };
