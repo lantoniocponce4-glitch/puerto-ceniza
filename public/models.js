@@ -32,6 +32,21 @@ function texCamo(team) {
   return mk(c, 2);
 }
 const TXW = texWear(), TXG = texGrain(), TXWOOD = texWoodG(), TXCLOTH = texCloth(), CAMO = [texCamo(0), texCamo(1)];
+// Relieve (mapas normales) generado desde una altura procedural con filtro Sobel
+function nrm(drawH, size, str, rep) {
+  const [c, x] = cnv(size, size); drawH(x, size); const src = x.getImageData(0, 0, size, size).data, L = new Float32Array(size * size);
+  for (let k = 0, p = 0; k < L.length; k++, p += 4) L[k] = src[p] / 255;
+  const H = (i, j) => L[((j + size) % size) * size + ((i + size) % size)], out = x.createImageData(size, size), D = out.data;
+  for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+    const dx = (H(i + 1, j - 1) + 2 * H(i + 1, j) + H(i + 1, j + 1)) - (H(i - 1, j - 1) + 2 * H(i - 1, j) + H(i - 1, j + 1)), dy = (H(i - 1, j + 1) + 2 * H(i, j + 1) + H(i + 1, j + 1)) - (H(i - 1, j - 1) + 2 * H(i, j - 1) + H(i + 1, j - 1));
+    const nx = -dx * str, ny = dy * str, l = Math.hypot(nx, ny, 1), k = (j * size + i) * 4; D[k] = (nx / l * .5 + .5) * 255; D[k + 1] = (ny / l * .5 + .5) * 255; D[k + 2] = (1 / l * .5 + .5) * 255; D[k + 3] = 255;
+  }
+  x.putImageData(out, 0, 0); return mk(c, rep);
+}
+const NSTIPPLE = nrm((x, n) => { x.fillStyle = '#808080'; x.fillRect(0, 0, n, n); for (let i = 0; i < n * n / 9; i++) { const v = rand(90, 200) | 0; x.fillStyle = `rgb(${v},${v},${v})`; x.beginPath(); x.arc(rand(0, n), rand(0, n), rand(.6, 1.6), 0, 7); x.fill(); } }, 128, 2.2, 9);
+const NBRUSH = nrm((x, n) => { x.fillStyle = '#808080'; x.fillRect(0, 0, n, n); for (let i = 0; i < 900; i++) { const v = rand(100, 160) | 0; x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(0, rand(0, n), n, rand(.4, 1.2)); } for (let i = 0; i < 40; i++) { x.strokeStyle = 'rgb(60,60,60)'; x.lineWidth = rand(.5, 1.4); x.beginPath(); const px = rand(0, n), py = rand(0, n); x.moveTo(px, py); x.lineTo(px + rand(-10, 10), py + rand(-3, 3)); x.stroke(); } }, 128, 1.6, 5);
+const NWEAVE = nrm((x, n) => { x.fillStyle = '#7a7a7a'; x.fillRect(0, 0, n, n); for (let i = 0; i < n; i += 4) { x.fillStyle = 'rgb(150,150,150)'; x.fillRect(0, i, n, 2); x.fillStyle = 'rgb(115,115,115)'; x.fillRect(i, 0, 2, n); } for (let i = 0; i < n; i += 32) { x.fillStyle = 'rgb(185,185,185)'; x.fillRect(0, i, n, 1); x.fillRect(i, 0, 1, n); } }, 128, 2.6, 6);
+function withN(m, t, k) { m.normalMap = t; m.normalScale = new T.Vector2(k, k); return m; }
 /* ---------- Camuflajes de armas ---------- */
 function blobs(x, base, cols, n, rmin, rmax) { x.fillStyle = base; x.fillRect(0, 0, 256, 256); for (let i = 0; i < n; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; x.save(); x.translate(rand(0, 256), rand(0, 256)); x.rotate(rand(0, 3)); x.beginPath(); x.ellipse(0, 0, rand(rmin, rmax), rand(rmin * .5, rmax * .55), 0, 0, 7); x.fill(); x.restore(); } }
 const CAMO_SW = {};
@@ -78,6 +93,9 @@ const MG = {
   brass: S({ color: 0xc9a043, metalness: .9, roughness: .3 })
 };
 
+for (const k of ['poly', 'tan', 'od']) withN(MG[k], NSTIPPLE, .55);
+for (const k of ['metal', 'park']) withN(MG[k], NBRUSH, .3);
+withN(MG.rubber, NSTIPPLE, .9);
 const MCAMO = {};
 // skin efectiva de un arma: spec puede ser un id (todas las armas) o { d: general, w: { arma: id | 'none' } }
 function camoFor(spec, id) { if (!spec) return null; if (typeof spec === 'string') return spec; const v = spec.w && Object.prototype.hasOwnProperty.call(spec.w, id) ? spec.w[id] : spec.d; return v && v !== 'none' ? v : null; }
@@ -338,25 +356,40 @@ const LOOK = [
   { vest: 0x262b31, pad: 0x1d2024, boot: 0x1b1b1b, glove: 0x1c1c1c, helm: 0x4b5661, belt: 0x1d1f22, pack: 0x30353b, cap: 0x2a2f36, skins: [0xc9a07e, 0x8d6248, 0xb88a68, 0x6e4a34] },
   { vest: 0x7a6446, pad: 0x5e4b33, boot: 0x8a7353, glove: 0x3a3226, helm: 0x9f8a62, belt: 0x5e4b33, pack: 0x6b5a40, wrap: 0xb8a27a, skins: [0xd2ab8a, 0x9b7052, 0x7f5a40, 0xc49572] }
 ];
+const TEAMC = [0x5cc8e0, 0xef6a45];
 const teamMats = [0, 1].map(t => {
   const L = LOOK[t];
-  return {
+  const o = {
+    tag: S({ color: TEAMC[t], roughness: .55, emissive: TEAMC[t], emissiveIntensity: .35 }), molle: S({ color: 0x101113, roughness: .85 }), strap: S({ color: 0x0e0f10, roughness: .7 }),
     camo: S({ map: CAMO[t], roughness: .92 }), vest: S({ map: TXCLOTH, color: L.vest, roughness: .85 }), pad: S({ color: L.pad, roughness: .6 }), boot: S({ color: L.boot, roughness: .7 }),
     sole: S({ color: 0x111111, roughness: .9 }), glove: S({ map: TXCLOTH, color: L.glove, roughness: .75 }), helm: S({ map: TXG, color: L.helm, roughness: .55, side: T.DoubleSide }),
     belt: S({ color: L.belt, roughness: .7 }), pack: S({ map: TXCLOTH, color: L.pack, roughness: .85 }), black: S({ color: 0x151515, roughness: .5 }), lens: S({ color: 0x0c0f12, metalness: .8, roughness: .08 }),
     wrap: S({ map: TXCLOTH, color: L.wrap || 0x999999, roughness: .95 }), cap: S({ map: TXCLOTH, color: L.cap || 0x333333, roughness: .9, side: T.DoubleSide }), buckle: S({ color: 0x777777, metalness: .8, roughness: .35 })
   };
+  for (const k of ['camo', 'vest', 'pack', 'glove', 'wrap', 'cap']) withN(o[k], NWEAVE, .28); withN(o.helm, NSTIPPLE, .4); withN(o.boot, NSTIPPLE, .6);
+  return o;
 });
 const skinMats = {};
 const skinMat = (team, idx) => { const k = team + '_' + (idx % 4); return skinMats[k] || (skinMats[k] = S({ color: LOOK[team].skins[idx % 4], roughness: .62 })); };
 const _up = new T.Vector3(0, 1, 0);
 function orientSeg(mesh, a, b) { const d = new T.Vector3().subVectors(b, a); const L = d.length() || 1e-4; mesh.position.copy(a).addScaledVector(d, .5); mesh.scale.set(1, L, 1); mesh.quaternion.setFromUnitVectors(_up, d.multiplyScalar(1 / L)); }
 function solveArm(arm, Sh, Tg, a, b, pole) {
+  if (arm.fdir) { // mano con dedos: el brazo llega a la muñeca y la mano se orienta con la dirección de los dedos y la palma
+    const Y = arm.fdir.clone().normalize(), Z = arm.palm.clone().negate(); Z.addScaledVector(Y, -Z.dot(Y)).normalize(); const X = new T.Vector3().crossVectors(Y, Z);
+    const H = Tg.clone(), W = H.clone().addScaledVector(Y, -arm.wrist); const f = arm.fdir; arm.fdir = null; const w = arm.wrist; arm.wrist = 0;
+    const dS = Sh.clone().sub(W), mx = .9 * (a + b); if (dS.length() > mx) Sh = W.clone().addScaledVector(dS.normalize(), mx); // el hombro (fuera de cámara) se acerca para que el brazo alcance
+    solveArm(arm, Sh, W, a, b, pole); arm.fdir = f; arm.wrist = w;
+    arm.hand.position.copy(H); arm.hand.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X, Y, Z)); return;
+  }
   const d = new T.Vector3().subVectors(Tg, Sh); let L = d.length(); L = Math.min(Math.max(L, .05), a + b - 1e-3); const dir = d.normalize();
   const x = (a * a - b * b + L * L) / (2 * L); const h = Math.sqrt(Math.max(0, a * a - x * x));
   const pv = pole.clone().sub(Sh); const perp = pv.sub(dir.clone().multiplyScalar(pv.dot(dir))).normalize();
   const E = Sh.clone().addScaledVector(dir, x).addScaledVector(perp, h); const T2 = Sh.clone().addScaledVector(dir, L);
-  orientSeg(arm.up, Sh, E); arm.elbow.position.copy(E); orientSeg(arm.fore, E, T2); arm.hand.position.copy(T2); arm.hand.quaternion.copy(arm.fore.quaternion);
+  orientSeg(arm.up, Sh, E); arm.elbow.position.copy(E); orientSeg(arm.fore, E, arm.wrist ? T2.clone().addScaledVector(new T.Vector3().subVectors(T2, E).normalize(), -arm.wrist) : T2); arm.hand.position.copy(T2); arm.hand.quaternion.copy(arm.fore.quaternion);
+  if (arm.palm) { // orienta la palma hacia el arma (la mano en primera persona tiene dedos)
+    const Y = new T.Vector3().subVectors(T2, E).normalize(), Z = arm.palm.clone().negate(); Z.addScaledVector(Y, -Z.dot(Y)).normalize();
+    const X = new T.Vector3().crossVectors(Y, Z); arm.hand.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(X, Y, Z));
+  }
 }
 function mergeChildren(grp, skip) {
   const by = new Map(); const kill = [];
@@ -394,6 +427,13 @@ function buildSoldier(team, idx, opt = {}) {
   for (const px of [-.105, 0, .105]) add(upper, rbox(.085, .11, .06, .016), C.vest, px, .21, -.16);
   add(upper, rbox(.11, .07, .04, .014), C.vest, -.09, .38, -.15);
   for (const sx of [-1, 1]) add(upper, rbox(.07, .04, .26, .012), C.vest, sx * .12, .49, 0);
+  // portaplacas: cintas MOLLE, faja lateral, panel trasero y parches de identificación del equipo
+  for (const my of [.255, .3, .345]) { add(upper, rbox(.3, .012, .012, .004), C.molle, 0, my, -.142); add(upper, rbox(.28, .012, .012, .004), C.molle, 0, my, .142); }
+  for (const sx of [-1, 1]) { add(upper, rbox(.03, .2, .2, .01), C.vest, sx * .195, .27, 0); add(upper, rbox(.012, .14, .012, .004), C.strap, sx * .07, .4, -.142); }
+  add(upper, rbox(.08, .035, .01, .004), C.tag, .07, .43, -.142); add(upper, rbox(.11, .05, .01, .004), C.tag, 0, .4, .142);
+  for (const sx of [-1, 1]) { const t = add(upper, rbox(.012, .06, .07, .004), C.tag, sx * .262, .4, 0); t.rotation.z = sx * .25; }
+  for (const sx of [-1, 1]) add(hips, rbox(.07, .08, .05, .014), C.vest, sx * .13, .02, -.07);
+  add(hips, rbox(.1, .07, .05, .014), C.pack, 0, .02, .13);
   add(upper, rbox(.055, .13, .045, .012), C.black, .2, .34, .06); add(upper, cylY(.004, .003, .22, 6), C.black, .21, .5, .07);
   add(upper, cylY(.052, .058, .12, 12), skin, 0, .58, 0);
   const head = new T.Group(); head.position.set(0, .71, 0); upper.add(head);
@@ -412,6 +452,10 @@ function buildSoldier(team, idx, opt = {}) {
   const helmet = new T.Group(); head.add(helmet);
   const shell = add(helmet, new T.SphereGeometry(.14, 24, 14, 0, Math.PI * 2, 0, Math.PI * .55), C.helm, 0, .03, 0); shell.scale.set(1, .95, 1.08);
   add(helmet, rbox(.05, .04, .02, .008), C.black, 0, .07, -.145); for (const sx of [-1, 1]) add(helmet, rbox(.02, .03, .1, .006), C.black, sx * .134, .04, 0);
+  // casco: cascos auriculares, montura frontal con visor plegado, banda y parche de equipo
+  for (const sx of [-1, 1]) { const e = add(helmet, cylY(.045, .045, .035, 16), C.black, sx * .125, -.03, 0); e.rotation.z = Math.PI / 2; }
+  add(helmet, rbox(.07, .05, .04, .01), C.black, 0, .03, -.165); add(helmet, rbox(.11, .035, .045, .012), C.lens, 0, .045, -.19);
+  add(helmet, cylY(.145, .147, .018, 24), C.strap, 0, .05, 0).scale.z = 1.08; add(helmet, rbox(.06, .03, .01, .004), C.tag, 0, .08, .15);
   helmet.visible = false;
   const pack = new T.Group(); pack.position.set(0, .32, .17); upper.add(pack); add(pack, rbox(.28, .3, .12, .03), C.pack); const led = new T.Mesh(sphG(.008, 8, 6), new T.MeshBasicMaterial({ color: 0xff3020 })); led.position.set(.09, .1, .065); pack.add(led); pack.visible = false;
   const arms = {}; const SH = { R: new T.Vector3(.2, .48, 0), L: new T.Vector3(-.2, .48, 0) };
@@ -454,19 +498,49 @@ function buildSoldier(team, idx, opt = {}) {
 }
 
 /* ---------- Brazos en primera persona ---------- */
-const fpMats = { sleeve: S({ map: CAMO[0], roughness: .92 }), glove: S({ map: TXCLOTH, color: 0x1c1c1c, roughness: .75 }), cuff: S({ color: 0x2a2a2a, roughness: .8 }) };
-function setFpTeam(t) { fpMats.sleeve.map = CAMO[t]; fpMats.sleeve.needsUpdate = true; fpMats.glove.color.setHex(LOOK[t].glove); }
+const fpMats = { sleeve: withN(S({ map: CAMO[0], roughness: .92 }), NWEAVE, .5), glove: withN(S({ map: TXCLOTH, color: 0x1c1c1c, roughness: .75 }), NWEAVE, .35), cuff: S({ color: 0x2a2a2a, roughness: .8 }),
+  pad: withN(S({ color: 0x0d0d0e, roughness: .55 }), NSTIPPLE, 1), watch: S({ color: 0x0b0b0c, roughness: .35, metalness: .4 }), face: S({ color: 0x0a1410, emissive: 0x3ee6a0, emissiveIntensity: .5, roughness: .2 }), tag: S({ color: 0x5cc8e0, emissive: 0x5cc8e0, emissiveIntensity: .1, roughness: .6 }) };
+// Mano con guante táctico: palma, nudillos acolchados, 4 dedos en 3 falanges y pulgar. Eje +Y = hacia los dedos, palma hacia -Z.
+const HANDC = {};
+function handGeo(k, left) {
+  const key = k + '|' + left; if (HANDC[key]) return HANDC[key];
+  const G = { glove: [], pad: [], cuff: [] }, tmp = new T.Object3D(), sg = left ? -1 : 1;
+  const put = (geo, m, pos, quat) => { tmp.position.set(pos[0] * k, pos[1] * k, pos[2] * k); tmp.quaternion.copy(quat || new T.Quaternion()); tmp.scale.set(1, 1, 1); tmp.updateMatrix(); const g = geo.clone(); g.applyMatrix4(tmp.matrix); G[m].push(g); };
+  const seg = (a, b, r, m = 'glove') => { const A = new T.Vector3(...a), B = new T.Vector3(...b), d = B.clone().sub(A), L = d.length(); const g = new T.CylinderGeometry(r * k, r * .92 * k, L * k, 8); const q = new T.Quaternion().setFromUnitVectors(_up, d.normalize()); const c = A.add(B).multiplyScalar(.5); put(g, m, [c.x, c.y, c.z], q); put(new T.SphereGeometry(r * .98 * k, 8, 6), m, b); };
+  put(rbox(.084 * k, .08 * k, .042 * k, .016 * k), 'glove', [0, 0, 0]);
+  put(rbox(.074 * k, .03 * k, .014 * k, .006 * k), 'pad', [0, .026, .022]);
+  put(rbox(.05 * k, .04 * k, .01 * k, .004 * k), 'pad', [0, -.012, .021]);
+  for (let i = 0; i < 4; i++) {
+    const x = (-.03 + i * .02) * sg * -1, r = i === 0 || i === 3 ? .0085 : .0095, l = i === 3 ? .8 : i === 1 ? 1.08 : 1;
+    const p0 = [x, .038, 0], p1 = [x, .038 + .03 * l, -.004], p2 = [x, .04 + .03 * l, -.03 * l], p3 = [x, .036 + .012 * l, -.042 * l];
+    put(new T.SphereGeometry(r * 1.05 * k, 8, 6), 'glove', p0); seg(p0, p1, r); seg(p1, p2, r * .95); seg(p2, p3, r * .88);
+    put(rbox(.017 * k, .012 * k, .008 * k, .003 * k), 'pad', [x, .052 + .004 * l, .008]);
+  }
+  const tx = -.043 * sg; seg([tx * .8, -.025, -.012], [tx, .012, -.03], .0115); seg([tx, .012, -.03], [tx * .7, .036, -.045], .0102);
+  put(new T.CylinderGeometry(.041 * k, .043 * k, .05 * k, 14), 'cuff', [0, -.06, 0]); put(new T.CylinderGeometry(.044 * k, .044 * k, .008 * k, 14), 'pad', [0, -.043, 0]);
+  const out = {}; for (const m in G) { out[m] = merge(G[m]); out[m].computeBoundingSphere(); for (const g of G[m]) g.dispose(); }
+  return (HANDC[key] = out);
+}
+function mkHand(k, left, watch) {
+  const h = new T.Group(), H = handGeo(k, left); h.add(new T.Mesh(H.glove, fpMats.glove), new T.Mesh(H.pad, fpMats.pad), new T.Mesh(H.cuff, fpMats.cuff));
+  if (watch) { const w = new T.Mesh(rbox(.036 * k, .04 * k, .014 * k, .005 * k), fpMats.watch); w.position.set(0, -.085 * k, .046 * k); const f = new T.Mesh(new T.PlaneGeometry(.026 * k, .028 * k), fpMats.face); f.position.set(0, -.085 * k, .0535 * k); h.add(w, f); }
+  return h;
+}
+function setFpTeam(t) { fpMats.sleeve.map = CAMO[t]; fpMats.sleeve.needsUpdate = true; fpMats.glove.color.setHex(LOOK[t].glove); fpMats.tag.color.setHex(TEAMC[t]); fpMats.tag.emissive.setHex(TEAMC[t]); fpMats.sleeve.color.setHex(t ? 0xb0a898 : 0x8f969e); }
 function fpArms(gun, pos, s) {
   const info = gun.userData.info; if (info.cls === 'nade' && false) return;
   const add = (geo, mat) => { const m = new T.Mesh(geo, mat); gun.add(m); return m; };
   const toGun = (v) => new T.Vector3((v[0] - pos[0]) / s, (v[1] - pos[1]) / s, (v[2] - pos[2]) / s);
   const k = 1 / s, a = .3 * k, b = .28 * k;
-  const mkArm = () => ({ up: add(cylY(.058 * k, .052 * k, 1, 14), fpMats.sleeve), elbow: add(sphG(.053 * k, 12, 10), fpMats.sleeve), fore: add(cylY(.05 * k, .044 * k, 1, 14), fpMats.sleeve), hand: add(rbox(.08 * k, .1 * k, .055 * k, .02 * k), fpMats.glove) });
-  const R = mkArm(); const gp = toLocal(info.grip);
+  const mkArm = () => ({ up: add(cylY(.058 * k, .052 * k, 1, 14), fpMats.sleeve), elbow: add(sphG(.053 * k, 12, 10), fpMats.sleeve), fore: add(cylY(.05 * k, .044 * k, 1, 14), fpMats.sleeve), hand: null });
+  const handOf = (arm, left, palm, watch, fdir) => { arm.hand = mkHand(k, left, watch); gun.add(arm.hand); arm.palm = new T.Vector3(...palm).normalize(); arm.wrist = .062 * k; arm.fdir = new T.Vector3(...fdir);
+    const band = new T.Mesh(cylY(.0505 * k, .0495 * k, .045, 14), fpMats.tag); arm.fore.add(band); band.position.y = -.05; arm.band = band; };
+  const R = mkArm(); handOf(R, false, [-1, .1, 0], false, [0, -.45, -1]); const gp = toLocal(info.grip).add(new T.Vector3(.042 * k, -.005 * k, .03 * k));
   const pist = info.cls === 'pistol', shR = pist ? [.24, -.56, .1] : [.26, -.42, .12], shL = pist ? [-.22, -.58, .08] : [-.24, -.44, .1];
   solveArm(R, toGun(shR), gp, a, b, toGun([.5, -.4, -.1]));
   if (info.cls === 'rifle' || info.cls === 'pistol') {
-    const L = mkArm(); const fp = info.cls === 'rifle' ? toLocal(info.fore) : gp.clone().add(new T.Vector3(-.035, -.012, .02));
+    const L = mkArm(); const rif = info.cls === 'rifle'; handOf(L, true, rif ? [-.2, 1, 0] : [.8, .5, 0], true, rif ? [1, .15, -.35] : [.4, -.35, -.8]); const fp = info.cls === 'rifle' ? toLocal(info.fore) : gp.clone().add(new T.Vector3(-.035, -.012, .02));
+    if (rif) fp.add(new T.Vector3(-.03 * k, -.028 * k, 0));
     solveArm(L, toGun(shL), fp, a, b, toGun([-.55, -.45, -.1]));
   }
 }
