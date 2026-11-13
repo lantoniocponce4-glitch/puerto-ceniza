@@ -29,16 +29,29 @@ jobs:
         run: npm install
       - name: Generar proyecto Android
         working-directory: mobile
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
         run: |
           npx cap add android
-          node scripts/patch-android.js
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/app/release.p12; fi
           npx cap sync android
-      - name: Compilar APK
+          node scripts/patch-android.js
+      - name: Compilar APK firmado
         working-directory: mobile/android
+        env:
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          cp app/build/outputs/apk/debug/app-debug.apk ../../puerto-ceniza.apk
+          if [ -f app/release.p12 ] && [ -n "$ANDROID_KEYSTORE_PASS" ]; then
+            ./gradlew assembleRelease --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk ../../puerto-ceniza.apk
+          else
+            ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk ../../puerto-ceniza.apk
+          fi
+          rm -f app/release.p12
       - name: Guardar como artefacto
         uses: actions/upload-artifact@v4
         with:
@@ -48,9 +61,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk
-          name: Puerto Ceniza para Android
+          name: Puerto Ceniza para Android · versión ${{ github.run_number }}
           body: |
             APK de Puerto Ceniza para Android. Descarga `puerto-ceniza.apk` en el teléfono, ábrelo y permite instalar apps de esta fuente.
             Necesita internet: la app abre el juego en línea a pantalla completa y en horizontal.
+            Versión ${{ github.run_number }}. Desde esta versión el APK se firma siempre con la misma clave: las próximas se instalan encima, sin desinstalar.
           files: puerto-ceniza.apk
           make_latest: true

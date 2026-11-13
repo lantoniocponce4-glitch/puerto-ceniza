@@ -46,4 +46,28 @@ for (const d of fs.readdirSync(res)) {
     const p = path.join(res, d, f); if (fs.existsSync(p)) fs.writeFileSync(p, icon);
   }
 }
-console.log('Proyecto Android ajustado');
+// 4) Versión y firma fija: cada compilación sube la versión y se firma siempre con la misma clave,
+//    para que Android instale el APK nuevo encima del anterior (actualización sin desinstalar)
+const run = parseInt(process.env.GITHUB_RUN_NUMBER || '1', 10);
+const gradle = path.join(__dirname, '..', 'android', 'app', 'build.gradle');
+let g = fs.readFileSync(gradle, 'utf8');
+g = g.replace(/versionCode\s+\d+/, 'versionCode ' + (100 + run)).replace(/versionName\s+"[^"]*"/, 'versionName "1.' + run + '"');
+if (process.env.ANDROID_KEYSTORE_PASS && fs.existsSync(path.join(__dirname, '..', 'android', 'app', 'release.p12')) && !g.includes('signingConfigs {')) {
+  g = g.replace(/android\s*\{/, `android {
+    signingConfigs {
+        release {
+            storeFile file('release.p12')
+            storeType 'pkcs12'
+            storePassword System.getenv('ANDROID_KEYSTORE_PASS')
+            keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: 'puertoceniza'
+            keyPassword System.getenv('ANDROID_KEYSTORE_PASS')
+        }
+    }`);
+  g = g.replace(/buildTypes\s*\{\s*release\s*\{/, "buildTypes {\n        release {\n            signingConfig signingConfigs.release");
+  console.log('Firma de publicación configurada');
+}
+fs.writeFileSync(gradle, g);
+// 5) La app le avisa al juego qué versión del APK es (para ofrecer actualizaciones)
+const capCfg = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'assets', 'capacitor.config.json');
+if (fs.existsSync(capCfg)) { const c = JSON.parse(fs.readFileSync(capCfg, 'utf8')); if (c.server && c.server.url) { c.server.url = c.server.url.replace(/([?&])apk=\d+/, '$1').replace(/[?&]$/, '') + (c.server.url.includes('?') ? '&' : '?') + 'apk=' + (100 + run); fs.writeFileSync(capCfg, JSON.stringify(c, null, 2)); } }
+console.log('Proyecto Android ajustado · versión 1.' + run);

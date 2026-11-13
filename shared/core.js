@@ -297,7 +297,8 @@
   };
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
   const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve' };
-  function pickCond(mapId) { const r = Math.random(); if (r < .4) return { night: false, weather: null }; if (r < .7) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
+  // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
+  function pickCond(mapId) { const r = Math.random(); if (r < .3) return { night: false, weather: null }; if (r < .55) return { night: false, weather: null, dusk: true }; if (r < .77) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
 
   /* ================= MUNDO (colisiones, rayos, navegación) ================= */
   function rayBox(o, d, b, maxT) {

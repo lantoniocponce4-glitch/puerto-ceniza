@@ -24,7 +24,8 @@ const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
 /* ---------- Preferencias ---------- */
 let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb', gfx: isTouch ? 'low' : 'high' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
-if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = isTouch ? 'low' : 'high';
+if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high';
+if (isTouch && prefs.gfxV !== 2) { if (prefs.gfx === 'low') prefs.gfx = 'high'; prefs.gfxV = 2; try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } }
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
 if (prof.camo && !(PC.CAMOS.find(c => c.id === prof.camo && c.lvl <= prof.lvl && !c.top && !c.pass))) prof.camo = null;
@@ -82,7 +83,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 48, 24), new THREE.Shad
 sky.renderOrder = -1; scene.add(sky);
 const hemi = new THREE.HemisphereLight(0xbfd8f5, 0x9c8160, .75); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.0); sun.castShadow = true;
-const SM = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' ? 2048 : 1024; sun.shadow.mapSize.set(SM, SM); sun.shadow.bias = -.0006; sun.shadow.normalBias = .03;
+const SM = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' && !isTouch ? 2048 : 1024; sun.shadow.mapSize.set(SM, SM); sun.shadow.bias = -.0006; sun.shadow.normalBias = .03;
 scene.add(sun); scene.add(sun.target);
 const THEMES = {
   desert: { top: [.30, .52, .80], hor: [.88, .82, .72], fog: 0xd8cbb0, fogD: .0058, sun: [.42, .62, .32], sunC: 0xffe8c8, sunI: 1.55, hs: 0xb4cce6, hg: 0x8a704f, hi: .55 },
@@ -286,6 +287,7 @@ function buildWorld(mapId) {
   scene.fog.color.setHex(T.fog); scene.fog.density = T.fogD; hemi.color.setHex(T.hs); hemi.groundColor.setHex(T.hg); hemi.intensity = T.hi;
   sun.color.setHex(T.sunC); sun.intensity = T.sunI;
   const cx = (M.bounds[0] + M.bounds[2]) / 2, cz = (M.bounds[1] + M.bounds[3]) / 2, hw = (M.bounds[2] - M.bounds[0]) / 2 + 6, hd = (M.bounds[3] - M.bounds[1]) / 2 + 6;
+  G.sunBase = { c: [cx, cz], d: T.sun.slice() };
   sun.position.set(cx + T.sun[0] * 120, T.sun[1] * 120, cz + T.sun[2] * 120); sun.target.position.set(cx, 0, cz);
   const R = Math.hypot(hw, hd); Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: 20, far: 300 }); sun.shadow.camera.updateProjectionMatrix();
   vmSun.color.setHex(T.sunC); vmHemi.color.setHex(T.hs); vmHemi.groundColor.setHex(T.hg);
@@ -1920,6 +1922,21 @@ $('#rankTabs').addEventListener('click', e => { const b = e.target.closest('butt
 $('#rankClose').onclick = () => { $('#rank').hidden = true; };
 $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $('#rank').hidden = true; });
 
+/* ================= ACTUALIZACIÓN DE LA APP ANDROID ================= */
+// La app pasa su versión en la dirección (?app=1&apk=N); si en GitHub hay un APK más nuevo, se ofrece descargarlo
+(async function checkApk() {
+  const q = new URLSearchParams(location.search); if (q.get('app') !== '1') return;
+  const mine = parseInt(q.get('apk') || '0', 10);
+  try {
+    const r = await fetch('https://api.github.com/repos/lantoniocponce4-glitch/puerto-ceniza/releases/tags/apk', { cache: 'no-store' }); if (!r.ok) return;
+    const j = await r.json(); const m = /versi[oó]n\s+(\d+)/i.exec(j.name || ''); if (!m) return; const latest = 100 + parseInt(m[1], 10);
+    if (latest <= mine) return;
+    const url = 'https://github.com/lantoniocponce4-glitch/puerto-ceniza/releases/download/apk/puerto-ceniza.apk';
+    const box = $('#apkUpd'); box.hidden = false;
+    box.innerHTML = `<span>${mine ? 'Hay una versión nueva de la app (1.' + (latest - 100) + '). Se instala encima, sin perder nada.' : 'Hay una app nueva que se actualiza sola en el futuro. Esta vez desinstala la app anterior antes de instalarla.'}</span><a href="${url}" target="_blank" rel="noopener">Descargar</a>`;
+  } catch (e) { }
+})();
+
 /* ================= CLAN ================= */
 const CLAN = { st: null, timer: null };
 async function loadClan() { if (!auth.me || location.protocol === 'file:') { CLAN.st = null; drawClan(); return; } const r = await apiCall('/api/clan'); if (r && !r.error) { CLAN.st = r.clan; drawClan(); } }
@@ -2130,7 +2147,7 @@ $('#rgApply').onclick = () => { prefs.sens = Math.round(clamp(prefs.sens * RG.su
 let condKey = '', envGroup = null, flashOn = true, weatherFx = null, weatherNode = null;
 const flashlight = new THREE.SpotLight(0xffeedd, 0, 42, .5, .8, 2); flashlight.position.set(.15, -.08, 0); flashlight.target.position.set(0, -.05, -1); camera.add(flashlight); camera.add(flashlight.target);
 const glowWarm = texSpot('rgba(255,196,120,1)', .25);
-function condLabel(c) { if (!c) return ''; if (c.night) return ' · de noche'; return { lluvia: ' · con lluvia', arena: ' · tormenta de arena', niebla: ' · con niebla', nieve: ' · nevando' }[c.weather] || ''; }
+function condLabel(c) { if (!c) return ''; if (c.night) return ' · de noche'; if (c.dusk) return ' · al atardecer'; return { lluvia: ' · con lluvia', arena: ' · tormenta de arena', niebla: ' · con niebla', nieve: ' · nevando' }[c.weather] || ''; }
 function stopWeatherSound() { if (!weatherNode) return; try { weatherNode.src.stop(); if (weatherNode.lfo) weatherNode.lfo.stop(); } catch (e) { } try { weatherNode.g.disconnect(); } catch (e) { } weatherNode = null; }
 function weatherSound(kind) {
   stopWeatherSound(); if (!AC) return; let lfo = null; const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const f = AC.createBiquadFilter(); const g = AC.createGain();
@@ -2182,6 +2199,9 @@ function applyCond(cond) {
   skyU.top.value.set(...T.top); skyU.hor.value.set(...T.hor); scene.fog.color.setHex(T.fog); scene.fog.density = T.fogD; hemi.color.setHex(T.hs); hemi.groundColor.setHex(T.hg); hemi.intensity = T.hi; sun.color.setHex(T.sunC); sun.intensity = T.sunI;
   if (envGroup) { scene.remove(envGroup); envGroup.traverse(o => { if (o.geometry && !o.isSprite) o.geometry.dispose(); if (o.material) o.material.dispose(); }); } envGroup = new THREE.Group(); scene.add(envGroup); weatherFx = null; stopWeatherSound();
   let th = .93;
+  // posición del sol (el atardecer lo baja hacia el horizonte)
+  if (G.sunBase) { const b = G.sunBase, d = c.dusk ? [b.d[0], .11, b.d[2]] : b.d; skyU.sunDir.value.set(...d).normalize(); const v = skyU.sunDir.value; sun.position.set(b.c[0] + v.x * 120, v.y * 120 + (c.dusk ? 8 : 0), b.c[1] + v.z * 120); sun.target.position.set(b.c[0], 0, b.c[1]); }
+  if (c.dusk) { skyU.top.value.set(.24, .27, .46); skyU.hor.value.set(1.02, .6, .36); scene.fog.color.setHex(0xc4865e); scene.fog.density = .0085; sun.color.setHex(0xffa860); sun.intensity = 1.75; hemi.color.setHex(0xffb98a); hemi.groundColor.setHex(0x4a3428); hemi.intensity = .55; th = .8; }
   if (c.night) { skyU.top.value.set(.015, .025, .07); skyU.hor.value.set(.06, .075, .13); scene.fog.color.setHex(0x0b1120); scene.fog.density = .017; hemi.color.setHex(0x3a4a70); hemi.groundColor.setHex(0x0e0f14); hemi.intensity = .34; sun.color.setHex(0x9db4ff); sun.intensity = .3; th = .82; addNightLamps(); }
   if (c.weather === 'lluvia') { skyU.top.value.set(.22, .25, .3); skyU.hor.value.set(.42, .45, .5); scene.fog.color.setHex(0x5a626c); scene.fog.density = .02; sun.intensity *= .45; hemi.intensity *= .85; weatherFx = makeRain(); weatherSound('lluvia'); }
   if (c.weather === 'arena') { skyU.top.value.set(.55, .42, .28); skyU.hor.value.set(.78, .6, .4); scene.fog.color.setHex(0xa8824f); scene.fog.density = .03; sun.intensity *= .55; weatherFx = makeSand(); weatherSound('arena'); }
@@ -2189,7 +2209,7 @@ function applyCond(cond) {
   if (c.weather === 'niebla') { skyU.top.value.set(.6, .66, .72); skyU.hor.value.set(.8, .83, .86); scene.fog.color.setHex(0xc5ccd3); scene.fog.density = .034; sun.intensity *= .6; }
   vmSun.intensity = c.night ? .3 : 1.1; vmHemi.intensity = c.night ? .45 : .8;
   if (post.bloom) post.bloom.threshold = th; G.night = !!c.night;
-  skyU.night.value = c.night ? 1 : 0; skyU.cloud.value = { lluvia: .82, niebla: .66, nieve: .76, arena: .5 }[c.weather] || .33;
+  skyU.night.value = c.night ? 1 : 0; skyU.cloud.value = c.dusk ? .55 : { lluvia: .82, niebla: .66, nieve: .76, arena: .5 }[c.weather] || .33;
   setEnv(!c.night && !c.weather); if (prefs.gfx !== 'low') hemi.intensity *= .55;
   const wet = c.weather === 'lluvia'; if (G.groundMat) { G.groundMat.roughness = wet ? .2 : G.groundBase.r; G.groundMat.metalness = wet ? .3 : G.groundBase.m; G.groundMat.envMapIntensity = wet ? 1.8 : .4; }
 }
@@ -2214,7 +2234,7 @@ function setupPost() {
   if (prefs.gfx === 'low' || !THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass || !THREE.UnrealBloomPass) return;
   try {
     let rt = null; const pr = renderer.getPixelRatio();
-    if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(Math.max(1, Math.floor(innerWidth * pr)), Math.max(1, Math.floor(innerHeight * pr)), { format: THREE.RGBAFormat }); rt.samples = 4; }
+    if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(Math.max(1, Math.floor(innerWidth * pr)), Math.max(1, Math.floor(innerHeight * pr)), { format: THREE.RGBAFormat }); rt.samples = isTouch ? 2 : 4; }
     const c = new THREE.EffectComposer(renderer, rt || undefined); post.fxaa = null;
     // Ultra: la pasada de oclusión ambiental dibuja la escena ella misma (reemplaza a la pasada normal)
     post.ao = null;
@@ -2233,7 +2253,7 @@ function resizePost() {
 }
 function applyGfx() {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, prefs.gfx !== 'low' ? (isTouch ? 1.5 : 2) : 1));
-  const sm = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' ? 2048 : 1024; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  const sm = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' && !isTouch ? 2048 : 1024; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   resize(); setupPost(); applyNormals(prefs.gfx !== 'low'); scene.environment = prefs.gfx === 'low' ? null : envTex; vmScene.environment = scene.environment;
 }
 

@@ -340,6 +340,7 @@ tr.dead td{opacity:.5}
 .rulesBox{flex-basis:100%;border:1px solid var(--line);border-radius:3px;padding:6px 10px}.rulesBox summary{cursor:pointer;font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;min-height:28px;display:flex;align-items:center;gap:8px}
 .rulesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px;margin:8px 0}.rulesGrid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
 .rulesGrid select{background:rgba(20,25,30,.9);color:var(--sand);border:1px solid var(--line);border-radius:3px;padding:7px 8px;font-size:14px;min-height:36px}.rulesGrid select:focus-visible{outline:2px solid var(--amber)}
+.apkUpd{border:1px solid var(--amber);background:rgba(242,179,61,.08);border-radius:3px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}.apkUpd a{color:#1a1206;background:var(--amber);font-family:var(--f-display);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;border-radius:2px;text-decoration:none;min-height:36px;display:inline-flex;align-items:center}
 .sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .sqhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:13px;color:var(--dim)}.sqhead code{font-family:var(--f-mono);font-size:18px;color:var(--amber);letter-spacing:.18em}
 .sqmem{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:6px}
@@ -528,6 +529,7 @@ tr.dead td{opacity:.5}
         <div class="join"><input id="code" type="text" maxlength="4" placeholder="CÓDIGO" aria-label="Código de sala" autocomplete="off"><button id="joinBtn" type="button">Unirse</button></div>
       </div>
       <div id="err" role="status"></div>
+      <div id="apkUpd" class="apkUpd" hidden></div>
       <div class="sec" id="clanBox" hidden>
         <div class="roomsHead"><span class="lbl">Clan</span><span class="small" id="clanInfo"></span></div>
         <div id="clanOut">
@@ -656,9 +658,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=37"></script>
-<script src="/models.js?v=37"></script>
-<script src="/client.js?v=37"></script>
+<script src="/core.js?v=39"></script>
+<script src="/models.js?v=39"></script>
+<script src="/client.js?v=39"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>
