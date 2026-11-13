@@ -24,7 +24,7 @@ const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
 /* ---------- Preferencias ---------- */
 let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb', gfx: isTouch ? 'low' : 'high' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
-if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high';
+if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroInv: false, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high';
 if (isTouch && prefs.gfxV !== 2) { if (prefs.gfx === 'low') prefs.gfx = 'high'; prefs.gfxV = 2; try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } }
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
@@ -941,6 +941,7 @@ function handleEvent(e) {
     case 'brk': applyBreak(e.id, true); break;
     case 'brkreset': restoreBreaks(); for (const id of e.keep || []) applyBreak(id, false); break;
     case 'order': if (e.tm === me.team) { addChat(`<span class="rd">Orden</span><b class="t${e.tm}">${esc(nameOf(e.v))}</b> → bots: ${esc(PC.ORDERS[e.c] || '')}`); uiSound(() => sTone(740, .06, .1, 'square')); } break;
+    case 'medal': if (e.v === me.id) { const md = PC.MEDALS.find(x => x.id === e.m); if (md) { setTimeout(() => announce('Medalla · ' + md.name, md.desc + ' · +' + md.xp + ' XP', 2.2, md.c), 250); sTone(988, .1, .12, 'triangle'); sTone(1318, .18, .12, 'triangle', 0, .1); if (!auth.me) { const m = prof.medals || (prof.medals = {}); m[md.id] = (m[md.id] || 0) + 1; saveProf(); } } } break;
     case 'streak': {
       const S = { radar: ['Pulso de radar', 'Enemigos en el radar por 5 segundos'], kit: ['Blindaje y munición', 'Blindaje completo, casco y cargadores llenos'], dron: ['Dron de reconocimiento', 'Enemigos marcados a través de paredes por 12 segundos'] }[e.r] || ['Racha', ''];
       if (e.tm === me.team) {
@@ -1087,7 +1088,7 @@ TL.addEventListener('pointerdown', e => {
 }, { passive: false });
 TL.addEventListener('pointermove', e => {
   if (e.pointerId === joy.id) { let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const L = Math.hypot(dx, dy), R = 56; if (L > R) { dx = dx / L * R; dy = dy / L * R; } joy.vx = dx / R; joy.vy = dy / R; joy.mag = Math.min(1, L / R); knob.style.transform = `translate(${dx}px,${dy}px)`; }
-  else if (lookPtr.has(e.pointerId)) { const p = lookPtr.get(e.pointerId); look.dx += (e.clientX - p[0]) * .005; look.dy += (e.clientY - p[1]) * .005; p[0] = e.clientX; p[1] = e.clientY; }
+  else if (lookPtr.has(e.pointerId)) { const p = lookPtr.get(e.pointerId); const k = .005 * (prefs.mc.sensT / (prefs.sens || 1)); look.dx += (e.clientX - p[0]) * k; look.dy += (e.clientY - p[1]) * k; p[0] = e.clientX; p[1] = e.clientY; }
 });
 function endPtr(e) { if (e.pointerId === joy.id) { joy.id = null; joy.vx = joy.vy = joy.mag = 0; knob.style.transform = ''; joyEl.style.opacity = 0; } lookPtr.delete(e.pointerId); if (firePtrs.has(e.pointerId)) { firePtrs.delete(e.pointerId); if (!firePtrs.size) { me.fireHeld = false; $('#bFire').classList.remove('on'); $('#bFireL').classList.remove('on'); } } }
 TL.addEventListener('pointerup', endPtr); TL.addEventListener('pointercancel', endPtr);
@@ -1131,6 +1132,11 @@ function resetAim() { me.scoped = false; me.altScope = false; me.rescopeT = 0; m
 function canAct() { return me.alive && G.phase !== 'buy' && $('#buy').hidden && !chatOpen; }
 function updateLocal(dt) {
   if (!me.alive) { me.deadT += dt; return; }
+  // disparo automático (celular): dispara solo cuando la mira está sobre un enemigo visible
+  if (isTouch && prefs.mc.autoFire && !firePtrs.size && G.state === 'playing') {
+    const w0 = WEAPONS[me.cur]; const on = !!(w0 && !w0.melee && !NADES[me.cur] && G.phase !== 'buy' && aimedEnemy());
+    me.afT = on ? (me.afT || 0) + dt : 0; const go = me.afT > .12; me.fireHeld = go && (w0.auto || w0.burst ? true : !me.fireHeld); me.autoFiring = go;
+  } else if (me.autoFiring) { me.autoFiring = false; if (!firePtrs.size) me.fireHeld = false; }
   const frozen = G.phase === 'buy' || !$('#pause').hidden || !$('#end').hidden || !$('#rangeEnd').hidden;
   // mirar
   const s = prefs.sens * (camera.fov / 74);
@@ -1485,7 +1491,16 @@ function teamTable(tm) {
     list.map(a => `<tr class="${a.id === me.id ? 'me' : ''}${a.alive ? '' : ' dead'}"><td>${a.clanTag ? `<span class="ctag">[${esc(a.clanTag)}]</span> ` : ''}${esc(a.name)}${a.human ? '' : '<span class="hum">BOT</span>'}${a.flags & 4 ? ' <span class="bombTag">CARGA</span>' : ''}</td>${gg ? `<td>${a.lvl + 1} · ${SHORT[PC.LADDER[a.lvl]] || ''}</td>` : mine ? `<td>${a.money}</td>` : ''}<td>${a.k}</td><td>${a.as}</td><td>${a.d}</td><td>${a.score}</td></tr>`).join('') + '</table>';
 }
 function showBoard(on) { if (G.state !== 'playing') return; if (on) { $('#boardT').innerHTML = teamTable(me.team) + teamTable(1 - me.team); $('#board').hidden = false; } else $('#board').hidden = true; }
+function drawEndMore(e) {
+  const mv = $('#endMvp'), mi = $('#endMine'); mv.innerHTML = mi.innerHTML = ''; if (!e.st) { mv.parentElement.hidden = true; return; } mv.parentElement.hidden = false;
+  const row = id => e.st.find(r => r[0] === id); const a = actors[e.mvp], r = row(e.mvp);
+  if (a && r) { const cd = PC.CARDS.find(c => c.id === a.card), tl = PC.TITLES.find(t => t.id === a.title); mv.style.cssText = cd ? cardCss(cd) : ''; mv.innerHTML = `<span class="lbl small">MVP DE LA PARTIDA${e.mvp === me.id ? ' · ¡ERES TÚ!' : ''}</span><b>${a.clanTag ? '[' + esc(a.clanTag) + '] ' : ''}${esc(a.name)}</b><span>${tl ? esc(tl.name) + ' · ' : ''}${r[2]} bajas · ${r[1]} de daño · ${r[4]} a la cabeza</span>`; }
+  const m = row(me.id); if (!m) return; const acc = m[5] ? Math.round(m[6] / m[5] * 100) : 0, hp = m[2] ? Math.round(m[4] / m[2] * 100) : 0;
+  const wk = (e.wk && e.wk[me.id]) || {}; const ws = Object.entries(wk).filter(([w, v]) => WEAPONS[w] && (v[0] || v[2])).sort((x, y) => y[1][2] - x[1][2] || y[1][0] - x[1][0]).slice(0, 4);
+  mi.innerHTML = `<div class="lbl small">Tu partida · ${m[1]} de daño · ${acc}% de precisión · ${hp}% a la cabeza</div>` + (ws.length ? `<table><tr><th>Arma</th><th>Disparos</th><th>Precisión</th><th>Bajas</th></tr>${ws.map(([w, v]) => `<tr><td>${esc(WEAPONS[w].name)}</td><td>${v[0]}</td><td>${v[0] ? Math.round(v[1] / v[0] * 100) : 0}%</td><td>${v[2]}</td></tr>`).join('')}</table>` : '');
+}
 function showEnd(e) {
+  drawEndMore(e);
   G.nextMap = e.next || null; G.votes = {}; G.myVote = null; drawVotes();
   if (e.waves) {
     const best = (prefs.wavesBest || {})[CURMAP] || 0, rec = e.wave > best; if (rec) { prefs.wavesBest = Object.assign({}, prefs.wavesBest, { [CURMAP]: e.wave }); savePrefs(); }
@@ -1674,6 +1689,7 @@ function drawProfile() {
   const camos = [{ id: null, name: 'Sin camuflaje', lvl: 1 }].concat(PC.CAMOS);
   $('#profBox').innerHTML = `<div class="prof"><div class="lvl"><b>${prof.lvl}</b><span>nivel</span></div><div class="xpw"><div class="small">${prof.xp} / ${need} de experiencia</div><div class="xpbar"><s style="width:${Math.min(100, prof.xp / need * 100)}%"></s></div></div></div>
   <div class="invHead"><span class="lbl small">Camuflaje general (todas las armas)</span><span class="sqrow" style="margin:0"><button type="button" class="go ghost sm" id="passOpen">Pase de temporada</button><button type="button" class="go ghost sm" id="invOpen">Inventario de skins</button></span></div><div class="camos">${camos.map(c => { const lock = c.id ? camoLocked(c) : false; const sel = (prof.camo || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${sel}" ${lock ? 'aria-disabled="true"' : ''} title="${c.name}${lock ? ' · ' + camoLockTxt(c) : ''}"><span class="sw" style="${c.id ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span class="cn">${lock ? 'Nv ' + c.lvl : c.name}</span></button>`; }).join('')}</div>
+  <div class="lbl small">Medallas · ${Object.keys(prof.medals || {}).length} de ${PC.MEDALS.length}</div><div class="medals">${PC.MEDALS.map(m => { const n = (prof.medals || {})[m.id] || 0; const ini = m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); return `<div class="medal${n ? '' : ' off'}" title="${esc(m.name + ': ' + m.desc)}"><i style="background:${m.c}">${ini}</i><b>${esc(m.name)}</b>${n ? `<small>×${n}</small>` : `<span>${esc(m.desc)}</span>`}</div>`; }).join('')}</div>
   <div class="lbl small">Desafíos de hoy</div><div class="daily">${prof.ch.map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${chText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>`;
 }
 $('#profBox').addEventListener('click', async e => {
@@ -1945,6 +1961,36 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
   if (!ios || standalone || seen) return; $('#iosInst').hidden = false;
   $('#iosInstX').onclick = () => { $('#iosInst').hidden = true; try { localStorage.setItem('pc2_iosx', '1'); } catch (e) { } };
 })();
+
+/* ================= CONTROLES MÓVILES AVANZADOS ================= */
+// Giroscopio: girar el teléfono apunta (en horizontal); se calcula según hacia qué lado está girado
+let gyroOk = false;
+addEventListener('devicemotion', e => {
+  const m = prefs.mc; if (m.gyro === 'off' || !gyroOk || G.state !== 'playing' || !me.alive || !$('#pause').hidden || HE.on) return;
+  if (m.gyro === 'ads' && !((me.adsK || 0) > .5 || me.scoped)) return;
+  const rr = e.rotationRate; if (!rr) return; const dt = Math.min(.05, (e.interval > 1 ? e.interval / 1000 : e.interval) || .016);
+  const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 90); const sg = ang === 270 || ang === -90 ? -1 : 1;
+  const D = Math.PI / 180 * dt * m.gyroS * .9; me.yaw += (rr.beta || 0) * D * sg; me.pitch = clamp(me.pitch - (rr.gamma || 0) * D * sg * (m.gyroInv ? -1 : 1), -1.5, 1.5);
+});
+async function enableGyro() {
+  try { if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') { const r = await DeviceMotionEvent.requestPermission(); gyroOk = r === 'granted'; if (!gyroOk) toast('Sin permiso de movimiento: el giroscopio no se puede usar'); } else gyroOk = !!window.DeviceMotionEvent; } catch (e) { gyroOk = false; toast('Este navegador no permite usar el giroscopio'); }
+}
+if (prefs.mc.gyro !== 'off' && !(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function')) gyroOk = true;
+function drawMctl() {
+  if (!isTouch) return; const m = prefs.mc;
+  for (const box of document.querySelectorAll('.mctl')) {
+    box.hidden = false;
+    box.innerHTML = `<div class="lbl small">Controles táctiles</div><div class="mrow">
+      <label>Sensibilidad táctil <b>${m.sensT.toFixed(2)}</b><input type="range" data-mc="sensT" min="0.3" max="2.5" step="0.05" value="${m.sensT}"></label>
+      <label>Giroscopio<select data-mc="gyro" class="mcsel"><option value="off"${m.gyro === 'off' ? ' selected' : ''}>Apagado</option><option value="ads"${m.gyro === 'ads' ? ' selected' : ''}>Solo al apuntar</option><option value="always"${m.gyro === 'always' ? ' selected' : ''}>Siempre</option></select></label>
+      <label>Sensibilidad del giroscopio <b>${m.gyroS.toFixed(2)}</b><input type="range" data-mc="gyroS" min="0.3" max="3" step="0.05" value="${m.gyroS}"></label>
+      <label class="chk"><input type="checkbox" data-mc="gyroInv"${m.gyroInv ? ' checked' : ''}> Invertir giroscopio vertical</label>
+      <label class="chk"><input type="checkbox" data-mc="autoFire"${m.autoFire ? ' checked' : ''}> Disparo automático al apuntar a un enemigo</label></div>`;
+  }
+}
+document.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type !== 'range') return; prefs.mc[k] = +e.target.value; savePrefs(); const b = e.target.parentElement.querySelector('b'); if (b) b.textContent = prefs.mc[k].toFixed(2); });
+document.addEventListener('change', async e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type === 'range') return; prefs.mc[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; savePrefs(); if (k === 'gyro' && prefs.mc.gyro !== 'off') await enableGyro(); drawMctl(); });
+drawMctl();
 
 /* ================= EDITOR DEL HUD (celular y PC) ================= */
 // Disposición táctil por defecto (centro en % de la pantalla): nada se superpone

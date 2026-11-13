@@ -340,7 +340,7 @@ tr.dead td{opacity:.5}
 #clanErr:empty{display:none}#clanErr{color:var(--bad)}
 .rulesBox{flex-basis:100%;border:1px solid var(--line);border-radius:3px;padding:6px 10px}.rulesBox summary{cursor:pointer;font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;min-height:28px;display:flex;align-items:center;gap:8px}
 .rulesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px;margin:8px 0}.rulesGrid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
-.rulesGrid select{background:rgba(20,25,30,.9);color:var(--sand);border:1px solid var(--line);border-radius:3px;padding:7px 8px;font-size:14px;min-height:36px}.rulesGrid select:focus-visible{outline:2px solid var(--amber)}
+.mcsel,.rulesGrid select{background:rgba(20,25,30,.9);color:var(--sand);border:1px solid var(--line);border-radius:3px;padding:7px 8px;font-size:14px;min-height:36px}.rulesGrid select:focus-visible{outline:2px solid var(--amber)}
 .apkUpd{border:1px solid var(--amber);background:rgba(242,179,61,.08);border-radius:3px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}.apkUpd a{color:#1a1206;background:var(--amber);font-family:var(--f-display);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;border-radius:2px;text-decoration:none;min-height:36px;display:inline-flex;align-items:center}
 #hudBar{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:98;width:min(760px,96vw);background:var(--panel2);border:1px solid var(--amber);border-radius:4px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box;font-size:12px;color:var(--sand)}
 #hudBar[hidden]{display:none}#hudBar.low{top:auto;bottom:calc(6px + env(safe-area-inset-bottom,0px))}.hbT{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.hbT b{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.08em;font-size:14px}.hbT span{color:var(--dim)}
@@ -351,6 +351,11 @@ tr.dead td{opacity:.5}
 #app.hudedit .tb[hidden]{display:flex!important;opacity:.5}
 #rotate{display:none;position:fixed;inset:0;z-index:99;background:#0d1013;color:var(--sand);align-items:center;justify-content:center;text-align:center;font-family:var(--f-display)}#rotate b{display:block;font-size:26px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}#rotate span{font-family:var(--f-body);font-size:14px;color:var(--dim)}
 @media (orientation:portrait) and (pointer:coarse){#app.playing ~ #rotate{display:flex}}
+.mctl .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 14px;margin-top:6px}.mctl label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}.mctl input[type=range]{accent-color:var(--amber);min-height:28px}.mctl .chk{flex-direction:row;align-items:center;gap:8px;color:var(--sand);font-size:13px;min-height:36px}.mctl .chk input{width:20px;height:20px;accent-color:var(--amber)}
+.endMore{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px}@media (max-width:640px){.endMore{grid-template-columns:1fr}}
+.endMvp{border-radius:3px;border:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:3px;min-height:74px;justify-content:center;background:linear-gradient(110deg,#2a2f35,#14171b)}.endMvp .lbl{color:#fff;opacity:.85}.endMvp b{font-family:var(--f-display);font-size:22px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}.endMvp span{font-size:12px;color:#fff;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.endMine{border:1px solid var(--line);border-radius:3px;padding:8px 12px;font-size:12px;color:var(--dim)}.endMine table{width:100%;border-collapse:collapse}.endMine td,.endMine th{padding:2px 4px;text-align:right}.endMine td:first-child,.endMine th:first-child{text-align:left;color:var(--sand)}.endMine th{font-weight:600;color:var(--dim);font-size:11px}
+.medals{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}.medal{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;font-size:10px;color:var(--dim)}.medal i{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-family:var(--f-display);font-weight:800;font-size:14px;color:#14171b;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25)}.medal.off i{background:#2a2e33!important;color:#5b6168;box-shadow:none}.medal b{color:var(--sand);font-size:11px}.medal small{font-family:var(--f-mono);color:var(--amber)}
 .sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .sqhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:13px;color:var(--dim)}.sqhead code{font-family:var(--f-mono);font-size:18px;color:var(--amber);letter-spacing:.18em}
 .sqmem{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:6px}
@@ -515,6 +520,7 @@ tr.dead td{opacity:.5}
           <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
         </div>
         <div class="sec"><div class="lbl">Controles y HUD</div><button class="go ghost sm" id="hudEdit1" type="button">Configurar HUD</button></div>
+        <div class="sec mctl" data-mctl="1" hidden></div>
         <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
         <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
@@ -591,6 +597,7 @@ tr.dead td{opacity:.5}
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
+      <div class="sec mctl" data-mctl="2" hidden></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       <div class="btns"><button class="go ghost" id="hudEdit2" type="button">Configurar HUD</button><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
     </div>
@@ -611,6 +618,7 @@ tr.dead td{opacity:.5}
       <div class="eyebrow" id="endEye">FIN DE LA PARTIDA</div>
       <h2 id="endTitle">Victoria</h2>
       <div class="stats" id="endStats"></div>
+      <div class="endMore"><div id="endMvp" class="endMvp"></div><div id="endMine" class="endMine"></div></div>
       <div id="voteBox" class="sec"></div>
       <div class="tblw" id="endT"></div>
       <div class="btns"><span class="small mono" id="endCount"></span><a class="go ghost" id="hlSave" hidden download="jugada-puerto-ceniza.webm">Descargar tu jugada (video)</a><button class="go ghost" id="toMenu" type="button">Salir de la sala</button></div>
@@ -678,9 +686,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=45"></script>
-<script src="/models.js?v=45"></script>
-<script src="/client.js?v=45"></script>
+<script src="/core.js?v=46"></script>
+<script src="/models.js?v=46"></script>
+<script src="/client.js?v=46"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>

@@ -104,7 +104,7 @@ function createRoom(isPublic, diff, map, mode, rules) {
         for (const e of msg.ev) { if (e.k === 'mend' && !(room.now - (me.joinedAt || 0) > 150 || room.round - (me.joinedRound || 0) >= 2)) continue; gains.push(...PC.xpFromEvent(e, id, me.team, teamOf)); }
         if (!gains.length) continue;
         const r = ACC.award(acct, gains);
-        if (r.msgs.length || r.up || r.done.length || r.pass.length) room.onSend(cid, { t: 'xp', msgs: r.msgs, up: r.up, done: r.done, pass: r.pass, me: ACC.view(acct) });
+        if (r.msgs.length || r.up || r.done.length || r.pass.length || r.medals.length) room.onSend(cid, { t: 'xp', msgs: r.msgs, up: r.up, done: r.done, pass: r.pass, medals: r.medals, me: ACC.view(acct) });
       }
     }
   };

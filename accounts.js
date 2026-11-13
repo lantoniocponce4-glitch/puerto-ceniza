@@ -171,9 +171,10 @@ class Accounts {
     if (c.top) { await this.flush(); const ss = freshSeason(a.stats); if (!(ss.xp > 0)) return false; const pos = await this.store.rankOf(seasonId(), 'xp', ss.xp, a.id); if (!(pos <= c.top)) return false; } a.profile.camo = c.id; a.dirty = true; return true; }
   // Aplica la experiencia de un evento de juego; devuelve lo que hay que avisarle al jugador
   award(a, gains) {
-    const p = freshDaily(a.profile); const ss = freshSeason(a.stats); const msgs = []; let up = false, done = []; const t0 = PC.passTier(ss.xp), xp0 = ss.xp;
+    const p = freshDaily(a.profile); const ss = freshSeason(a.stats); const msgs = []; let up = false, done = []; const t0 = PC.passTier(ss.xp), xp0 = ss.xp; const medals = [];
     for (const g of gains) {
       if (g.stat) { a.stats[g.stat] = (a.stats[g.stat] || 0) + 1; if (ss[g.stat] !== undefined) ss[g.stat]++; }
+      if (g.medal) { const md = p.medals || (p.medals = {}); if (!md[g.medal]) medals.push(g.medal); md[g.medal] = (md[g.medal] || 0) + 1; }
       if (g.n) { p.xp += g.n; ss.xp += g.n; msgs.push('+' + g.n + ' · ' + g.why); }
       for (const id of g.ch) for (const c of p.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += 500; ss.xp += 500; done.push(c.id); } }
     }
@@ -182,7 +183,10 @@ class Accounts {
     if (p.clan) { const add = { xp: ss.xp - xp0 }; for (const g of gains) if (g.stat) add[g.stat] = (add[g.stat] || 0) + 1; this.clanAdd(p.clan, add).catch(e => console.error('clan', e.message)); }
     const pass = []; const t1 = PC.passTier(ss.xp); const own = p.owned || (p.owned = []);
     for (let t = t0 + 1; t <= t1; t++) { const r = PC.PASS.rewards[t - 1]; if (!r) continue; const key = r.k + ':' + r.id; if (!own.includes(key)) own.push(key); pass.push(r); }
-    a.dirty = true; return { msgs, up, done, pass };
+    // medallas de progreso
+    { const md = p.medals || (p.medals = {}); for (const m of PC.MEDALS) if (m.prog && !md[m.id] && (a.stats[m.prog] || 0) >= m.n) { md[m.id] = 1; medals.push(m.id); p.xp += m.xp; ss.xp += m.xp; } }
+    while (p.xp >= PC.needXP(p.lvl)) { p.xp -= PC.needXP(p.lvl); p.lvl++; up = true; }
+    a.dirty = true; return { msgs, up, done, pass, medals };
   }
   /* ---------- Clanes ---------- */
   freshClan(c) {
