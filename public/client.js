@@ -57,6 +57,8 @@ scene.add(sun); scene.add(sun.target);
 const THEMES = {
   desert: { top: [.30, .52, .80], hor: [.88, .82, .72], fog: 0xd8cbb0, fogD: .0058, sun: [.42, .62, .32], sunC: 0xffe8c8, sunI: 1.55, hs: 0xb4cce6, hg: 0x8a704f, hi: .55 },
   rural: { top: [.12, .36, .84], hor: [.68, .8, .95], fog: 0xb6c8de, fogD: .0042, sun: [.32, .86, .38], sunC: 0xfff4e2, sunI: 1.4, hs: 0xbad4f4, hg: 0x6c7448, hi: .55, sat: 1.12 },
+  city: { top: [.30, .40, .56], hor: [.70, .74, .80], fog: 0x8d97a6, fogD: .0075, sun: [.55, .55, -.45], sunC: 0xffe6c4, sunI: 1.3, hs: 0xa8bcd8, hg: 0x4a4e56, hi: .7, sat: 1.0 },
+  snow: { top: [.34, .52, .78], hor: [.86, .9, .95], fog: 0xd8e2ec, fogD: .0065, sun: [-.5, .42, .5], sunC: 0xfff0dc, sunI: 1.25, hs: 0xd4e4f8, hg: 0x8a96a8, hi: .78, sat: .96 },
   port: { top: [.24, .32, .46], hor: [.84, .62, .45], fog: 0xd09a70, fogD: .0095, sun: [-.78, .28, .34], sunC: 0xffc690, sunI: 1.9, hs: 0xb8cce2, hg: 0x7a5c40, hi: .88 }
 };
 
@@ -114,6 +116,33 @@ function texFlash() { const [c, x] = cnv(128, 128); x.translate(64, 64); for (le
 function texSmoke() { const [c, x] = cnv(128, 128); for (let i = 0; i < 9; i++) { const px = rand(34, 94), py = rand(34, 94), r = rand(22, 40); const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(230,230,228,.55)'); g.addColorStop(1, 'rgba(230,230,228,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); } return new THREE.CanvasTexture(c); }
 function texLeaf() { const [c, x] = cnv(64, 256); x.fillStyle = '#3f6b2c'; x.beginPath(); x.moveTo(32, 0); for (let i = 0; i <= 20; i++) { const y = i * 12.8; const w = Math.sin(i / 20 * Math.PI) * 30; x.lineTo(32 + w * (i % 2 ? 1 : .7), y); } for (let i = 20; i >= 0; i--) { const y = i * 12.8; const w = Math.sin(i / 20 * Math.PI) * 30; x.lineTo(32 - w * (i % 2 ? .7 : 1), y); } x.fill(); x.strokeStyle = '#6b8a3a'; x.lineWidth = 2; x.beginPath(); x.moveTo(32, 0); x.lineTo(32, 256); x.stroke(); return tex(c, false); }
 
+function texAsphalt() {
+  const [c, x] = cnv(512, 512); x.fillStyle = '#3a3e44'; x.fillRect(0, 0, 512, 512); speck(x, 512, 512, 36000, .14);
+  blotch(x, 512, 512, 24, 'rgba(15,18,24,.35)', 20, 110); blotch(x, 512, 512, 12, 'rgba(120,130,145,.12)', 30, 90);
+  x.strokeStyle = 'rgba(12,12,14,.55)'; x.lineWidth = 1.2; for (let i = 0; i < 6; i++) { x.beginPath(); let px = rand(0, 512), py = rand(0, 512); x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += rand(-26, 26); py += rand(-26, 26); x.lineTo(px, py); } x.stroke(); }
+  return tex(c);
+}
+function texSnow() {
+  const [c, x] = cnv(512, 512); x.fillStyle = '#e9eef4'; x.fillRect(0, 0, 512, 512); blotch(x, 512, 512, 40, 'rgba(170,188,212,.22)', 30, 120); blotch(x, 512, 512, 26, 'rgba(255,255,255,.5)', 20, 80);
+  speck(x, 512, 512, 14000, .06, true); for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(120,135,160,${rand(.05, .16)})`; x.beginPath(); x.ellipse(rand(0, 512), rand(0, 512), rand(2, 6), rand(1, 3), rand(0, 3), 0, 7); x.fill(); }
+  return tex(c);
+}
+function texFacade(base, win, lit) {
+  const [c, x] = cnv(256, 256); x.fillStyle = base; x.fillRect(0, 0, 256, 256); speck(x, 256, 256, 5000, .08); blotch(x, 256, 256, 8, 'rgba(0,0,0,.14)', 20, 70);
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) { const on = Math.random() < lit; x.fillStyle = on ? (Math.random() < .5 ? '#f2c27a' : '#cfe3f2') : win; x.fillRect(k * 64 + 12, r * 64 + 14, 40, 38); x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(k * 64 + 12, r * 64 + 50, 40, 4); x.fillRect(k * 64 + 31, r * 64 + 14, 2, 38); }
+  return tex(c);
+}
+function texBrick() {
+  const [c, x] = cnv(256, 256); x.fillStyle = '#5a4038'; x.fillRect(0, 0, 256, 256);
+  for (let r = 0; r < 16; r++) { let px = -(r % 2) * 16; while (px < 256) { const v = rand(-16, 16); x.fillStyle = `rgb(${128 + v},${62 + v * .6},${48 + v * .5})`; x.fillRect(px + 1.5, r * 16 + 1.5, 29, 13); px += 32; } }
+  speck(x, 256, 256, 6000, .1); blotch(x, 256, 256, 10, 'rgba(255,255,255,.12)', 10, 50); return tex(c);
+}
+function texWagon(col) {
+  const [c, x] = cnv(512, 128); x.fillStyle = col; x.fillRect(0, 0, 512, 128);
+  for (let i = 0; i < 512; i += 8) { x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(i, 0, 2, 128); }
+  x.fillStyle = 'rgba(0,0,0,.4)'; x.fillRect(0, 0, 512, 6); x.fillRect(0, 118, 512, 10); x.strokeStyle = 'rgba(0,0,0,.45)'; x.lineWidth = 4; x.strokeRect(200, 18, 112, 96);
+  blotch(x, 512, 128, 10, 'rgba(110,60,25,.35)', 8, 40); x.fillStyle = 'rgba(255,255,255,.75)'; x.font = '700 22px sans-serif'; x.fillText('PC ' + ((Math.random() * 9000 + 1000) | 0), 26, 52); return tex(c, false);
+}
 const TX = {};
 function texAll() {
   Object.assign(TX, {
@@ -121,6 +150,7 @@ function texAll() {
     ware: texCorr('#7d8a92', 'rgba(140,70,30,.35)'), ware2: texCorr('#8c4a36', 'rgba(60,30,15,.35)'), roof: texCorr('#8a7b66', 'rgba(110,60,25,.4)'), ribs: texRibs(),
     shutter: texShutter(), door: texDoor(), roll: texRoll(), awn1: texAwning('#b9442f', '#e7dcc4'), awn2: texAwning('#2f5f80', '#e7dcc4'), awn3: texAwning('#5d7a3a', '#e3c27a'),
     gravel: texGround('gravel'), grass: texGround('grass'), hedge: texHedge(), ao: texAO(), blinds: texBlinds(), bark: texBark(), tuft: texTuft(), corrDark: texCorr('#25324a', 'rgba(20,30,60,.3)'), roofDark: texCorr('#3b3f42', 'rgba(90,50,25,.35)'), shadowBlob: texSpot('rgba(0,0,0,0.6)', .5),
+    asphalt: texAsphalt(), snow: texSnow(), city: texFacade('#8f8a84', '#2a3440', .28), city2: texFacade('#6f7a82', '#1f2a35', .22), brick: texBrick(),
     A: texLetter('A'), B: texLetter('B'), hole: texSpot('rgba(18,14,10,0.95)', .35), flash: texFlash(), smoke: texSmoke(), leaf: texLeaf(), glow: texSpot('rgba(255,60,40,1)', .2)
   });
 }
@@ -142,6 +172,14 @@ function buildMats() {
     glass: new THREE.MeshStandardMaterial({ color: 0xa9c8e0, roughness: .05, metalness: .9, transparent: true, opacity: .32, side: THREE.DoubleSide, depthWrite: false }),
     blinds: std({ map: TX.blinds, roughness: .6 }), whiteFrame: std({ color: 0xeeeeea, roughness: .5 })
   });
+  Object.assign(MAT, {
+    city: std({ map: TX.city, roughness: .75 }), city2: std({ map: TX.city2, roughness: .7 }), slabC: std({ map: TX.concrete, color: 0xa9aaad }), concrete2: std({ map: TX.concrete, color: 0x9ea2a8 }),
+    stoneC: std({ map: TX.stone, color: 0xd8dce2 }), planter: std({ map: TX.hedge, color: 0xb8d0a8 }), kiosk: std({ color: 0x2e6f6c, roughness: .5, metalness: .4 }), barrier: std({ color: 0xc9c5bd, roughness: .8 }),
+    glassC: new THREE.MeshStandardMaterial({ color: 0x7fb6d8, roughness: .08, metalness: .85, transparent: true, opacity: .42, depthWrite: false }), dumpster: std({ color: 0x2f5a3c, roughness: .55, metalness: .5 }),
+    stationH: std({ map: TX.brick }), roofP: std({ map: TX.roofDark, roughness: .5, metalness: .55 }), metalP: std({ color: 0x3b4450, roughness: .45, metalness: .7 }), bench: std({ map: TX.wood }),
+    snowpile: std({ map: TX.snow, roughness: .95 }), snowCap: std({ map: TX.snow, roughness: .95 })
+  });
+  for (const [k, col] of [['red', '#8c2f24'], ['blue', '#2b4f7a'], ['green', '#3d6448'], ['gray', '#6c7076']]) MAT['wagon:' + k] = std({ map: texWagon(col), roughness: .6, metalness: .35 });
   MAT['cont:blue'] = std({ map: TX.ribs, color: 0x1f4f9c, roughness: .6, metalness: .4 });
   for (const k in CONT_COL) if (!MAT['cont:' + k]) MAT['cont:' + k] = std({ map: TX.ribs, color: CONT_COL[k], roughness: .7, metalness: .35 });
 }
@@ -153,7 +191,7 @@ function uvBox(w, h, d, s) {
   if (s) for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const k = f * 4 + i; uv.setXY(k, uv.getX(k) * dims[f][0] / s, uv.getY(k) * dims[f][1] / s); }
   geoCache.set(key, g); return g;
 }
-const TEXSCALE = { bld: 5, bld2: 5, stone: 4, wood: 2.4, roof: 3, ware: 4, ware2: 4, concrete: 6, slab: 6, wareDark: 4, vine: 2, hedge: 3 };
+const TEXSCALE = { city: 8, city2: 8, stationH: 3, slabC: 6, concrete2: 4, stoneC: 3, planter: 2, snowpile: 3, bench: 2, bld: 5, bld2: 5, stone: 4, wood: 2.4, roof: 3, ware: 4, ware2: 4, concrete: 6, slab: 6, wareDark: 4, vine: 2, hedge: 3 };
 
 /* ---------- Construcción del mapa ---------- */
 let worldGroup = null, WORLD = null, CURMAP = null;
@@ -163,7 +201,7 @@ function buildWorld(mapId) {
   if (CURMAP === mapId && worldGroup) return;
   if (worldGroup) { scene.remove(worldGroup); worldGroup.traverse(o => { if (o.geometry && !geoCache.has(o.geometry)) { } }); }
   worldGroup = new THREE.Group(); scene.add(worldGroup);
-  WORLD = new PC.World(mapId); CURMAP = mapId; const M = WORLD.map; const T = THEMES[M.theme]; const desert = M.theme === 'desert', rural = M.theme === 'rural';
+  WORLD = new PC.World(mapId); CURMAP = mapId; const M = WORLD.map; const T = THEMES[M.theme]; const desert = M.theme === 'desert', rural = M.theme === 'rural', city = M.theme === 'city', snow = M.theme === 'snow';
   post.sat = T.sat || (desert ? 1.06 : 1.04);
   // ambiente
   skyU.top.value.set(...T.top); skyU.hor.value.set(...T.hor); skyU.sunDir.value.set(...T.sun).normalize();
@@ -174,7 +212,7 @@ function buildWorld(mapId) {
   const R = Math.hypot(hw, hd); Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: 20, far: 300 }); sun.shadow.camera.updateProjectionMatrix();
   vmSun.color.setHex(T.sunC); vmHemi.color.setHex(T.hs); vmHemi.groundColor.setHex(T.hg);
   // suelo
-  const gt = desert ? TX.sand : rural ? TX.gravel : TX.concrete; const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std({ map: gt, color: desert ? 0xffffff : rural ? 0x8f8676 : 0xb9ab96, roughness: 1 }));
+  const gt = desert ? TX.sand : rural ? TX.gravel : city ? TX.asphalt : snow ? TX.snow : TX.concrete; const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std({ map: gt, color: desert || city || snow ? 0xffffff : rural ? 0x8f8676 : 0xb9ab96, roughness: city ? .55 : 1, metalness: city ? .15 : 0 }));
   ground.material.map = gt.clone(); ground.material.map.needsUpdate = true; ground.material.map.repeat.set(400 / 7, 400 / 7); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground);
   // cajas del mapa
   for (const b of WORLD.colliders) {
@@ -184,17 +222,19 @@ function buildWorld(mapId) {
     boxAt(b.minX, b.minY, b.minZ, b.maxX, b.maxY, b.maxZ, mat, s);
     if (b.maxY - b.minY > .8 && b.minY < .5) aoStrips(b);
     if (b.mat === 'bld' || b.mat === 'bld2' || b.mat === 'ware' || b.mat === 'ware2') decorateBuilding(b, desert);
+    if (b.mat === 'city' || b.mat === 'city2' || b.mat === 'stationH') { boxAt(b.minX - .05, 0, b.minZ - .05, b.maxX + .05, .6, b.maxZ + .05, MAT.concrete2, 3, false); boxAt(b.minX - .2, b.maxY - .1, b.minZ - .2, b.maxX + .2, b.maxY + .16, b.maxZ + .2, MAT.cornice2, 0, false); }
+    if (snow && b.minY < 3.8 && b.maxY > .9 && b.mat !== 'metalP') boxAt(b.minX + .04, b.maxY, b.minZ + .04, b.maxX - .04, b.maxY + .14, b.maxZ - .04, MAT.snowCap, 3, false);
     if (b.mat.startsWith('cont')) { boxAt(b.minX - .03, b.maxY - .12, b.minZ - .03, b.maxX + .03, b.maxY, b.maxZ + .03, MAT.dark, 0, false); }
   }
   // perímetro
-  const [x0, z0, x1, z1] = M.bounds, H = M.wallH, pm = desert ? MAT.bld2 : rural ? MAT.hedge : MAT.concrete;
+  const [x0, z0, x1, z1] = M.bounds, H = M.wallH, pm = desert ? MAT.bld2 : rural ? MAT.hedge : city ? MAT.city2 : snow ? MAT.stationH : MAT.concrete;
   for (const [a, b, c, d] of [[x0 - 1, z0 - 1, x1 + 1, z0], [x0 - 1, z1, x1 + 1, z1 + 1], [x0 - 1, z0, x0, z1], [x1, z0, x1 + 1, z1]]) {
-    boxAt(a, 0, b, c, H, d, pm, desert ? 5 : rural ? 3 : 6);
+    boxAt(a, 0, b, c, H, d, pm, desert ? 5 : rural ? 3 : city ? 8 : 6);
     if (!rural) boxAt(a - .15, H - .2, b - .15, c + .15, H + .1, d + .15, desert ? MAT.cornice : MAT.dark, 0, false);
   }
   // letras de los sitios en el suelo
   for (const k in M.sites) { const s = M.sites[k]; const p = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: TX[k], transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 })); p.rotation.x = -Math.PI / 2; p.position.set(s.c[0], .02, s.c[1]); p.receiveShadow = true; worldGroup.add(p); }
-  if (desert) desertDecor(M); else if (rural) ruralDecor(M); else portDecor(M);
+  if (desert) desertDecor(M); else if (rural) ruralDecor(M); else if (city) cityDecor(M); else if (snow) snowDecor(M); else portDecor(M);
   buildDust(desert || rural);
   mergeStatic(worldGroup);
   condKey = '';
@@ -299,6 +339,70 @@ function portDecor(M) {
   for (const [x, z] of [[x0 + 2, z0 + 2], [x1 - 2, z1 - 2], [x0 + 2, z1 - 2], [x1 - 2, z0 + 2]]) { boxAt(x - .11, 0, z - .11, x + .11, 9, z + .11, MAT.dark, 0, true); const l = new THREE.Mesh(uvBox(.5, .1, .3, 0), new THREE.MeshBasicMaterial({ color: 0xffe9b0 })); l.position.set(x, 8.9, z); worldGroup.add(l); }
 }
 
+/* ---------- Distrito Lumen (ciudad) y Estación Boreal (nieve) ---------- */
+function wagonModel(b, mat) {
+  const along = (b.maxX - b.minX) > (b.maxZ - b.minZ);
+  boxAt(b.minX, .55, b.minZ, b.maxX, b.maxY, b.maxZ, mat, 0);
+  boxAt(b.minX - .06, b.maxY - .04, b.minZ - .06, b.maxX + .06, b.maxY + .1, b.maxZ + .06, MAT.dark, 0, false);
+  boxAt(b.minX + .5, .2, b.minZ + .3, b.maxX - .5, .55, b.maxZ - .3, MAT.dark, 0, true);
+  const L = along ? b.maxX - b.minX : b.maxZ - b.minZ, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+  const tire = std({ color: 0x1a1c1f, roughness: .6, metalness: .6 });
+  for (const t of [-.36, .36]) for (const sd of [-1, 1]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.42, .42, .16, 14), tire); w.rotation[along ? 'x' : 'z'] = Math.PI / 2; const off = t * L, so = sd * ((along ? b.maxZ - b.minZ : b.maxX - b.minX) / 2 - .25); w.position.set(along ? cx + off : cx + so, .42, along ? cz + so : cz + off); worldGroup.add(w); }
+}
+function fountain(b) {
+  const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, r = (b.maxX - b.minX) / 2;
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(r, r + .1, b.maxY, 24), MAT.stoneC); rim.position.set(cx, b.maxY / 2, cz); rim.castShadow = rim.receiveShadow = true; worldGroup.add(rim);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(r - .25, 24), std({ color: 0x2f5d75, roughness: .05, metalness: .8 })); water.rotation.x = -Math.PI / 2; water.position.set(cx, b.maxY - .08, cz); worldGroup.add(water);
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(.22, .34, 2.4, 12), MAT.stoneC); col.position.set(cx, 1.2, cz); col.castShadow = true; worldGroup.add(col);
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.9, .3, .3, 16), MAT.stoneC); bowl.position.set(cx, 2.4, cz); bowl.castShadow = true; worldGroup.add(bowl);
+}
+function streetLamp(x, z, h, rot) {
+  boxAt(x - .07, 0, z - .07, x + .07, h, z + .07, MAT.metalP, 0, true);
+  const dx = Math.cos(rot) * 1.1, dz = Math.sin(rot) * 1.1; boxAt(Math.min(x, x + dx) - .05, h - .08, Math.min(z, z + dz) - .05, Math.max(x, x + dx) + .05, h, Math.max(z, z + dz) + .05, MAT.metalP, 0, false);
+  const l = new THREE.Mesh(uvBox(.42, .1, .26, 0), new THREE.MeshBasicMaterial({ color: 0xffd9a0 })); l.position.set(x + dx, h - .12, z + dz); worldGroup.add(l);
+}
+function neonSign(x, y, z, w, h, color, rotY) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })); m.position.set(x, y, z); m.rotation.y = rotY; worldGroup.add(m);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(w + .2, h + .2), new THREE.MeshStandardMaterial({ color: 0x15171a, side: THREE.DoubleSide })); f.position.set(x - Math.sin(rotY) * .02, y, z - Math.cos(rotY) * .02); f.rotation.y = rotY; worldGroup.add(f);
+}
+function cityDecor(M) {
+  const [x0, z0, x1, z1] = M.bounds;
+  // rascacielos en el horizonte
+  for (let i = 0; i < 46; i++) {
+    const side = i % 4, off = rand(4, 30); let x, z;
+    if (side === 0) { x = rand(x0 - 30, x1 + 30); z = z0 - 2 - off; } else if (side === 1) { x = rand(x0 - 30, x1 + 30); z = z1 + 2 + off; } else if (side === 2) { x = x0 - 2 - off; z = rand(z0, z1); } else { x = x1 + 2 + off; z = rand(z0, z1); }
+    const w = rand(6, 12), d = rand(6, 12), h = rand(14, 46); boxAt(x - w / 2, 0, z - d / 2, x + w / 2, h, z + d / 2, Math.random() < .5 ? MAT.city : MAT.city2, 8, false);
+  }
+  // líneas de la avenida y pasos de cebra
+  const paint = std({ color: 0xe8e4d6, roughness: .8 }), yel = std({ color: 0xd9a22e, roughness: .8 });
+  for (let x = x0 + 2; x < x1 - 2; x += 4) boxAt(x, .005, -.08 + 1.2, x + 2, .02, .08 + 1.2, yel, 0, false);
+  for (const zx of [-9, 9]) for (let k = 0; k < 6; k++) boxAt(zx - 1.6, .005, -5.5 + k * 1.3 + 2.5, zx + 1.6, .02, -5 + k * 1.3 + 2.5, paint, 0, false);
+  // franjas pintadas de los sitios (lectura rápida de A y B)
+  for (const k in M.sites) { const [a, b, c, d] = M.sites[k].r; const col = std({ color: k === 'A' ? 0xd9a22e : 0x3fb4c9, roughness: .7 }); boxAt(a, .006, b, c, .02, b + .25, col, 0, false); boxAt(a, .006, d - .25, c, .02, d, col, 0, false); }
+  // postes de luz y letreros de neón
+  for (let x = x0 + 6; x < x1 - 4; x += 12) { streetLamp(x, -5.2, 5.4, Math.PI / 2); streetLamp(x + 6, 5.6, 5.4, -Math.PI / 2); }
+  neonSign(-8, 6, -7.9, 3.4, .8, 0x3fe0f0, 0); neonSign(8, 7, -7.9, 2.6, .9, 0xff5a8a, 0); neonSign(-31, 6.5, 5.9, 3, .8, 0xffb347, Math.PI); neonSign(12, 6, 5.9, 3.2, .7, 0x3fe0f0, Math.PI);
+  // charcos que reflejan
+  const pud = std({ color: 0x1d2530, roughness: .04, metalness: .9 });
+  for (const [x, z, r] of [[-14, 1, 1.6], [6, -2, 1.2], [24, 2, 1.8], [-34, 1.5, 1.3], [0, 18, 1.1]]) { const p = new THREE.Mesh(new THREE.CircleGeometry(r, 18), pud); p.rotation.x = -Math.PI / 2; p.position.set(x, .012, z); p.scale.y = .6; worldGroup.add(p); }
+}
+function snowDecor(M) {
+  const [x0, z0, x1, z1] = M.bounds;
+  // rieles
+  const rail = std({ color: 0x5b5f66, roughness: .35, metalness: .85 }), sleeper = std({ map: TX.wood, color: 0x6a5440 });
+  for (const zc of [-12, -2, 8]) { for (const dz of [-.72, .72]) boxAt(x0, .0, zc + dz - .05, x1, .14, zc + dz + .05, rail, 0, false); for (let x = x0 + .5; x < x1; x += 1.4) boxAt(x, 0, zc - 1.2, x + .28, .06, zc + 1.2, sleeper, 0, false); }
+  // pinos nevados afuera
+  const pine = std({ color: 0x2c4a3a, roughness: .9, flatShading: true }), cap = MAT.snowCap;
+  for (let i = 0; i < 70; i++) { const a = Math.random() * Math.PI * 2, r = rand(44, 90); const x = Math.cos(a) * r, z = Math.sin(a) * r * .85; const h = rand(5, 11); const g = new THREE.Group(); g.position.set(x, 0, z); worldGroup.add(g);
+    for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.ConeGeometry(h * (.34 - k * .08), h * .45, 8), pine); c.position.y = h * (.3 + k * .22); c.castShadow = true; g.add(c); const s = new THREE.Mesh(new THREE.ConeGeometry(h * (.2 - k * .05), h * .2, 8), cap); s.position.y = h * (.42 + k * .22); g.add(s); } }
+  // montañas
+  const mtn = std({ color: 0xb8c6d8, roughness: 1, flatShading: true });
+  for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const m = new THREE.Mesh(new THREE.ConeGeometry(rand(40, 70), rand(40, 80), 6), mtn); m.position.set(Math.cos(a) * 190, 0, Math.sin(a) * 190); worldGroup.add(m); }
+  // franjas de los sitios y faroles del andén
+  for (const k in M.sites) { const [a, b, c, d] = M.sites[k].r; const col = std({ color: k === 'A' ? 0xd9a22e : 0x3fb4c9, roughness: .7 }); boxAt(a, .32, b, c, .34, b + .25, col, 0, false); boxAt(a, .006, d - .25, c, .03, d, col, 0, false); }
+  for (const x of [-9, -1, 7, 15, 23]) { const l = new THREE.Mesh(uvBox(.5, .12, .3, 0), new THREE.MeshBasicMaterial({ color: 0xffe0b0 })); l.position.set(x, 3.5, -21); worldGroup.add(l); }
+}
+
 /* ---------- Fundo Azul (casa de contenedores) ---------- */
 function specialBox(b) {
   const m = b.mat;
@@ -307,6 +411,9 @@ function specialBox(b) {
   if (m === 'tank') { const r = (b.maxX - b.minX) / 2; const t = new THREE.Mesh(new THREE.CylinderGeometry(r, r, b.maxY, 20), MAT.tank); t.position.set((b.minX + b.maxX) / 2, b.maxY / 2, (b.minZ + b.maxZ) / 2); t.castShadow = t.receiveShadow = true; worldGroup.add(t); aoStrips(b); return true; }
   if (m === 'pole') { const t = new THREE.Mesh(new THREE.CylinderGeometry(.13, .17, b.maxY, 8), MAT.pole); const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2; t.position.set(cx, b.maxY / 2, cz); t.castShadow = true; worldGroup.add(t); boxAt(cx - 1, b.maxY - .7, cz - .06, cx + 1, b.maxY - .55, cz + .06, MAT.pole, 0, true); return true; }
   if (m === 'vine') { boxAt(b.minX, .35, b.minZ, b.maxX, b.maxY, b.maxZ, MAT.vine, 2); for (let z = b.minZ; z <= b.maxZ; z += 3) boxAt((b.minX + b.maxX) / 2 - .05, 0, z - .05, (b.minX + b.maxX) / 2 + .05, b.maxY + .2, z + .05, MAT.pole, 0, true); return true; }
+  if (m.startsWith('wagon:')) { wagonModel(b, MAT[m]); return true; }
+  if (m === 'stoneC') { fountain(b); return true; }
+  if (m === 'snowpile') { const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2; const s = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), MAT.snowpile); s.scale.set((b.maxX - b.minX) / 2 + .2, b.maxY, (b.maxZ - b.minZ) / 2 + .2); s.position.set(cx, 0, cz); s.castShadow = s.receiveShadow = true; worldGroup.add(s); return true; }
   if (m === 'tarp') { boxAt(b.minX, 0, b.minZ, b.maxX, b.maxY, b.maxZ, MAT.tarp, 0); const j = boxAt(b.minX + .3, b.maxY, b.minZ + .3, b.minX + .75, b.maxY + .32, b.minZ + .62, std({ color: 0xd8261c, roughness: .4 }), 0); return true; }
   return false;
 }
@@ -1197,8 +1304,9 @@ function showEnd(e) {
 }
 
 /* ---------- Menú ---------- */
+const MAPSW = { desert: 'linear-gradient(90deg,#d6c19d,#4c8fc8)', port: 'linear-gradient(90deg,#d09a70,#2f5f80)', rural: 'linear-gradient(90deg,#1f4f9c,#6a9a4a)', city: 'linear-gradient(90deg,#2a3440,#3fe0f0 70%,#d9a22e)', snow: 'linear-gradient(90deg,#e9eef4,#8c2f24 75%,#2b4f7a)' };
 function drawMaps() {
-  $('#maps').innerHTML = PC.MAP_IDS.map(id => { const M = MAPS[id]; const c = M.theme === 'desert' ? 'linear-gradient(90deg,#d6c19d,#4c8fc8)' : M.theme === 'rural' ? 'linear-gradient(90deg,#1f4f9c,#6a9a4a)' : 'linear-gradient(90deg,#d09a70,#2f5f80)'; return `<button type="button" class="mapc" data-m="${id}" aria-pressed="${id === prefs.map}"><span class="th" style="background:${c}"></span><span class="n">${M.name}</span><span class="d">${M.blurb}</span></button>`; }).join('');
+  $('#maps').innerHTML = PC.MAP_IDS.map(id => { const M = MAPS[id]; const c = MAPSW[M.theme] || '#444'; return `<button type="button" class="mapc" data-m="${id}" aria-pressed="${id === prefs.map}"><span class="th" style="background:${c}"></span><span class="n">${M.name}</span><span class="d">${M.blurb}</span></button>`; }).join('');
 }
 drawMaps();
 $('#maps').addEventListener('click', e => { const b = e.target.closest('.mapc'); if (!b) return; prefs.map = b.dataset.m; savePrefs(); drawMaps(); buildWorld(prefs.map); });
@@ -1435,7 +1543,7 @@ function drawPings(t) {
 function voteLeader() { const v = G.votes || {}; let best = null, n = 0, tie = false; for (const id of PC.MAP_IDS) { const c = v[id] || 0; if (c > n) { best = id; n = c; tie = false; } else if (c === n && n > 0) tie = true; } return n > 0 && !tie ? best : null; }
 function drawVotes() {
   const box = $('#voteBox'); if (!box) return; const v = G.votes || {};
-  const sw = { desert: 'linear-gradient(90deg,#d6c19d,#4c8fc8)', port: 'linear-gradient(90deg,#d09a70,#2f5f80)', rural: 'linear-gradient(90deg,#1f4f9c,#6a9a4a)' };
+  const sw = MAPSW;
   box.innerHTML = `<div class="lbl small">Vota el próximo mapa · gana el más votado; si nadie vota, sigue la rotación</div><div class="votes">${PC.MAP_IDS.map(id => { const M = MAPS[id]; const mine = G.myVote === id; return `<button type="button" class="vote" data-m="${id}" aria-pressed="${mine}"><span class="th" style="background:${sw[M.theme] || '#444'}"></span><span class="n">${M.name}</span><b>${v[id] || 0}</b></button>`; }).join('')}</div>`;
 }
 document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.vote'); if (!b || G.state !== 'playing') return; G.myVote = b.dataset.m; sendMsg({ t: 'vote', map: b.dataset.m }); drawVotes(); sNoise(.05, .25, 1800); });
@@ -1467,7 +1575,7 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
 let condKey = '', envGroup = null, flashOn = true, weatherFx = null, weatherNode = null;
 const flashlight = new THREE.SpotLight(0xffeedd, 0, 42, .5, .8, 2); flashlight.position.set(.15, -.08, 0); flashlight.target.position.set(0, -.05, -1); camera.add(flashlight); camera.add(flashlight.target);
 const glowWarm = texSpot('rgba(255,196,120,1)', .25);
-function condLabel(c) { if (!c) return ''; if (c.night) return ' · de noche'; return { lluvia: ' · con lluvia', arena: ' · tormenta de arena', niebla: ' · con niebla' }[c.weather] || ''; }
+function condLabel(c) { if (!c) return ''; if (c.night) return ' · de noche'; return { lluvia: ' · con lluvia', arena: ' · tormenta de arena', niebla: ' · con niebla', nieve: ' · nevando' }[c.weather] || ''; }
 function stopWeatherSound() { if (weatherNode) { try { weatherNode.src.stop(); } catch (e) { } weatherNode = null; } }
 function weatherSound(kind) {
   stopWeatherSound(); if (!AC) return; const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const f = AC.createBiquadFilter(); const g = AC.createGain();
@@ -1492,6 +1600,12 @@ function makeRain() {
   const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xb8c6d4, transparent: true, opacity: .45, depthWrite: false })); l.frustumCulled = false; envGroup.add(l);
   return { kind: 'lluvia', obj: l, N };
 }
+function makeSnowFx() {
+  const N = prefs.gfx === 'high' ? 1400 : 550; const pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) pos.set([rand(-18, 18), rand(0, 14), rand(-18, 18)], i * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: .09, transparent: true, opacity: .85, depthWrite: false })); p.frustumCulled = false; envGroup.add(p);
+  return { kind: 'nieve', obj: p, N };
+}
 function makeSand() {
   const N = prefs.gfx === 'high' ? 1100 : 450; const pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) pos.set([rand(-18, 18), rand(0, 8), rand(-18, 18)], i * 3);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -1503,6 +1617,7 @@ function updateWeather(dt) {
   if (!weatherFx) return; const o = weatherFx.obj; o.position.set(Math.floor(camera.position.x / 4) * 4, 0, Math.floor(camera.position.z / 4) * 4);
   const a = o.geometry.attributes.position.array;
   if (weatherFx.kind === 'lluvia') { for (let i = 0; i < a.length; i += 6) { a[i + 1] -= 24 * dt; a[i + 4] -= 24 * dt; if (a[i + 1] < 0) { const x = rand(-18, 18), z = rand(-18, 18), y = rand(12, 16); a[i] = x; a[i + 1] = y; a[i + 2] = z; a[i + 3] = x + .04; a[i + 4] = y + .55; a[i + 5] = z; } } }
+  else if (weatherFx.kind === 'nieve') { const t = nowS(); for (let i = 0; i < a.length; i += 3) { a[i + 1] -= 1.6 * dt; a[i] += Math.sin(t * .8 + i) * dt * .5 + .6 * dt; if (a[i + 1] < 0) { a[i] = rand(-18, 18); a[i + 1] = rand(12, 14); a[i + 2] = rand(-18, 18); } } }
   else { const t = nowS(); for (let i = 0; i < a.length; i += 3) { a[i] += (9 + Math.sin(t + i) * 2) * dt; a[i + 1] += Math.sin(t * 2 + i * .3) * dt * .6; if (a[i] > 18) { a[i] = -18; a[i + 1] = rand(0, 8); a[i + 2] = rand(-18, 18); } } }
   o.geometry.attributes.position.needsUpdate = true;
 }
@@ -1515,6 +1630,7 @@ function applyCond(cond) {
   if (c.night) { skyU.top.value.set(.015, .025, .07); skyU.hor.value.set(.06, .075, .13); scene.fog.color.setHex(0x0b1120); scene.fog.density = .017; hemi.color.setHex(0x3a4a70); hemi.groundColor.setHex(0x0e0f14); hemi.intensity = .34; sun.color.setHex(0x9db4ff); sun.intensity = .3; th = .82; addNightLamps(); }
   if (c.weather === 'lluvia') { skyU.top.value.set(.22, .25, .3); skyU.hor.value.set(.42, .45, .5); scene.fog.color.setHex(0x5a626c); scene.fog.density = .02; sun.intensity *= .45; hemi.intensity *= .85; weatherFx = makeRain(); weatherSound('lluvia'); }
   if (c.weather === 'arena') { skyU.top.value.set(.55, .42, .28); skyU.hor.value.set(.78, .6, .4); scene.fog.color.setHex(0xa8824f); scene.fog.density = .03; sun.intensity *= .55; weatherFx = makeSand(); weatherSound('arena'); }
+  if (c.weather === 'nieve') { skyU.top.value.set(.55, .6, .68); skyU.hor.value.set(.82, .85, .9); scene.fog.color.setHex(0xcfd8e2); scene.fog.density = .026; sun.intensity *= .55; weatherFx = makeSnowFx(); weatherSound('nieve'); }
   if (c.weather === 'niebla') { skyU.top.value.set(.6, .66, .72); skyU.hor.value.set(.8, .83, .86); scene.fog.color.setHex(0xc5ccd3); scene.fog.density = .034; sun.intensity *= .6; }
   vmSun.intensity = c.night ? .3 : 1.1; vmHemi.intensity = c.night ? .45 : .8;
   if (post.bloom) post.bloom.threshold = th; G.night = !!c.night;
@@ -1625,5 +1741,6 @@ function updateVM(dt) {
   vm.flashT = (vm.flashT || 0) - dt; g.flash.visible = vm.flashT > 0; g.flash.material.rotation = Math.random() * 6; g.light.intensity = vm.flashT > 0 ? 3 : 0;
 }
 drawProfile(); restoreSession();
+if (/[?&]debug=1/.test(location.search)) window.__pc = { me, applyCond, buildWorld };
 requestAnimationFrame(frame);
 })();

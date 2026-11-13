@@ -178,10 +178,68 @@
       },
       holds: { A: [[-3.5, -8.8, Math.PI], [3.5, -8.8, Math.PI], [0, -12.5, 0]], B: [[-23, -7, Math.PI * .85], [-12.5, -7.5, Math.PI], [-26, 4, -Math.PI / 2]] },
       labels: []
+    },
+    distrito: {
+      id: 'distrito', name: 'Distrito Lumen', theme: 'city', blurb: 'Manzana urbana con avenida central, estacionamiento techado (A) y plaza con fuente (B).',
+      bounds: [-40, -32, 40, 32], wallH: 6,
+      boxes: [
+        // manzanas norte y galería cubierta en el centro
+        [-14, -24, -2, -8, 12, 'city'], [2, -24, 14, -8, 13, 'city2'], [-2, -24, 2, -8, .5, 'slabC', 3.4],
+        // estacionamiento techado (sitio A)
+        [14, -24, 38, -8, .4, 'slabC', 3.2], [14, -24.4, 26, -24, 3.6, 'concrete2'],
+        [19.6, -20.4, 20.4, -19.6, 3.2, 'concrete2'], [25.6, -20.4, 26.4, -19.6, 3.2, 'concrete2'], [31.6, -20.4, 32.4, -19.6, 3.2, 'concrete2'],
+        [19.6, -12.4, 20.4, -11.6, 3.2, 'concrete2'], [25.6, -12.4, 26.4, -11.6, 3.2, 'concrete2'], [31.6, -12.4, 32.4, -11.6, 3.2, 'concrete2'],
+        [16.4, -23.6, 18.2, -19.2, 1.45, 'car:silver'], [28.2, -23.4, 30, -19, 1.5, 'car:navy'], [34.5, -16.8, 36.3, -12.4, 1.45, 'car:red'],
+        // plaza con fuente (sitio B)
+        [-28, -18, -24, -14, 1.0, 'stoneC'], [-36, -12, -33, -11, .9, 'planter'], [-20, -21, -17, -20, .9, 'planter'], [-35, -23, -31.6, -19.6, 2.6, 'kiosk'], [-17, -14, -15.4, -10.6, .9, 'planter'],
+        // avenida
+        [-30, -4.2, -25.6, -2.4, 1.45, 'car:red'], [-12, 2.2, -7.6, 4, 1.5, 'car:navy'], [16, -4, 20.4, -2.2, 1.45, 'car:silver'], [30, 2.4, 34.4, 4.2, 1.5, 'car:red'],
+        [-6, -.3, -3, .3, .95, 'barrier'], [3, -.3, 6, .3, .95, 'barrier'], [8, 4.6, 12, 5.4, 2.6, 'glassC'], [-20, -5.4, -16, -4.6, 2.6, 'glassC'],
+        // manzanas sur y callejones
+        [-40, 6, -24, 24, 10, 'city2'], [-18, 6, -4, 24, 14, 'city'], [4, 6, 20, 24, 12, 'city2'], [26, 6, 40, 24, 10, 'city'],
+        [-23, 14, -21.5, 16, 1.3, 'dumpster'], [21, 12, 22.5, 14, 1.3, 'dumpster'], [-3.2, 15, -2, 16.2, 1.1, 'crate'], [2.4, 20, 3.6, 21.2, 1.1, 'crate'],
+        [-30, 26, -28.8, 27.2, 1.1, 'crate'], [28, 26.5, 29.2, 27.7, 1.1, 'crate'], [-34, -28, -32.8, -26.8, 1.1, 'crate'], [33, -29, 34.2, -27.8, 1.1, 'crate']
+      ],
+      spawns: { atk: [[-8, 28], [-4, 29], [0, 28], [4, 29], [8, 28]], def: [[-8, -28], [-4, -29], [0, -28], [4, -29], [8, -28]] },
+      buy: { atk: [-16, 24, 16, 32], def: [-16, -32, 16, -24] },
+      sites: { A: { r: [15, -23, 37, -9], c: [23, -16] }, B: { r: [-37, -23, -15, -9], c: [-21, -16] } },
+      routes: {
+        A: [[[23, 26], [23, 10], [23, 0], [24, -10]], [[0, 26], [0, 0], [0, -20], [10, -27], [30, -27], [30, -20]]],
+        B: [[[-21, 26], [-21, 10], [-21, 0], [-22, -10]], [[0, 26], [0, 0], [-10, -2], [-30, -6], [-30, -12]]]
+      },
+      holds: { A: [[17, -10, Math.PI], [32, -22.5, 0], [37, -9.6, Math.PI * .75]], B: [[-16, -9.5, Math.PI], [-37, -9.5, Math.PI], [-26, -22.5, 0]] },
+      labels: []
+    },
+    boreal: {
+      id: 'boreal', name: 'Estación Boreal', theme: 'snow', blurb: 'Estación de trenes nevada: andén techado (A), patio de carga (B) y vagones como cobertura.',
+      bounds: [-38, -30, 38, 30], wallH: 4,
+      boxes: [
+        // estación y andén techado (sitio A)
+        [-12, -30, 6, -24.4, 6, 'stationH'], [-12, -24.4, 24, -18, .3, 'slabC'], [-12, -24.4, 24, -18, .4, 'roofP', 3.6],
+        [-9.2, -18.7, -8.8, -18.3, 3.6, 'metalP'], [-1.2, -18.7, -.8, -18.3, 3.6, 'metalP'], [6.8, -18.7, 7.2, -18.3, 3.6, 'metalP'], [14.8, -18.7, 15.2, -18.3, 3.6, 'metalP'], [22.8, -18.7, 23.2, -18.3, 3.6, 'metalP'],
+        [9, -23.6, 10.2, -22.4, 1.1, 'crate'], [17, -21.4, 19.4, -20.2, .9, 'bench'], [12.5, -22, 13.7, -20.8, 1.1, 'crate'],
+        // vagones en tres vías
+        [-24, -13.5, -12, -10.5, 3.2, 'wagon:red'], [-6, -13.5, 6, -10.5, 3.2, 'wagon:blue'], [14, -13.5, 26, -10.5, 3.2, 'wagon:green'],
+        [-18, -3.5, -6, -.5, 3.2, 'wagon:gray'], [2, -3.5, 14, -.5, 3.2, 'wagon:red'],
+        [-26, 6.5, -14, 9.5, 3.2, 'wagon:blue'], [-8, 6.5, 4, 9.5, 3.2, 'wagon:green'], [12, 6.5, 24, 9.5, 3.2, 'wagon:gray'],
+        // patio de carga (sitio B) y alrededores
+        [-22, 16, -17, 21, 3.4, 'stationH'], [14, 20, 20, 22.4, 2.6, 'cont:red'], [4, 22, 6.4, 28, 2.6, 'cont:blue'], [6, 15, 7.2, 16.2, 1.1, 'crate'], [7.2, 15, 8.4, 16.2, 1.1, 'crate'],
+        [18, 13.5, 20.2, 15, .7, 'snowpile'], [24, 24, 25.6, 25.6, 1.1, 'crate'], [26, -6, 28, -4, 2.4, 'tank'], [-4, 18, -1.8, 19.4, .7, 'snowpile'],
+        [-30, -22, -28.8, -20.8, 1.1, 'crate'], [-31, 22, -29.8, 23.2, 1.1, 'crate'], [30, -22, 31.2, -20.8, 1.1, 'crate'], [30, 22, 31.2, 23.2, 1.1, 'crate']
+      ],
+      spawns: { atk: [[-34, -8], [-34, -3], [-34, 2], [-34, 13], [-32, 0]], def: [[34, -8], [34, -3], [34, 2], [34, 13], [32, 0]] },
+      buy: { atk: [-38, -30, -28, 30], def: [28, -30, 38, 30] },
+      sites: { A: { r: [6, -24.5, 24, -17], c: [15, -21] }, B: { r: [0, 12, 24, 28], c: [11, 19] } },
+      routes: {
+        A: [[[-30, -16], [-14, -16], [0, -16], [10, -20]], [[-30, 0], [-4, 4], [10, -6], [12, -15], [14, -20]]],
+        B: [[[-30, 14], [-10, 14], [4, 16], [10, 18]], [[-30, 0], [-3, 3], [8, 4], [10, 12], [12, 18]]]
+      },
+      holds: { A: [[7, -20, Math.PI / 2], [22, -17.5, Math.PI], [17, -23.5, Math.PI * .7]], B: [[22.5, 16, Math.PI / 2], [8, 26, Math.PI / 2], [16, 12.5, Math.PI]] },
+      labels: []
     }
   };
   const MAP_IDS = Object.keys(MAPS);
-  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla' };
+  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve' };
   function pickCond(mapId) { const r = Math.random(); if (r < .4) return { night: false, weather: null }; if (r < .7) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
 
   /* ================= MUNDO (colisiones, rayos, navegación) ================= */
