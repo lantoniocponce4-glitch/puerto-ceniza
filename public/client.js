@@ -1925,7 +1925,7 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
 /* ================= ACTUALIZACIÓN DE LA APP ANDROID ================= */
 // La app pasa su versión en la dirección (?app=1&apk=N); si en GitHub hay un APK más nuevo, se ofrece descargarlo
 (async function checkApk() {
-  const q = new URLSearchParams(location.search); if (q.get('app') !== '1') return;
+  const q = new URLSearchParams(location.search); if (q.get('app') !== '1' || !/Android/i.test(navigator.userAgent)) return;
   const mine = parseInt(q.get('apk') || '0', 10);
   try {
     const r = await fetch('https://api.github.com/repos/lantoniocponce4-glitch/puerto-ceniza/releases/tags/apk', { cache: 'no-store' }); if (!r.ok) return;
@@ -1935,6 +1935,15 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
     const box = $('#apkUpd'); box.hidden = false;
     box.innerHTML = `<span>${mine ? 'Hay una versión nueva de la app (1.' + (latest - 100) + '). Se instala encima, sin perder nada.' : 'Hay una app nueva que se actualiza sola en el futuro. Esta vez desinstala la app anterior antes de instalarla.'}</span><a href="${url}" target="_blank" rel="noopener">Descargar</a>`;
   } catch (e) { }
+})();
+
+/* ================= iPhone y iPad: instalar desde Safari ================= */
+(function iosInstall() {
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+  let seen = false; try { seen = localStorage.getItem('pc2_iosx') === '1'; } catch (e) { }
+  if (!ios || standalone || seen) return; $('#iosInst').hidden = false;
+  $('#iosInstX').onclick = () => { $('#iosInst').hidden = true; try { localStorage.setItem('pc2_iosx', '1'); } catch (e) { } };
 })();
 
 /* ================= CLAN ================= */
