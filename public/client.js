@@ -595,7 +595,7 @@ function startOffline() {
   room.onBroadcast = m => onMsg(m); room.onSend = (cid, m) => onMsg(m);
   const a = room.addHuman('local', cleanName(prefs.name), prefs.side === 'auto' ? null : prefs.side);
   onMsg({ t: 'joined', code: 'LOCAL', you: a.id, team: a.team, diff: room.diffKey, pub: false, map: room.mapId, gm: room.mode });
-  onMsg(room.privateState(a));
+  onMsg(room.privateState(a)); onMsg(room.roster());
   net.timer = setInterval(() => room.tick(.05), 50);
 }
 function leaveNet() { if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch (e) { } } if (net.timer) clearInterval(net.timer); net.timer = null; net.room = null; net.mode = null; }
@@ -633,7 +633,7 @@ function getActor(id, team) {
   let a = actors[id];
   if (!a) { a = actors[id] = { id, team, name: '—', human: 0, buf: [], alive: false, hp: 100, cur: 'p9', flags: 0, pos: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, h: 1.8, vx: 0, vz: 0, model: null, stepT: 0, deadT: 9, walkPh: 0, seenT: -9, k: 0, d: 0, as: 0, score: 0, lvl: 0 }; }
   if (team !== undefined && a.team !== team) { a.team = team; if (a.model) { scene.remove(a.model.g); a.model = null; } }
-  if (!a.model && id !== me.id) a.model = makeSoldier(a.team, id);
+  if (!a.model && id !== me.id && (a.team === 0 || a.team === 1)) a.model = makeSoldier(a.team, id);
   return a;
 }
 function onSnap(m) {
