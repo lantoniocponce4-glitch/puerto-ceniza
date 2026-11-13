@@ -85,6 +85,9 @@ button{font:inherit;color:inherit}
 #toast.on{opacity:1}
 
 #leftbot{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px}
+#ggBox{background:var(--panel);border:1px solid var(--amber);border-radius:3px;padding:6px 12px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:2px}
+#ggBox b{font-family:var(--f-display);font-size:22px;color:var(--amber);letter-spacing:.04em;margin-right:4px}
+#ggBox span{font-size:11px}
 #money{font-family:var(--f-display);font-weight:800;font-size:24px;color:var(--money);text-shadow:0 1px 6px rgba(0,0,0,.7)}
 #money small{font-size:12px;letter-spacing:.12em;color:var(--dim);margin-left:6px}
 #vitals{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:3px}
@@ -150,7 +153,7 @@ h1 em{font-style:normal;color:transparent;-webkit-text-stroke:1.5px var(--sand)}
 .small{font-size:12px;color:var(--dim)}
 .field input{all:unset;box-sizing:border-box;background:rgba(20,25,30,.85);border:1px solid var(--line);border-radius:3px;padding:10px 12px;font-size:16px;color:var(--sand);width:100%;max-width:280px}
 .field input:focus-visible{border-color:var(--amber);outline:2px solid rgba(242,179,61,.35)}
-.maps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.maps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .mapc{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:3px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0;background:rgba(20,25,30,.8)}
 .mapc:hover{border-color:rgba(233,220,192,.5)}
 .mapc:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
@@ -204,12 +207,12 @@ tr.dead td{opacity:.5}
 
 /* Menú de compra */
 #buy{background:rgba(6,8,10,.55);align-items:center}
-.buybox{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:18px;width:min(760px,100%);display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+.buybox{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:18px;width:min(940px,100%);display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .buyhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 .buyhead h2{font-family:var(--f-display);font-weight:800;font-size:30px;margin:0;text-transform:uppercase}
 #buyMoney{font-family:var(--f-display);font-weight:800;font-size:28px;color:var(--money)}
 #buyTime{font-family:var(--f-mono);font-size:12px;color:var(--dim)}
-.bcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.bcols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .bcol{display:flex;flex-direction:column;gap:6px;min-width:0}
 .bcol>.lbl{font-size:11px;color:var(--dim)}
 .bi{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:2px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.03);min-height:52px}
@@ -269,6 +272,7 @@ tr.dead td{opacity:.5}
     <div id="hint" hidden><span id="hintT"></span><b><s id="hintBar"></s></b></div>
     <div id="toast"></div>
     <div id="leftbot">
+      <div id="ggBox" hidden></div>
       <div id="money">$800<small>en mano</small></div>
       <div id="vitals"><div class="vit"><b id="hpN">100</b><span class="lbl">Salud</span></div><div class="vit"><b id="arN">0</b><span class="lbl" id="arL">Blindaje</span></div></div>
     </div>
@@ -310,15 +314,16 @@ tr.dead td{opacity:.5}
           <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
         </div>
         <div class="sec"><div class="lbl">Modo (salas nuevas)</div>
-          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button></div>
+          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button></div>
         </div>
       </div>
-      <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Los bandos se intercambian en el medio tiempo.</div>
+      <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Escalada de armas: cada baja te da un arma nueva y reapareces al instante; gana quien llegue al cuchillo y mate con él.</div>
       <div class="sec"><div class="lbl">Mapa (salas nuevas)</div><div class="maps" id="maps"></div></div>
       <div class="row2">
         <div class="sec"><div class="lbl">Bots</div>
           <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
         </div>
+        <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
       <div class="keys" id="keysHelp">
@@ -347,6 +352,7 @@ tr.dead td{opacity:.5}
       <h2>Menú</h2>
       <p class="lead">La ronda sigue corriendo mientras estás aquí.</p>
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
+      <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       <div class="btns"><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
     </div>
@@ -365,6 +371,13 @@ tr.dead td{opacity:.5}
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="/core.js"></script>
 <script src="/client.js"></script>
 </body>

@@ -63,7 +63,7 @@ wss.on('connection', ws => {
     if (!m || typeof m !== 'object') return;
     if (m.t === 'join' && !room) {
       let r = null;
-      const gm = m.gm === 'elim' ? 'elim' : 'bomb';
+      const gm = m.gm === 'elim' || m.gm === 'gg' ? m.gm : 'bomb';
       if (m.mode === 'create') r = createRoom(false, m.diff, m.map, gm);
       else if (m.mode === 'code') {
         r = rooms.get(String(m.code || '').toUpperCase().trim());
