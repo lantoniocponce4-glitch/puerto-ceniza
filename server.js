@@ -54,6 +54,13 @@ async function api(req, res, url) {
     if (req.method === 'GET' && p === '/api/ranking') { const a = await ACC.fromToken(bearer(req)); return json(res, 200, await ACC.ranking(url.searchParams.get('by'), a)); }
     if (req.method === 'POST' && p === '/api/logout') { await ACC.logout(bearer(req)); return json(res, 200, { ok: true }); }
     if (req.method === 'GET' && p === '/api/me') { const a = await ACC.fromToken(bearer(req)); return a ? json(res, 200, { me: ACC.view(a) }) : json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); }
+    if (req.method === 'POST' && p === '/api/name') {
+      const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' });
+      const b = await body(req); const r = await ACC.rename(a, b.name); if (r.error) return json(res, 400, { error: r.error });
+      // aplicar el nombre nuevo en las salas y escuadras donde está esa cuenta
+      for (const room of rooms.values()) for (const [cid, acct] of room.accts) if (acct === a) { const id = room.clients.get(cid); if (id != null) { room.actors[id].name = a.display; room.rosterDirty = true; } }
+      return json(res, 200, { me: ACC.view(a) });
+    }
     if (req.method === 'POST' && p === '/api/camo') { const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); const b = await body(req); const camoId = b.camo === null ? null : String(b.camo || ''); return (await ACC.setCamo(a, camoId)) ? json(res, 200, { me: ACC.view(a) }) : json(res, 400, { error: (PC.CAMOS.find(c => c.id === camoId) || {}).top ? 'Aurora es solo para el top 10 de experiencia de la temporada. Revisa el ranking.' : 'Ese camuflaje aún no está desbloqueado.' }); }
     return json(res, 404, { error: 'No encontrado' });
   } catch (e) { console.error('api', e); return json(res, 500, { error: 'Error del servidor. Intenta de nuevo.' }); }

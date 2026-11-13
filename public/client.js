@@ -1540,8 +1540,18 @@ function drawAccount() {
   $('#pnameWrap').hidden = !!auth.me;
   if (auth.me) {
     const st = auth.me.stats || {};
-    box.innerHTML = `<div class="acctOn"><div><div class="small">Conectado como</div><b>${esc(auth.me.name)}</b> <span class="small">@${esc(auth.me.user)}</span></div><button type="button" class="linkbtn" id="logoutBtn">Cerrar sesión</button></div>
+    box.innerHTML = `<div class="acctOn"><div><div class="small">Conectado como</div><b>${esc(auth.me.name)}</b> <span class="small">@${esc(auth.me.user)}</span> <button type="button" class="linkbtn" id="renameBtn">Cambiar nombre</button></div><button type="button" class="linkbtn" id="logoutBtn">Cerrar sesión</button></div>
+    <form id="renameForm" class="renameForm" hidden novalidate><label class="field" for="renameIn"><span class="lbl small">Nombre del personaje (3 a 14 caracteres)</span><input id="renameIn" type="text" maxlength="14" autocomplete="nickname" value="${esc(auth.me.name)}"></label><div class="sqrow"><button class="go sm" type="submit">Guardar nombre</button><button class="go ghost sm" type="button" id="renameCancel">Cancelar</button></div><div class="small" id="renameErr" role="status"></div><div class="small">Tu usuario para ingresar (@${esc(auth.me.user)}) no cambia.</div></form>
     <div class="small">Bajas ${st.kills || 0} · Muertes ${st.deaths || 0} · Victorias ${st.wins || 0} · Partidas ${st.matches || 0}. Tu progreso se guarda en tu cuenta.</div>`;
+    $('#renameBtn').onclick = () => { $('#renameForm').hidden = false; $('#renameBtn').hidden = true; const i = $('#renameIn'); i.focus(); i.select(); };
+    $('#renameCancel').onclick = () => { $('#renameForm').hidden = true; $('#renameBtn').hidden = false; };
+    $('#renameForm').onsubmit = async ev => {
+      ev.preventDefault(); const name = cleanName($('#renameIn').value); const err = $('#renameErr');
+      if (name.length < 3 || name === 'Operador' && $('#renameIn').value.trim() === '') { err.textContent = 'El nombre debe tener entre 3 y 14 caracteres.'; return; }
+      err.textContent = 'Guardando…'; const r = await apiCall('/api/name', { name });
+      if (r && r.me) { applyMe(r.me); prefs.name = r.me.name; savePrefs(); drawProfile(); toast('Ahora te llamas ' + r.me.name); if (G.state === 'playing') toast('El nombre nuevo ya se ve en la partida'); }
+      else err.textContent = (r && r.error) || 'No se pudo guardar el nombre. Intenta de nuevo.';
+    };
     $('#logoutBtn').onclick = async () => { await apiCall('/api/logout', {}); auth.token = null; auth.me = null; try { localStorage.removeItem('pc2_tok'); } catch (e) { } for (const k of Object.keys(prof)) delete prof[k]; Object.assign(prof, guestProfile()); drawProfile(); rebuildVMs(); };
     return;
   }

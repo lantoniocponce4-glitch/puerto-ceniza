@@ -23,7 +23,7 @@ async function checkPass(pass, salt, hash) {
 }
 const USER_RE = /^[a-z0-9_.ñ]{3,16}$/;
 function cleanUser(u) { return String(u || '').trim().toLowerCase().normalize('NFC'); }
-function cleanDisplay(u) { return String(u || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14); }
+function cleanDisplay(u) { return String(u || '').replace(/[\p{Cf}\p{Cc}\u3164\u115F\u1160\u2800\uFFA0]/gu, '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14); }
 
 /* ---------- Perfil ---------- */
 function newProfile() { return { xp: 0, lvl: 1, camo: null, day: today(), ch: PC.dailyFor(today()) }; }
@@ -39,6 +39,7 @@ class FileStore {
   async getUser(id) { return this.data.users[id] || null; }
   async createUser(u) { const id = ++this.data.seq; const row = Object.assign({ id }, u); this.data.users[id] = row; this.save(); return row; }
   async saveUser(id, profile, stats) { const u = this.data.users[id]; if (u) { u.profile = profile; u.stats = stats; this.save(); } }
+  async setDisplay(id, display) { const u = this.data.users[id]; if (u) { u.display = display; this.save(); } }
   async createSession(hash, userId, exp) { this.data.sessions[hash] = { userId, exp }; this.save(); }
   async getSession(hash) { const s = this.data.sessions[hash]; return s && s.exp > Date.now() ? s : null; }
   async deleteSession(hash) { delete this.data.sessions[hash]; this.save(); }
@@ -64,6 +65,7 @@ class PgStore {
   async getUser(id) { const r = await this.pool.query('SELECT * FROM pc_users WHERE id=$1', [id]); return r.rows[0] || null; }
   async createUser(u) { const r = await this.pool.query('INSERT INTO pc_users (username, display, salt, pass_hash, profile, stats) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *', [u.username, u.display, u.salt, u.pass_hash, u.profile, u.stats]); return r.rows[0]; }
   async saveUser(id, profile, stats) { await this.pool.query('UPDATE pc_users SET profile=$2, stats=$3 WHERE id=$1', [id, profile, stats]); }
+  async setDisplay(id, display) { await this.pool.query('UPDATE pc_users SET display=$2 WHERE id=$1', [id, display]); }
   async createSession(hash, userId, exp) { await this.pool.query('INSERT INTO pc_sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)', [hash, userId, exp]); await this.pool.query('UPDATE pc_users SET last_login=now() WHERE id=$1', [userId]); }
   async getSession(hash) { const r = await this.pool.query('SELECT user_id AS "userId", expires_at AS exp FROM pc_sessions WHERE token_hash=$1 AND expires_at > $2', [hash, Date.now()]); return r.rows[0] || null; }
   async deleteSession(hash) { await this.pool.query('DELETE FROM pc_sessions WHERE token_hash=$1', [hash]); }
@@ -151,6 +153,16 @@ class Accounts {
     }
     while (p.xp >= PC.needXP(p.lvl)) { p.xp -= PC.needXP(p.lvl); p.lvl++; up = true; }
     a.dirty = true; return { msgs, up, done };
+  }
+  // Cambiar el nombre visible (el usuario para ingresar no cambia). Máximo 3 cambios cada 10 minutos.
+  async rename(a, raw) {
+    const name = cleanDisplay(raw);
+    if (name.length < 3) return { error: 'El nombre debe tener entre 3 y 14 caracteres.' };
+    if (name === a.display) return { ok: true };
+    if (this.limited('name:' + a.id)) return { error: 'Cambiaste el nombre muchas veces. Espera unos minutos.' };
+    for (let i = 0; i < 2; i++) this.fail('name:' + a.id);
+    await this.store.setDisplay(a.id, name); a.display = name; a.lastUse = Date.now();
+    return { ok: true };
   }
   async ranking(byRaw, me) {
     await this.ready; const by = RANK_BY[byRaw] || 'xp', season = seasonId();
