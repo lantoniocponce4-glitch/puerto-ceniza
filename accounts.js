@@ -145,18 +145,29 @@ class Accounts {
   async logout(token) { if (typeof token === 'string') await this.store.deleteSession(sha(token)); }
   async setCamo(a, camo, wid) {
     if (wid !== undefined && wid !== null) { if (typeof wid !== 'string' || !Object.prototype.hasOwnProperty.call(PC.WEAPONS, wid)) return false; const cm = a.profile.camos || (a.profile.camos = {}); if (camo === null || camo === '') { delete cm[wid]; a.dirty = true; return true; } if (camo === 'none') { cm[wid] = 'none'; a.dirty = true; return true; } if (!(await this.setCamo({ profile: Object.assign({}, a.profile), stats: a.stats, id: a.id }, camo))) return false; cm[wid] = camo; a.dirty = true; return true; }
-    const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; } if (!c || a.profile.lvl < c.lvl) return false;
+    const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; }
+    if (c && c.pass && !(a.profile.owned || []).includes('camo:' + c.id)) return false; if (!c || a.profile.lvl < c.lvl) return false;
     if (c.top) { await this.flush(); const ss = freshSeason(a.stats); if (!(ss.xp > 0)) return false; const pos = await this.store.rankOf(seasonId(), 'xp', ss.xp, a.id); if (!(pos <= c.top)) return false; } a.profile.camo = c.id; a.dirty = true; return true; }
   // Aplica la experiencia de un evento de juego; devuelve lo que hay que avisarle al jugador
   award(a, gains) {
-    const p = freshDaily(a.profile); const ss = freshSeason(a.stats); const msgs = []; let up = false, done = [];
+    const p = freshDaily(a.profile); const ss = freshSeason(a.stats); const msgs = []; let up = false, done = []; const t0 = PC.passTier(ss.xp);
     for (const g of gains) {
       if (g.stat) { a.stats[g.stat] = (a.stats[g.stat] || 0) + 1; if (ss[g.stat] !== undefined) ss[g.stat]++; }
       if (g.n) { p.xp += g.n; ss.xp += g.n; msgs.push('+' + g.n + ' · ' + g.why); }
       for (const id of g.ch) for (const c of p.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += 500; ss.xp += 500; done.push(c.id); } }
     }
     while (p.xp >= PC.needXP(p.lvl)) { p.xp -= PC.needXP(p.lvl); p.lvl++; up = true; }
-    a.dirty = true; return { msgs, up, done };
+    // pase de temporada: premios de los escalones alcanzados
+    const pass = []; const t1 = PC.passTier(ss.xp); const own = p.owned || (p.owned = []);
+    for (let t = t0 + 1; t <= t1; t++) { const r = PC.PASS.rewards[t - 1]; if (!r) continue; const key = r.k + ':' + r.id; if (!own.includes(key)) own.push(key); pass.push(r); }
+    a.dirty = true; return { msgs, up, done, pass };
+  }
+  // Tarjeta de presentación y título (solo los ganados en el pase)
+  setLook(a, b) {
+    const own = a.profile.owned || [];
+    if (b.card !== undefined) { if (b.card === null || b.card === '') a.profile.card = null; else if (own.includes('card:' + b.card)) a.profile.card = b.card; else return false; }
+    if (b.title !== undefined) { if (b.title === null || b.title === '') a.profile.title = null; else if (own.includes('title:' + b.title)) a.profile.title = b.title; else return false; }
+    a.dirty = true; return true;
   }
   // Cambiar el nombre visible (el usuario para ingresar no cambia). Máximo 3 cambios cada 10 minutos.
   async rename(a, raw) {

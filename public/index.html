@@ -291,6 +291,22 @@ tr.dead td{opacity:.5}
 .pubchk input{width:18px;height:18px;accent-color:var(--amber);margin:0}
 .roomsHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .renameForm{display:grid;gap:6px;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:3px}.renameForm input{width:100%}#renameErr:empty{display:none}#renameErr{color:var(--amber)}
+#pass{background:rgba(6,8,10,.72);z-index:30}
+.passBox{width:min(980px,100%)}.passbar{height:8px}
+.passTrack{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px;scroll-snap-type:x proximity}
+.pt{flex:0 0 84px;scroll-snap-align:center;border:1px solid var(--line);border-radius:3px;padding:6px;display:flex;flex-direction:column;gap:4px;align-items:center;opacity:.55;background:rgba(14,18,22,.6)}
+.pt b{font-family:var(--f-mono);font-size:11px;color:var(--dim)}.pt small{font-size:10px;color:var(--dim)}
+.pt .pv{width:100%;height:34px;border-radius:2px;background:#2a2c2f center/cover;display:flex;align-items:center;justify-content:center}
+.pt .pv.tt{font-family:var(--f-display);font-weight:700;font-size:11px;line-height:1.1;text-align:center;color:var(--sand);background:rgba(233,220,192,.06);padding:2px}
+.pt.got{opacity:1;border-color:rgba(110,190,120,.6)}.pt.got b{color:#9fdca8}.pt.now{opacity:1;border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}.pt.now b{color:var(--amber)}
+.passLook{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:16px}
+.cardPrev{height:64px;border-radius:3px;border:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;padding:0 14px;background:linear-gradient(110deg,#2a2f35,#14171b)}
+.cardPrev b,#kcCard b{font-family:var(--f-display);font-size:20px;text-shadow:0 1px 4px rgba(0,0,0,.7);color:#fff}.cardPrev span,#kcTitle{font-size:12px;color:#fff;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+#kcCard{border-radius:3px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;min-width:180px}#kcCard[hidden]{display:flex}
+.passPick{display:flex;flex-wrap:wrap;gap:6px}
+.passPick button{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:3px;padding:6px 10px;font-size:12px;min-height:34px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);background:rgba(233,220,192,.05)}
+.passPick button[aria-pressed="true"]{outline:2px solid var(--amber);outline-offset:1px}.passPick button:focus-visible{outline:2px solid var(--sand)}
+@media (max-width:700px){.passLook{grid-template-columns:1fr}}
 #inv{background:rgba(6,8,10,.72);z-index:30}
 .invBox{width:min(980px,100%)}
 .invTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.invTop h2{margin:2px 0 0}
@@ -416,7 +432,7 @@ tr.dead td{opacity:.5}
     <div id="chatBox" aria-live="polite"></div>
     <input id="chatIn" type="text" maxlength="90" placeholder="Mensaje al equipo · Enter envía, Esc cancela" autocomplete="off" hidden>
     <div id="radioWheel" hidden></div>
-    <div id="killcam" hidden><div class="kcb"><span class="tagr">REPETICIÓN</span><span class="small">Te eliminó</span><b id="kcName">—</b><span id="kcInfo"></span><div class="bar"><s id="kcBar"></s></div><span class="hint">Clic o espacio para saltar</span></div></div>
+    <div id="killcam" hidden><div class="kcb"><span class="tagr">REPETICIÓN</span><span class="small">Te eliminó</span><div id="kcCard" hidden><b id="kcName">—</b><span id="kcTitle"></span></div><span id="kcInfo"></span><div class="bar"><s id="kcBar"></s></div><span class="hint">Clic o espacio para saltar</span></div></div>
     <div id="clickPlay" hidden><b>Haz clic para jugar</b><span>El mouse queda capturado para apuntar. Esc lo suelta.</span></div>
   </div>
 
@@ -455,7 +471,7 @@ tr.dead td{opacity:.5}
           <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
         </div>
         <div class="sec"><div class="lbl">Modo (salas nuevas)</div>
-          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button></div>
+          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button><button type="button" data-v="waves">Oleadas (cooperativo)</button></div>
         </div>
       </div>
       <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Escalada de armas: cada baja te da un arma nueva y reapareces al instante; gana quien llegue al cuchillo y mate con él.</div>
@@ -537,6 +553,21 @@ tr.dead td{opacity:.5}
     </div>
   </div>
 
+  <div id="pass" class="ov" hidden>
+    <div class="box passBox" role="dialog" aria-label="Pase de temporada">
+      <div class="invTop"><div><div class="eyebrow">PASE DE TEMPORADA</div><h2>30 escalones de premios</h2></div><button class="go ghost sm" id="passClose" type="button">Cerrar</button></div>
+      <div class="small" id="passSeason"></div>
+      <div class="xpbar passbar"><s id="passBar"></s></div>
+      <div class="small" id="passNext"></div>
+      <div id="passTrack" class="passTrack"></div>
+      <div class="passLook">
+        <div><div class="lbl small">Así te ven al eliminarlos</div><div id="passPreview" class="cardPrev"><b id="passPrevName">—</b><span id="passPrevTitle"></span></div></div>
+        <div><div class="lbl small">Tarjeta de presentación</div><div id="passCards" class="passPick"></div><div class="lbl small" style="margin-top:8px">Título</div><div id="passTitles" class="passPick"></div></div>
+      </div>
+      <div class="small">Sube de escalón con la experiencia de temporada (bajas, rondas, victorias y desafíos). Los premios ganados son tuyos para siempre; el avance se reinicia cada mes.</div>
+    </div>
+  </div>
+
   <div id="inv" class="ov" hidden>
     <div class="box invBox" role="dialog" aria-label="Inventario de skins">
       <div class="invTop"><div><div class="eyebrow">INVENTARIO</div><h2>Skins de tus armas</h2></div><button class="go ghost sm" id="invClose" type="button">Cerrar</button></div>
@@ -572,9 +603,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=24"></script>
-<script src="/models.js?v=24"></script>
-<script src="/client.js?v=24"></script>
+<script src="/core.js?v=26"></script>
+<script src="/models.js?v=26"></script>
+<script src="/client.js?v=26"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

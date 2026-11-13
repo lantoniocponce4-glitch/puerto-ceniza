@@ -27,8 +27,10 @@ try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')
 if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); if (prefs.gfx !== 'low' && prefs.gfx !== 'high') prefs.gfx = isTouch ? 'low' : 'high';
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
-if (prof.camo && !(PC.CAMOS.find(c => c.id === prof.camo && c.lvl <= prof.lvl && !c.top))) prof.camo = null;
-if (prof.camos) for (const k of Object.keys(prof.camos)) if (prof.camos[k] !== 'none' && !(PC.CAMOS.find(c => c.id === prof.camos[k] && c.lvl <= prof.lvl && !c.top))) delete prof.camos[k];
+if (prof.camo && !(PC.CAMOS.find(c => c.id === prof.camo && c.lvl <= prof.lvl && !c.top && !c.pass))) prof.camo = null;
+if (prof.camos) for (const k of Object.keys(prof.camos)) if (prof.camos[k] !== 'none' && !(PC.CAMOS.find(c => c.id === prof.camos[k] && c.lvl <= prof.lvl && !c.top && !c.pass))) delete prof.camos[k];
+const camoLocked = c => !!c && (prof.lvl < c.lvl || (c.top && !auth.me) || (c.pass && !(prof.owned || []).includes('camo:' + c.id)));
+const camoLockTxt = c => c.top ? 'solo top ' + c.top + ' de la temporada' : c.pass ? 'se gana en el pase de temporada' : 'se desbloquea en nivel ' + c.lvl;
 // skins del jugador: general + por arma
 const mySkin = () => ({ d: prof.camo || null, w: prof.camos || {} });
 const saveProf = () => { if (auth.me) return; try { localStorage.setItem('pc2_prof', JSON.stringify(prof)); } catch (e) { } };
@@ -759,7 +761,7 @@ function onMsg(m) {
     }
     case 'r': {
       G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
-      for (const [id, name, team, k, d, as, sc, hum, money, lvl, camo] of m.r) { const a = getActor(id, team); a.camo = camo || null; if (a.model && a.model.setCamo) a.model.setCamo(a.camo); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; a.lvl = lvl | 0; if (id === me.id && team !== me.team) { me.team = team; PCM.setFpTeam(team); } }
+      for (const [id, name, team, k, d, as, sc, hum, money, lvl, camo, card, title] of m.r) { const a = getActor(id, team); a.card = card || null; a.title = title || null; a.camo = camo || null; if (a.model && a.model.setCamo) a.model.setCamo(a.camo); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; a.lvl = lvl | 0; if (id === me.id && team !== me.team) { me.team = team; PCM.setFpTeam(team); } }
       $('#roomCode').textContent = G.code; $('#mapName').textContent = '· ' + MAPS[CURMAP].name + ' · ' + m.r.filter(x => x[7]).length + ' en línea';
       break;
     }
@@ -779,6 +781,7 @@ function onMsg(m) {
       if (!auth.me) break; const prevLvl = prof.lvl; applyMe(m.me);
       if (m.msgs && m.msgs.length) xpPop(m.msgs.join('  '));
       if (m.up) { const unl = PC.CAMOS.filter(c => c.lvl > prevLvl && c.lvl <= prof.lvl).pop(); announce('Subiste a nivel ' + prof.lvl, unl ? 'Desbloqueaste el camuflaje ' + unl.name + '. Elígelo en el menú principal.' : 'Sigue sumando experiencia', 3.2, 'var(--amber)'); sTone(660, .12, .2, 'triangle'); sTone(880, .12, .2, 'triangle', 0, .1); sTone(1180, .22, .2, 'triangle', 0, .2); }
+      for (const r of m.pass || []) setTimeout(() => { announce('Pase · escalón ' + r.t, 'Ganaste ' + passRewardName(r), 3, 'var(--amber)'); sTone(784, .12, .14, 'triangle'); sTone(1175, .25, .14, 'triangle', 0, .12); }, 600);
       for (const id of m.done || []) { const c = prof.ch.find(x => x.id === id); if (c) toast('Desafío diario completado: ' + chText(c) + ' · +500'); }
       break;
     }
@@ -835,6 +838,7 @@ function handleEvent(e) {
       break;
     }
     case 'kill': {
+      if (G.mode === 'waves' && actors[e.v] && actors[e.v].team !== me.team && G.waveLeft > 0) G.waveLeft--;
       addFeed(e); const v = actors[e.v]; if (v) v.deadT = 0;
       if (e.a === me.id && e.v !== me.id) { me.kills++; killSound(!!e.h); }
       if (e.v === me.id) { me.alive = false; me.deadT = 0; me.killer = e.a; me.specIdx = 0; closeBuy(); resetAim(); closeChat(false); toggleWheel(false); startKillcam(e); }
@@ -863,6 +867,14 @@ function handleEvent(e) {
     case 'chat': if (e.tm === me.team) { addChat(`<b class="t${e.tm}">${esc(nameOf(e.v))}</b>: ${esc(e.m)}`); uiSound(() => sTone(1200, .05, .08, 'triangle')); } break;
     case 'radio': if (e.tm === me.team) { addChat(`<span class="rd">Radio</span><b class="t${e.tm}">${esc(nameOf(e.v))}</b>: ${esc(PC.RADIO[e.c] || '')}`); uiSound(() => sTone(980, .06, .1, 'square')); uiSound(() => sTone(1320, .07, .1, 'square', 0, .08)); const a = actors[e.v]; if (a) a.radioT = nowS(); } break;
     case 'ping': if (e.tm === me.team) addPing(e); break;
+    case 'wave': {
+      G.wave = e.n;
+      if (e.st === 'buy') { G.waveLeft = e.q; refillAmmo(); announce('Oleada ' + e.n, 'Compra con B · vienen ' + e.q + ' enemigos', 3, 'var(--amber)'); }
+      else if (e.st === 'go') { G.waveLeft = e.q; announce('¡Ahí vienen!', 'Oleada ' + e.n + ' · ' + e.q + ' enemigos', 1.8, 'var(--bad)'); sTone(330, .3, .16, 'sawtooth', 220); }
+      else if (e.st === 'clear') { G.waveLeft = 0; announce('Oleada ' + e.n + ' superada', 'Tu equipo se recupera y recibe dinero', 2.4, 'var(--t0)'); sTone(660, .12, .15, 'triangle'); sTone(990, .25, .15, 'triangle', 0, .12); }
+      break;
+    }
+    case 'revive': if (e.v === me.id) { G.reviveAt = nowS() + e.t; toast('Reapareces en ' + e.t + ' s si tu equipo resiste'); } break;
     case 'streak': {
       const S = { radar: ['Pulso de radar', 'Enemigos en el radar por 5 segundos'], kit: ['Blindaje y munición', 'Blindaje completo, casco y cargadores llenos'], dron: ['Dron de reconocimiento', 'Enemigos marcados a través de paredes por 12 segundos'] }[e.r] || ['Racha', ''];
       if (e.tm === me.team) {
@@ -881,7 +893,7 @@ function handleEvent(e) {
       break;
     }
     case 'demote': if (e.v === me.id) toast('Te apuñalaron: bajas al nivel ' + (e.l + 1)); else if (e.a === me.id) toast('Le quitaste un nivel a ' + nameOf(e.v)); break;
-    case 'mstart': $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de 5 rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
+    case 'mstart': $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de 5 rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
     case 'votes': G.votes = e.v || {}; drawVotes(); break;
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
@@ -1284,10 +1296,12 @@ function updateHUD(dt) {
   for (const tm of [0, 1]) { const el = $('#pips' + tm); const list = actors.filter(a => a && a.team === tm); const html = list.map(a => `<i class="${a.alive ? '' : 'dead'}${a.id === me.id ? ' me' : ''}"></i>`).join(''); if (el._h !== html) { el.innerHTML = html; el._h = html; } }
   const left = Math.max(0, G.pt - (t - (G.ptAt || t))); const tm = $('#timer');
   if (RG.on) { }
+  else if (G.mode === 'waves' && G.phase === 'live') { setTxt('#timer', 'O' + (G.wave || 1)); setCls('#timer', ''); }
   else if (G.bomb[0] === 'planted') { setTxt('#timer', 'CARGA'); setCls('#timer', 'bomb'); }
   else { setTxt('#timer', Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0')); setCls('#timer', G.phase === 'buy' ? 'buy' : ''); }
   if (RG.on) { }
   else if (G.mode === 'gg') { const lead = actors.filter(Boolean).sort((p, q) => (q.lvl - p.lvl) || (q.k - p.k))[0]; setTxt('#rlabel', G.phase === 'over' ? 'Fin de la escalada' : (lead ? 'Líder: ' + lead.name + ' · nivel ' + (lead.lvl + 1) : 'Escalada')); }
+  else if (G.mode === 'waves') setTxt('#rlabel', G.phase === 'over' ? 'Fin de las oleadas' : G.phase === 'buy' ? 'Compra · oleada ' + (G.wave || 1) : 'Oleada ' + (G.wave || 1) + ' · quedan ' + Math.max(0, G.waveLeft | 0));
   else if (G.mode === 'tdm') setTxt('#rlabel', G.phase === 'over' ? 'Fin del combate' : 'Combate · meta ' + PC.TDM.goal + ' bajas');
   else setTxt('#rlabel', G.phase === 'buy' ? 'Compra · ronda ' + G.rd : G.phase === 'over' ? 'Fin de partida' : 'Ronda ' + G.rd + ' de ' + ROUND.total);
   if (G.mode === 'gg') { setTxt('#role0', 'Halcón'); setTxt('#role1', 'Cobra'); }
@@ -1332,8 +1346,9 @@ function updateHUD(dt) {
   setTxt('#zoneTag', site ? 'Sitio ' + site : (me.cb ? 'Zona de compra' : ''));
   // espectador
   const kcOn = kcActive(); $('#killcam').hidden = !kcOn;
-  if (kcOn) { const k = actors[kc.killer]; const txt = (k ? k.name : '—') + '|' + kc.w; if ($('#killcam')._t !== txt) { $('#killcam')._t = txt; setTxt('#kcName', k ? k.name : '—'); setCls('#kcName', k ? 't' + k.team : ''); setTxt('#kcInfo', (WEAPONS[kc.w] ? WEAPONS[kc.w].name : kc.w === 'he' ? 'Granada HE' : kc.w === 'in' ? 'Incendiaria' : 'Carga') + (kc.h ? ' · a la cabeza' : '') + ' · ' + kc.dist + ' m' + (kc.hp != null ? ' · le quedó ' + kc.hp + ' de vida' : '')); } $('#kcBar').style.width = clamp(kc.phase === 'eyes' ? (kc.rt - kc.from) / kc.len * .8 : .8 + kc.orbitT / kc.orbitLen * .2, 0, 1) * 100 + '%'; }
-  const sp = $('#spec'); if (kcOn) sp.hidden = true; else if (!me.alive && (G.mode === 'gg' || G.mode === 'tdm')) { sp.hidden = false; setTxt('#specName', 'Reapareces en un momento'); setCls('#specName', ''); setTxt('#specHint', 'Te toca ' + ((WEAPONS[PC.LADDER[me.lvl | 0]] || {}).name || '')); } else if (!me.alive && me.deadT > 1.2) { const tg = specTarget(); sp.hidden = false; setTxt('#specName', tg ? tg.name + ' · ' + Math.max(0, tg.hp | 0) + ' de vida' : 'Nadie en pie'); setCls('#specName', tg ? 't' + tg.team : ''); setTxt('#specHint', (tg && WEAPONS[tg.cur] ? WEAPONS[tg.cur].name + ' · ' : '') + (isTouch ? 'toca para cambiar de compañero' : 'clic para cambiar de compañero')); } else sp.hidden = true;
+  if (kcOn) { const k = actors[kc.killer]; const txt = (k ? k.name : '—') + '|' + kc.w; if ($('#killcam')._t !== txt) { $('#killcam')._t = txt; setTxt('#kcName', k ? k.name : '—'); { const cd = k && PC.CARDS.find(c => c.id === k.card), tl = k && PC.TITLES.find(c => c.id === k.title); $('#kcCard').style.cssText = cd ? cardCss(cd) : ''; $('#kcCard').hidden = !cd && !tl; setTxt('#kcTitle', tl ? tl.name : ''); } setCls('#kcName', k ? 't' + k.team : ''); setTxt('#kcInfo', (WEAPONS[kc.w] ? WEAPONS[kc.w].name : kc.w === 'he' ? 'Granada HE' : kc.w === 'in' ? 'Incendiaria' : 'Carga') + (kc.h ? ' · a la cabeza' : '') + ' · ' + kc.dist + ' m' + (kc.hp != null ? ' · le quedó ' + kc.hp + ' de vida' : '')); } $('#kcBar').style.width = clamp(kc.phase === 'eyes' ? (kc.rt - kc.from) / kc.len * .8 : .8 + kc.orbitT / kc.orbitLen * .2, 0, 1) * 100 + '%'; }
+  const sp = $('#spec'); if (kcOn) sp.hidden = true; else if (!me.alive && G.mode === 'waves' && me.deadT <= 1.2) { sp.hidden = false; setTxt('#specName', 'Reapareces en ' + Math.max(0, Math.ceil((G.reviveAt || 0) - nowS())) + ' s'); setCls('#specName', ''); setTxt('#specHint', 'Si todo tu equipo cae, termina la partida'); }
+  else if (!me.alive && (G.mode === 'gg' || G.mode === 'tdm')) { sp.hidden = false; setTxt('#specName', 'Reapareces en un momento'); setCls('#specName', ''); setTxt('#specHint', 'Te toca ' + ((WEAPONS[PC.LADDER[me.lvl | 0]] || {}).name || '')); } else if (!me.alive && me.deadT > 1.2) { const tg = specTarget(); sp.hidden = false; setTxt('#specName', tg ? tg.name + ' · ' + Math.max(0, tg.hp | 0) + ' de vida' : 'Nadie en pie'); setCls('#specName', tg ? 't' + tg.team : ''); setTxt('#specHint', (tg && WEAPONS[tg.cur] ? WEAPONS[tg.cur].name + ' · ' : '') + (isTouch ? 'toca para cambiar de compañero' : 'clic para cambiar de compañero')); } else sp.hidden = true;
   // enemigos vistos (radar) y nombres
   spotT -= dt; if (spotT <= 0 && me.alive) { spotT = .15; const o = [camera.position.x, camera.position.y, camera.position.z]; const sl = smokeList(); for (const a of actors) { if (!a || !a.alive || a.team === me.team || a.id === me.id) continue; if (WORLD.visible(o, [a.pos.x, a.pos.y + a.h * .7, a.pos.z], sl)) a.seenT = t; } }
   const aim = aimedEnemy();
@@ -1383,6 +1398,14 @@ function teamTable(tm) {
 function showBoard(on) { if (G.state !== 'playing') return; if (on) { $('#boardT').innerHTML = teamTable(me.team) + teamTable(1 - me.team); $('#board').hidden = false; } else $('#board').hidden = true; }
 function showEnd(e) {
   G.nextMap = e.next || null; G.votes = {}; G.myVote = null; drawVotes();
+  if (e.waves) {
+    const best = (prefs.wavesBest || {})[CURMAP] || 0, rec = e.wave > best; if (rec) { prefs.wavesBest = Object.assign({}, prefs.wavesBest, { [CURMAP]: e.wave }); savePrefs(); }
+    $('#endTitle').textContent = 'Llegaron a la oleada ' + e.wave + (rec ? ' · ¡récord!' : ''); $('#endTitle').className = 't' + me.team;
+    $('#endEye').textContent = 'OLEADAS · ' + MAPS[CURMAP].name.toUpperCase();
+    const a = actors[me.id] || { k: 0, d: 0 }; const acc = me.shots ? Math.round(me.hits / me.shots * 100) : 0;
+    $('#endStats').innerHTML = [[e.wave, 'Oleada alcanzada'], [Math.max(best, e.wave), 'Récord en este mapa'], [a.k + ' / ' + a.d, 'Bajas / muertes'], [acc + '%', 'Precisión']].map(([b, x]) => `<div class="stat"><b>${b}</b><span>${x}</span></div>`).join('');
+    $('#endT').innerHTML = teamTable(me.team); $('#end').hidden = false; closeBuy(); releaseLock(); return;
+  }
   if (e.gg) {
     const wa = actors[e.win]; const mine = e.win === me.id;
     $('#endTitle').textContent = mine ? '¡Ganaste con el cuchillo!' : (wa ? wa.name + ' ganó' : 'Fin de la escalada'); $('#endTitle').className = wa ? 't' + wa.team : '';
@@ -1418,7 +1441,7 @@ $('#quick').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), 
 $('#create').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'create', pub: $('#pubRoom').checked })); };
 $('#pubRoom').checked = prefs.pubRoom !== false; $('#pubRoom').onchange = () => { prefs.pubRoom = $('#pubRoom').checked; savePrefs(); };
 /* ---------- Lista de salas públicas ---------- */
-const GM_N = { bomb: 'Con carga', elim: 'Sin carga', gg: 'Escalada de armas', tdm: 'Combate por equipos' }, DIFF_N = { recluta: 'bots recluta', veterano: 'bots veterano', elite: 'bots élite' };
+const GM_N = { bomb: 'Con carga', elim: 'Sin carga', gg: 'Escalada de armas', tdm: 'Combate por equipos', waves: 'Oleadas' }, DIFF_N = { recluta: 'bots recluta', veterano: 'bots veterano', elite: 'bots élite' };
 let roomsTimer = null;
 async function loadRooms() {
   if (location.protocol === 'file:') { $('#roomsBox').hidden = true; return; }
@@ -1427,9 +1450,9 @@ async function loadRooms() {
     const r = await fetch('/api/rooms', { cache: 'no-store' }); const list = await r.json();
     if (!list.length) { $('#roomList').innerHTML = '<div class="small">No hay salas públicas activas. Crea una con «Pública» marcada o entra a Partida rápida.</div>'; return; }
     $('#roomList').innerHTML = list.map(x => {
-      const full = x.players >= 8; const st = x.mode === 'gg' ? 'en juego' : x.mode === 'tdm' ? 'en juego · ' + x.sc[0] + '-' + x.sc[1] : x.phase === 'buy' ? 'compra · ronda ' + x.round : x.phase === 'over' ? 'terminando' : 'ronda ' + x.round + ' · ' + x.sc[0] + '-' + x.sc[1];
+      const full = x.players >= 8; const st = x.mode === 'gg' ? 'en juego' : x.mode === 'waves' ? 'oleada ' + x.round : x.mode === 'tdm' ? 'en juego · ' + x.sc[0] + '-' + x.sc[1] : x.phase === 'buy' ? 'compra · ronda ' + x.round : x.phase === 'over' ? 'terminando' : 'ronda ' + x.round + ' · ' + x.sc[0] + '-' + x.sc[1];
       const T = x.teams || { atk: [], def: [] };
-      const col = sd => { const L = T[sd] || []; const hum = L.filter(q => q.h).length; const cap = L.length || 4; const closed = full || hum >= cap;
+      const col = sd => { const L = T[sd] || []; const hum = L.filter(q => q.h).length; const cap = L.length || 4; const closed = full || hum >= cap || (x.mode === 'waves' && sd === 'atk');
         return `<div class="tcol ${sd}"><button type="button" class="thd" data-code="${esc(x.code)}" data-side="${sd}" ${closed ? 'aria-disabled="true"' : ''}><span>${SIDE_N[sd]}</span><b>${hum}/${cap}</b></button>
         ${L.map(q => q.h ? `<div class="slot on" title="Ocupado">${esc(q.n)}</div>` : `<button type="button" class="slot" data-code="${esc(x.code)}" data-side="${sd}" ${closed ? 'aria-disabled="true"' : ''}>Libre · entrar</button>`).join('')}</div>`; };
       return `<div class="room"><div class="rn">${esc(MAPS[x.map] ? MAPS[x.map].name : x.map)}<code>${esc(x.code)}</code></div><button type="button" class="auto" data-code="${esc(x.code)}" ${full ? 'aria-disabled="true"' : ''}>${full ? 'Llena' : 'Automático'}</button>
@@ -1552,7 +1575,7 @@ function drawProfile() {
   if (!auth.me) ensureDaily(); drawAccount(); const need = needXP(prof.lvl);
   const camos = [{ id: null, name: 'Sin camuflaje', lvl: 1 }].concat(PC.CAMOS);
   $('#profBox').innerHTML = `<div class="prof"><div class="lvl"><b>${prof.lvl}</b><span>nivel</span></div><div class="xpw"><div class="small">${prof.xp} / ${need} de experiencia</div><div class="xpbar"><s style="width:${Math.min(100, prof.xp / need * 100)}%"></s></div></div></div>
-  <div class="invHead"><span class="lbl small">Camuflaje general (todas las armas)</span><button type="button" class="go ghost sm" id="invOpen">Inventario de skins</button></div><div class="camos">${camos.map(c => { const lock = prof.lvl < c.lvl || (c.top && !auth.me); const sel = (prof.camo || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${sel}" ${lock ? 'aria-disabled="true"' : ''} title="${c.name}${c.top ? ' · solo para el top ' + c.top + ' de la temporada' + (auth.me ? '' : ' (requiere cuenta)') : lock ? ' · se desbloquea en nivel ' + c.lvl : ''}"><span class="sw" style="${c.id ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span class="cn">${lock ? 'Nv ' + c.lvl : c.name}</span></button>`; }).join('')}</div>
+  <div class="invHead"><span class="lbl small">Camuflaje general (todas las armas)</span><span class="sqrow" style="margin:0"><button type="button" class="go ghost sm" id="passOpen">Pase de temporada</button><button type="button" class="go ghost sm" id="invOpen">Inventario de skins</button></span></div><div class="camos">${camos.map(c => { const lock = c.id ? camoLocked(c) : false; const sel = (prof.camo || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${sel}" ${lock ? 'aria-disabled="true"' : ''} title="${c.name}${lock ? ' · ' + camoLockTxt(c) : ''}"><span class="sw" style="${c.id ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span class="cn">${lock ? 'Nv ' + c.lvl : c.name}</span></button>`; }).join('')}</div>
   <div class="lbl small">Desafíos de hoy</div><div class="daily">${prof.ch.map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${chText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>`;
 }
 $('#profBox').addEventListener('click', async e => {
@@ -1744,6 +1767,44 @@ $('#rankTabs').addEventListener('click', e => { const b = e.target.closest('butt
 $('#rankClose').onclick = () => { $('#rank').hidden = true; };
 $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $('#rank').hidden = true; });
 
+/* ================= PASE DE TEMPORADA ================= */
+const PAT = { diag: 'repeating-linear-gradient(135deg,rgba(255,255,255,.10) 0 6px,transparent 6px 14px)', dots: 'radial-gradient(rgba(255,255,255,.16) 1.5px,transparent 1.6px) 0 0/10px 10px', grid: 'linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px) 0 0/12px 12px,linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px) 0 0/12px 12px', wave: 'repeating-radial-gradient(circle at 0 100%,rgba(255,255,255,.09) 0 4px,transparent 4px 12px)' };
+const cardCss = c => `background:${PAT[c.pat] || ''}${PAT[c.pat] ? ',' : ''}linear-gradient(110deg,${c.a},${c.b})`;
+function passRewardName(r) { if (r.k === 'camo') { const c = PC.CAMOS.find(x => x.id === r.id); return 'el acabado ' + (c ? c.name.split(' ·')[0] : r.id); } if (r.k === 'card') { const c = PC.CARDS.find(x => x.id === r.id); return 'la tarjeta ' + (c ? c.name : r.id); } const t = PC.TITLES.find(x => x.id === r.id); return 'el título «' + (t ? t.name : r.id) + '»'; }
+function seasonXP() { const s = auth.me && auth.me.stats && auth.me.stats.season; const id = new Date().toISOString().slice(0, 7); return s && s.id === id ? s.xp || 0 : 0; }
+function drawPass() {
+  const own = prof.owned || []; const xp = seasonXP(), tier = PC.passTier(xp), into = tier >= PC.PASS.tiers ? PC.PASS.xp : xp - tier * PC.PASS.xp;
+  const mes = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getUTCMonth()];
+  $('#passSeason').textContent = 'Temporada de ' + mes + ' · ' + (auth.me ? 'escalón ' + tier + ' de ' + PC.PASS.tiers : 'necesitas una cuenta para avanzar');
+  $('#passBar').style.width = (tier >= PC.PASS.tiers ? 100 : into / PC.PASS.xp * 100) + '%';
+  $('#passNext').textContent = !auth.me ? 'Crea una cuenta o ingresa: la experiencia de temporada solo se guarda con cuenta.' : tier >= PC.PASS.tiers ? '¡Completaste el pase de este mes!' : `${into.toLocaleString('es-CL')} / ${PC.PASS.xp.toLocaleString('es-CL')} de experiencia para el escalón ${tier + 1}`;
+  $('#passTrack').innerHTML = PC.PASS.rewards.map(r => {
+    const got = own.includes(r.k + ':' + r.id), now = r.t === tier + 1; let vis = '';
+    if (r.k === 'camo') vis = `<span class="pv" style="background-image:url(${PCM.camoSwatch(r.id)})"></span>`;
+    else if (r.k === 'card') { const c = PC.CARDS.find(x => x.id === r.id); vis = `<span class="pv" style="${cardCss(c)}"></span>`; }
+    else vis = `<span class="pv tt">${esc((PC.TITLES.find(x => x.id === r.id) || {}).name || '')}</span>`;
+    return `<div class="pt${got ? ' got' : ''}${now ? ' now' : ''}" title="${esc(passRewardName(r))}"><b>${r.t}</b>${vis}<small>${r.k === 'camo' ? 'Acabado' : r.k === 'card' ? 'Tarjeta' : 'Título'}</small></div>`;
+  }).join('');
+  const cards = PC.CARDS.filter(c => own.includes('card:' + c.id)), titles = PC.TITLES.filter(t => own.includes('title:' + t.id));
+  $('#passCards').innerHTML = `<button type="button" class="pc" data-card="" aria-pressed="${!prof.card}">Ninguna</button>` + cards.map(c => `<button type="button" class="pc" data-card="${c.id}" aria-pressed="${prof.card === c.id}" style="${cardCss(c)}">${esc(c.name)}</button>`).join('') + (cards.length ? '' : '<span class="small">Aún no ganas tarjetas.</span>');
+  $('#passTitles').innerHTML = `<button type="button" class="ptl" data-title="" aria-pressed="${!prof.title}">Sin título</button>` + titles.map(t => `<button type="button" class="ptl" data-title="${t.id}" aria-pressed="${prof.title === t.id}">${esc(t.name)}</button>`).join('') + (titles.length ? '' : '<span class="small">Aún no ganas títulos.</span>');
+  const cd = PC.CARDS.find(c => c.id === prof.card), tl = PC.TITLES.find(t => t.id === prof.title);
+  $('#passPreview').style.cssText = cd ? cardCss(cd) : ''; $('#passPrevName').textContent = auth.me ? auth.me.name : cleanName(prefs.name); $('#passPrevTitle').textContent = tl ? tl.name : '';
+  setTimeout(() => { const n = $('#passTrack .pt.now') || $('#passTrack .pt.got:last-of-type'); if (n) n.scrollIntoView({ block: 'nearest', inline: 'center' }); }, 0);
+}
+function openPass() { $('#pass').hidden = false; drawPass(); }
+document.addEventListener('click', async e => {
+  if (e.target.id === 'passOpen') { openPass(); return; }
+  if ($('#pass').hidden) return;
+  const b = e.target.closest('#passCards .pc, #passTitles .ptl'); if (!b) return;
+  if (!auth.me) { toast('Necesitas una cuenta para usar premios del pase'); return; }
+  const body = b.dataset.card !== undefined ? { card: b.dataset.card || null } : { title: b.dataset.title || null };
+  const r = await apiCall('/api/look', body); if (r.me) { applyMe(r.me); drawPass(); toast('Listo: se verá en tu próxima partida'); } else toast(r.error || 'No se pudo guardar');
+});
+$('#passClose').onclick = () => { $('#pass').hidden = true; };
+$('#pass').addEventListener('pointerdown', e => { if (e.target === $('#pass')) $('#pass').hidden = true; });
+addEventListener('keydown', e => { if (!$('#pass').hidden && e.key === 'Escape') $('#pass').hidden = true; });
+
 /* ================= INVENTARIO DE SKINS ================= */
 const INV = { open: false, w: 'ar', sel: null, scene: null, cam: null, gun: null, key: '', rot: 0, drag: null, auto: true };
 const INV_GROUPS = [['Pistolas', ['p9', 'r50', 'ap18']], ['Subfusiles y escopeta', ['smg', 'es12']], ['Fusiles', ['ar', 'fr9', 'tr7', 'lmg']], ['Francotirador', ['sr']], ['Cuerpo a cuerpo', ['knife']]];
@@ -1777,10 +1838,10 @@ function drawInv() {
   $('#invList').innerHTML = INV_GROUPS.map(([gname, ids]) => `<div class="lbl small">${gname}</div>` + ids.filter(id => WEAPONS[id]).map(id => { const e = eff(id); return `<button type="button" class="invW" data-w="${id}" aria-pressed="${id === cur}"><span class="sw" style="${e ? `background-image:url(${PCM.camoSwatch(e)})` : ''}"></span><span>${esc(WEAPONS[id].name)}</span><small>${invSkinOf(id) ? 'propia' : 'general'}</small></button>`; }).join('')).join('');
   const own = invSkinOf(cur); const sel = INV.sel === undefined ? own : INV.sel;
   const opts = [{ id: null, name: 'Usar la general', lvl: 1 }, { id: 'none', name: 'Sin skin', lvl: 1 }].concat(PC.CAMOS);
-  $('#invSkins').innerHTML = opts.map(c => { const lock = c.id && c.id !== 'none' && (prof.lvl < c.lvl || (c.top && !auth.me)); const on = (sel || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${on}" ${lock ? 'aria-disabled="true"' : ''} title="${esc(c.name)}"><span class="sw" style="${c.id && c.id !== 'none' ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span>${c.id === null ? 'General' : c.id === 'none' ? 'Ninguna' : esc(c.name.split(' ·')[0])}</span><small>${lock ? (c.top ? 'Top 10' : 'Nv ' + c.lvl) : ''}</small></button>`; }).join('');
-  const W = WEAPONS[cur]; const c = PC.CAMOS.find(x => x.id === sel); const lock = c && (prof.lvl < c.lvl || (c.top && !auth.me));
+  $('#invSkins').innerHTML = opts.map(c => { const lock = c.id && c.id !== 'none' && camoLocked(c); const on = (sel || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${on}" ${lock ? 'aria-disabled="true"' : ''} title="${esc(c.name)}"><span class="sw" style="${c.id && c.id !== 'none' ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span>${c.id === null ? 'General' : c.id === 'none' ? 'Ninguna' : esc(c.name.split(' ·')[0])}</span><small>${lock ? (c.top ? 'Top 10' : c.pass ? 'Pase' : 'Nv ' + c.lvl) : ''}</small></button>`; }).join('');
+  const W = WEAPONS[cur]; const c = PC.CAMOS.find(x => x.id === sel); const lock = camoLocked(c);
   $('#invName').textContent = W.name; $('#invCls').textContent = W.cls || '';
-  $('#invSkinName').textContent = sel === null || sel === undefined ? 'Usa tu camuflaje general' + (prof.camo ? ' (' + (PC.CAMOS.find(x => x.id === prof.camo) || {}).name + ')' : ' (ninguno)') : sel === 'none' ? 'Sin skin' : c ? c.name + (lock ? ' · ' + (c.top ? 'solo top 10 de la temporada' : 'se desbloquea en nivel ' + c.lvl) : '') : '';
+  $('#invSkinName').textContent = sel === null || sel === undefined ? 'Usa tu camuflaje general' + (prof.camo ? ' (' + (PC.CAMOS.find(x => x.id === prof.camo) || {}).name + ')' : ' (ninguno)') : sel === 'none' ? 'Sin skin' : c ? c.name + (lock ? ' · ' + camoLockTxt(c) : '') : '';
   const changed = (sel === undefined ? own : sel) !== own; $('#invEquip').disabled = !changed || !!lock; $('#invEquip').textContent = changed ? (lock ? 'Bloqueada' : 'Equipar en ' + W.name) : 'Equipada';
   invBuildGun();
 }
