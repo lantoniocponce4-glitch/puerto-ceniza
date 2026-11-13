@@ -1946,6 +1946,68 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
   $('#iosInstX').onclick = () => { $('#iosInst').hidden = true; try { localStorage.setItem('pc2_iosx', '1'); } catch (e) { } };
 })();
 
+/* ================= EDITOR DEL HUD (celular y PC) ================= */
+// Disposición táctil por defecto (centro en % de la pantalla): nada se superpone
+const HUD_TOUCH = { bFire: [86, 60], bAds: [76, 73], bReload: [78, 46], bJump: [94, 82], bCrouch: [86, 88], bWeap: [77, 90], bNade: [68, 88], bAct: [67, 62], bLeanL: [83, 29], bLeanR: [90, 29], bBoard: [96, 44], bPause: [96, 56], bFireL: [31, 68], bRadio: [4, 52], bPing: [10, 52], bInsp: [16, 52], bChat: [22, 52], bVoice: [28, 52], bBuy: [34, 52], rightbot: [57, 91], roomChip: [50, 21] };
+const HUD_PANELS = ['radar', 'topbar', 'feed', 'leftbot', 'rightbot', 'chatBox', 'roomChip'];
+const HE = { on: false, sel: null, drag: null, work: null };
+const hudKey = () => isTouch ? 't' : 'd';
+function hudIds() { return HUD_PANELS.concat(isTouch ? [...document.querySelectorAll('#touch .tb')].map(e => e.id) : []); }
+function hudLayout() { const saved = (prefs.hudL || {})[hudKey()] || {}; const out = { op: saved.op || 1, el: {} }; for (const id of hudIds()) { const d = isTouch && HUD_TOUCH[id] ? [HUD_TOUCH[id][0], HUD_TOUCH[id][1], 1] : null; out.el[id] = saved.el && saved.el[id] ? saved.el[id] : d; } return out; }
+function placeEl(el, v) {
+  if (!v) { el.style.left = el.style.top = el.style.right = el.style.bottom = el.style.transform = el.style.margin = ''; return; }
+  el.style.left = v[0] + '%'; el.style.top = v[1] + '%'; el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.margin = '0'; el.style.transform = 'translate(-50%,-50%) scale(' + (v[2] || 1) + ')'; el.style.transformOrigin = '50% 50%';
+}
+function applyHud(L) {
+  L = L || hudLayout(); for (const id of hudIds()) { const el = document.getElementById(id); if (el) placeEl(el, L.el[id]); }
+  for (const b of document.querySelectorAll('#touch .tb')) b.style.opacity = L.op < 1 ? L.op : '';
+}
+function hudOpen() {
+  if (HE.on) return; HE.on = true; HE.work = JSON.parse(JSON.stringify(hudLayout())); HE.wasPause = !$('#pause').hidden; HE.wasMenu = !$('#menu').hidden;
+  $('#pause').hidden = true; $('#menu').hidden = true; releaseLock();
+  HE.hudHidden = $('#hud').hidden; HE.touchHidden = $('#touch').hidden; $('#hud').hidden = false; if (isTouch) $('#touch').hidden = false;
+  $('#app').classList.add('hudedit'); $('#app').classList.toggle('touchedit', isTouch); for (const id of hudIds()) { const el = document.getElementById(id); if (el) el.classList.add('hed'); }
+  $('#hbOp').value = HE.work.op; $('#hbOp').disabled = !isTouch; $('#hbOp').parentElement.style.opacity = isTouch ? '' : '.4'; hudSelect(null); $('#hudBar').hidden = false;
+  if (!isTouch) $('#hbHint').textContent = 'Arrastra el minimapa, el marcador, la vida, la munición, las bajas o el chat. Haz clic en uno para cambiar su tamaño.';
+}
+function hudClose(save) {
+  if (!HE.on) return; HE.on = false; HE.drag = null; $('#hudBar').hidden = true; $('#app').classList.remove('hudedit', 'touchedit');
+  for (const el of document.querySelectorAll('.hed')) el.classList.remove('hed', 'sel');
+  if (save) { prefs.hudL = Object.assign({}, prefs.hudL, { [hudKey()]: HE.work }); savePrefs(); toast('HUD guardado'); }
+  applyHud(); $('#hud').hidden = HE.hudHidden; $('#touch').hidden = HE.touchHidden;
+  if (HE.wasPause) $('#pause').hidden = false; else if (HE.wasMenu) $('#menu').hidden = false;
+}
+const HUD_NAMES = { radar: 'Minimapa', topbar: 'Marcador', feed: 'Bajas', leftbot: 'Vida y dinero', rightbot: 'Munición', chatBox: 'Chat', roomChip: 'Sala' };
+function hudSelect(el) {
+  for (const e of document.querySelectorAll('.hed.sel')) e.classList.remove('sel'); HE.sel = el;
+  if (!el) { $('#hbSel').textContent = '—'; $('#hbSize').disabled = true; return; }
+  el.classList.add('sel'); $('#hbSize').disabled = false; const v = HE.work.el[el.id]; $('#hbSize').value = v ? v[2] || 1 : 1;
+  $('#hbSel').textContent = '· ' + (HUD_NAMES[el.id] || el.getAttribute('aria-label') || el.textContent.trim());
+}
+function hudCenter(el) { const r = el.getBoundingClientRect(); return [(r.left + r.width / 2) / innerWidth * 100, (r.top + r.height / 2) / innerHeight * 100]; }
+// arrastre: se captura antes que los controles, así no disparan, saltan ni recargan mientras editas
+document.addEventListener('pointerdown', e => {
+  if (!HE.on) return; const el = e.target.closest && e.target.closest('.hed'); if (!el || e.target.closest('#hudBar')) return;
+  e.preventDefault(); e.stopPropagation(); hudSelect(el); const c = HE.work.el[el.id] ? HE.work.el[el.id].slice(0, 2) : hudCenter(el);
+  HE.drag = { el, id: el.id, sx: e.clientX, sy: e.clientY, cx: c[0], cy: c[1] };
+}, true);
+document.addEventListener('pointermove', e => {
+  if (!HE.on || !HE.drag) return; const d = HE.drag; e.preventDefault();
+  const x = clamp(d.cx + (e.clientX - d.sx) / innerWidth * 100, 2, 98), y = clamp(d.cy + (e.clientY - d.sy) / innerHeight * 100, 2, 98);
+  const s = HE.work.el[d.id] ? HE.work.el[d.id][2] || 1 : 1; HE.work.el[d.id] = [+x.toFixed(2), +y.toFixed(2), s]; placeEl(d.el, HE.work.el[d.id]);
+}, true);
+document.addEventListener('pointerup', () => { HE.drag = null; }, true);
+$('#hbSize').oninput = () => { const el = HE.sel; if (!el) return; const v = HE.work.el[el.id] || hudCenter(el).concat(1); v[2] = +$('#hbSize').value; HE.work.el[el.id] = v; placeEl(el, v); };
+$('#hbOp').oninput = () => { HE.work.op = +$('#hbOp').value; for (const b of document.querySelectorAll('#touch .tb')) b.style.opacity = HE.work.op; };
+$('#hbReset').onclick = () => { const keep = prefs.hudL; prefs.hudL = Object.assign({}, keep); delete prefs.hudL[hudKey()]; HE.work = JSON.parse(JSON.stringify(hudLayout())); prefs.hudL = keep; for (const id of hudIds()) { const el = document.getElementById(id); if (el) placeEl(el, HE.work.el[id]); } $('#hbOp').value = 1; for (const b of document.querySelectorAll('#touch .tb')) b.style.opacity = ''; hudSelect(null); };
+$('#hbCancel').onclick = () => hudClose(false);
+$('#hbMove').onclick = () => $('#hudBar').classList.toggle('low');
+$('#hbSave').onclick = () => hudClose(true);
+$('#hudEdit1').onclick = () => hudOpen(); $('#hudEdit2').onclick = () => hudOpen();
+addEventListener('keydown', e => { if (HE.on && e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); hudClose(false); } }, true);
+addEventListener('resize', () => { if (!HE.on) applyHud(); });
+applyHud();
+
 /* ================= CLAN ================= */
 const CLAN = { st: null, timer: null };
 async function loadClan() { if (!auth.me || location.protocol === 'file:') { CLAN.st = null; drawClan(); return; } const r = await apiCall('/api/clan'); if (r && !r.error) { CLAN.st = r.clan; drawClan(); } }

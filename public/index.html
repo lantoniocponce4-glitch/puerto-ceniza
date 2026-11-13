@@ -342,6 +342,13 @@ tr.dead td{opacity:.5}
 .rulesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px;margin:8px 0}.rulesGrid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
 .rulesGrid select{background:rgba(20,25,30,.9);color:var(--sand);border:1px solid var(--line);border-radius:3px;padding:7px 8px;font-size:14px;min-height:36px}.rulesGrid select:focus-visible{outline:2px solid var(--amber)}
 .apkUpd{border:1px solid var(--amber);background:rgba(242,179,61,.08);border-radius:3px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}.apkUpd a{color:#1a1206;background:var(--amber);font-family:var(--f-display);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;border-radius:2px;text-decoration:none;min-height:36px;display:inline-flex;align-items:center}
+#hudBar{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:98;width:min(760px,96vw);background:var(--panel2);border:1px solid var(--amber);border-radius:4px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box;font-size:12px;color:var(--sand)}
+#hudBar[hidden]{display:none}#hudBar.low{top:auto;bottom:calc(6px + env(safe-area-inset-bottom,0px))}.hbT{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.hbT b{font-family:var(--f-display);text-transform:uppercase;letter-spacing:.08em;font-size:14px}.hbT span{color:var(--dim)}
+.hbC{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.hbC label{display:flex;flex-direction:column;gap:2px;color:var(--dim);flex:1 1 150px}.hbC input{accent-color:var(--amber);width:100%;min-height:26px}.hbC #hbSel{color:var(--amber)}.hbB{display:flex;gap:6px;flex-wrap:wrap}
+#app.hudedit #hud{display:block!important}#app.hudedit.touchedit #touch{display:block!important;pointer-events:auto}
+#app.hudedit .hed{pointer-events:auto!important;outline:2px dashed rgba(242,179,61,.75);outline-offset:2px;cursor:grab;touch-action:none}
+#app.hudedit .hed.sel{outline:2px solid var(--amber);box-shadow:0 0 0 4px rgba(242,179,61,.25)}
+#app.hudedit .tb[hidden]{display:flex!important;opacity:.5}
 #rotate{display:none;position:fixed;inset:0;z-index:99;background:#0d1013;color:var(--sand);align-items:center;justify-content:center;text-align:center;font-family:var(--f-display)}#rotate b{display:block;font-size:26px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}#rotate span{font-family:var(--f-body);font-size:14px;color:var(--dim)}
 @media (orientation:portrait) and (pointer:coarse){#app.playing ~ #rotate{display:flex}}
 .sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
@@ -507,6 +514,7 @@ tr.dead td{opacity:.5}
         <div class="sec"><div class="lbl">Bots</div>
           <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
         </div>
+        <div class="sec"><div class="lbl">Controles y HUD</div><button class="go ghost sm" id="hudEdit1" type="button">Configurar HUD</button></div>
         <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
         <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
@@ -584,7 +592,7 @@ tr.dead td{opacity:.5}
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
-      <div class="btns"><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
+      <div class="btns"><button class="go ghost" id="hudEdit2" type="button">Configurar HUD</button><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
     </div>
   </div>
 
@@ -651,6 +659,14 @@ tr.dead td{opacity:.5}
     </div>
   </div>
 </div>
+<div id="hudBar" hidden role="dialog" aria-label="Configurar HUD">
+  <div class="hbT"><b>Configurar HUD</b><span id="hbHint">Arrastra cualquier botón o elemento para moverlo. Toca uno para elegirlo y cambiar su tamaño.</span></div>
+  <div class="hbC">
+    <label>Tamaño <span id="hbSel">—</span><input id="hbSize" type="range" min="0.5" max="1.8" step="0.05" value="1"></label>
+    <label>Opacidad de los botones<input id="hbOp" type="range" min="0.2" max="1" step="0.05" value="1"></label>
+    <div class="hbB"><button type="button" class="go ghost sm" id="hbMove" aria-label="Mover esta barra arriba o abajo">Barra ⇅</button><button type="button" class="go ghost sm" id="hbReset">Restablecer</button><button type="button" class="go ghost sm" id="hbCancel">Cancelar</button><button type="button" class="go sm" id="hbSave">Guardar</button></div>
+  </div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -662,9 +678,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=40"></script>
-<script src="/models.js?v=40"></script>
-<script src="/client.js?v=40"></script>
+<script src="/core.js?v=45"></script>
+<script src="/models.js?v=45"></script>
+<script src="/client.js?v=45"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
