@@ -1,0 +1,14 @@
+{
+  "appId": "com.puertoceniza.juego",
+  "appName": "Puerto Ceniza",
+  "webDir": "www",
+  "server": {
+    "url": "https://puerto-ceniza.onrender.com/?app=1",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#0d1013",
+    "allowMixedContent": false
+  }
+}

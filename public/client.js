@@ -1192,7 +1192,28 @@ for (const id of ['#sens', '#sens2']) { const el = $(id); el.value = prefs.sens;
 const codeEl = $('#code'); const qs = new URLSearchParams(location.search); if (qs.get('sala')) { codeEl.value = qs.get('sala').toUpperCase().slice(0, 4); }
 const baseJoin = () => ({ t: 'join', camo: prof.camo, name: cleanName(prefs.name), map: prefs.map, diff: prefs.diff, side: prefs.side === 'auto' ? null : prefs.side, gm: prefs.gm });
 $('#quick').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'quick' })); };
-$('#create').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'create' })); };
+$('#create').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'create', pub: $('#pubRoom').checked })); };
+$('#pubRoom').checked = prefs.pubRoom !== false; $('#pubRoom').onchange = () => { prefs.pubRoom = $('#pubRoom').checked; savePrefs(); };
+/* ---------- Lista de salas públicas ---------- */
+const GM_N = { bomb: 'Con carga', elim: 'Sin carga', gg: 'Escalada de armas' }, DIFF_N = { recluta: 'bots recluta', veterano: 'bots veterano', elite: 'bots élite' };
+let roomsTimer = null;
+async function loadRooms() {
+  if (location.protocol === 'file:') { $('#roomsBox').hidden = true; return; }
+  if (G.state !== 'menu' || $('#menu').hidden) return;
+  try {
+    const r = await fetch('/api/rooms', { cache: 'no-store' }); const list = await r.json();
+    if (!list.length) { $('#roomList').innerHTML = '<div class="small">No hay salas públicas activas. Crea una con «Pública» marcada o entra a Partida rápida.</div>'; return; }
+    $('#roomList').innerHTML = list.map(x => {
+      const full = x.players >= 8; const st = x.mode === 'gg' ? 'en juego' : x.phase === 'buy' ? 'compra · ronda ' + x.round : x.phase === 'over' ? 'terminando' : 'ronda ' + x.round + ' · ' + x.sc[0] + '-' + x.sc[1];
+      return `<div class="room"><div class="rn">${esc(MAPS[x.map] ? MAPS[x.map].name : x.map)}<code>${esc(x.code)}</code></div><button type="button" data-code="${esc(x.code)}" ${full ? 'aria-disabled="true"' : ''}>${full ? 'Llena' : 'Unirse'}</button>
+      <div class="rd">${x.players}/8 personas · ${GM_N[x.mode] || x.mode} · ${st} · ${DIFF_N[x.diff] || ''}${x.names && x.names.length ? ' · ' + esc(x.names.join(', ')) : ''}</div></div>`;
+    }).join('');
+  } catch (e) { $('#roomList').innerHTML = '<div class="small">No se pudo cargar la lista. El servidor puede estar despertando; intenta en unos segundos.</div>'; }
+}
+$('#roomList').addEventListener('click', e => { const b = e.target.closest('button[data-code]'); if (!b || b.getAttribute('aria-disabled') === 'true') return; initAudio(); codeEl.value = b.dataset.code; joinOnline(Object.assign(baseJoin(), { mode: 'code', code: b.dataset.code })); });
+$('#roomsRefresh').onclick = () => loadRooms();
+function startRoomsPoll() { loadRooms(); clearInterval(roomsTimer); roomsTimer = setInterval(loadRooms, 5000); }
+startRoomsPoll();
 $('#joinBtn').onclick = () => { initAudio(); const c = codeEl.value.trim().toUpperCase(); if (c.length !== 4) { $('#err').textContent = 'El código tiene 4 letras. Pídelo a quien creó la sala.'; return; } joinOnline(Object.assign(baseJoin(), { mode: 'code', code: c })); };
 codeEl.addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
 $('#offline').onclick = () => { initAudio(); startOffline(); };
@@ -1213,7 +1234,7 @@ function leaveToMenu() {
   stopKillcam(); closeChat(false); toggleWheel(false); for (const pg of pings) pg.el.remove(); pings.length = 0; $('#chatBox').innerHTML = ''; rec.length = 0; recShots.length = 0;
   for (const [id, s] of smokes) { scene.remove(s.g); } smokes.clear(); updateDrops([]); updateNades([]); bombMesh.visible = false; me.alive = false; releaseLock();
   try { history.replaceState(null, '', location.pathname); } catch (e) { }
-  drawProfile();
+  drawProfile(); loadRooms();
 }
 function openPause() { if (G.state !== 'playing') return; closeBuy(); $('#pause').hidden = false; me.fireHeld = false; me.altHeld = false; me.nadeArm = false; releaseLock(); }
 $('#resume').onclick = () => { $('#pause').hidden = true; blurUI(); requestLock(true); };

@@ -9,14 +9,14 @@ const PC = require('./shared/core.js');
 const PORT = process.env.PORT || 3000;
 const TICK = 1 / 20;
 const PUBLIC = path.join(__dirname, 'public');
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
   if (url.pathname === '/api/rooms') {
-    const list = [...rooms.values()].filter(r => r.isPublic).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode }));
-    res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(list));
+    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode, diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8) })).sort((a, b) => b.players - a.players);
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify(list));
   }
   let file = url.pathname === '/' ? '/index.html' : url.pathname;
   const full = file === '/core.js' ? path.join(__dirname, 'shared', 'core.js') : path.join(PUBLIC, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
@@ -64,7 +64,7 @@ wss.on('connection', ws => {
     if (m.t === 'join' && !room) {
       let r = null;
       const gm = m.gm === 'elim' || m.gm === 'gg' ? m.gm : 'bomb';
-      if (m.mode === 'create') r = createRoom(false, m.diff, m.map, gm);
+      if (m.mode === 'create') r = createRoom(!!m.pub, m.diff, m.map, gm);
       else if (m.mode === 'code') {
         r = rooms.get(String(m.code || '').toUpperCase().trim());
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
