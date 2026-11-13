@@ -291,6 +291,21 @@ tr.dead td{opacity:.5}
 .pubchk input{width:18px;height:18px;accent-color:var(--amber);margin:0}
 .roomsHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .renameForm{display:grid;gap:6px;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:3px}.renameForm input{width:100%}#renameErr:empty{display:none}#renameErr{color:var(--amber)}
+#inv{background:rgba(6,8,10,.72);z-index:30}
+.invBox{width:min(980px,100%)}
+.invTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.invTop h2{margin:2px 0 0}
+.invHead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.invGrid{display:grid;grid-template-columns:minmax(0,240px) minmax(0,1fr);gap:16px}
+.invList{display:flex;flex-direction:column;gap:4px;max-height:62vh;overflow-y:auto;padding-right:4px}.invList .lbl{margin-top:6px}
+.invW{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:3px;padding:6px 8px;font-size:13px;min-height:40px}
+.invW .sw{height:22px;border-radius:2px;background:#2a2c2f center/cover}.invW small{color:var(--dim);font-size:10px;font-family:var(--f-mono)}
+.invW[aria-pressed="true"]{border-color:var(--amber);background:rgba(242,179,61,.08)}.invW:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
+.invMain{display:flex;flex-direction:column;gap:10px;min-width:0}
+#invView{width:100%;height:min(300px,38vh);border:1px solid var(--line);border-radius:3px;background:#14191e;cursor:grab;touch-action:none;display:block}
+#invView:active{cursor:grabbing}
+.invMeta{display:flex;gap:10px;align-items:baseline}.invMeta b{font-family:var(--f-display);font-size:22px}
+#invSkins .camo small{font-family:var(--f-mono);font-size:9px;color:var(--dim)}
+@media (max-width:700px){.invGrid{grid-template-columns:1fr}.invList{max-height:none;flex-direction:row;flex-wrap:wrap}.invList .lbl{width:100%}.invW{grid-template-columns:30px auto}.invW small{display:none}}
 .sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .sqhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:13px;color:var(--dim)}.sqhead code{font-family:var(--f-mono);font-size:18px;color:var(--amber);letter-spacing:.18em}
 .sqmem{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:6px}
@@ -522,6 +537,23 @@ tr.dead td{opacity:.5}
     </div>
   </div>
 
+  <div id="inv" class="ov" hidden>
+    <div class="box invBox" role="dialog" aria-label="Inventario de skins">
+      <div class="invTop"><div><div class="eyebrow">INVENTARIO</div><h2>Skins de tus armas</h2></div><button class="go ghost sm" id="invClose" type="button">Cerrar</button></div>
+      <div class="invGrid">
+        <div id="invList" class="invList"></div>
+        <div class="invMain">
+          <canvas id="invView" aria-label="Vista 3D del arma; arrastra para girarla"></canvas>
+          <div class="invMeta"><b id="invName">—</b><span class="small" id="invCls"></span></div>
+          <div class="small" id="invSkinName"></div>
+          <div id="invSkins" class="camos"></div>
+          <div class="sqrow"><button class="go sm" id="invEquip" type="button">Equipar</button><button class="go ghost sm" id="invAll" type="button">Todas con la general</button></div>
+          <div class="small">Arrastra el arma para girarla. La skin propia de un arma manda sobre el camuflaje general.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="rangeEnd" class="ov" hidden>
     <div class="box">
       <div class="eyebrow">CAMPO DE TIRO · DESAFÍO DE 60 SEGUNDOS</div>
@@ -540,9 +572,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=21"></script>
-<script src="/models.js?v=21"></script>
-<script src="/client.js?v=21"></script>
+<script src="/core.js?v=24"></script>
+<script src="/models.js?v=24"></script>
+<script src="/client.js?v=24"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

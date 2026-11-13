@@ -59,9 +59,10 @@ async function api(req, res, url) {
       const b = await body(req); const r = await ACC.rename(a, b.name); if (r.error) return json(res, 400, { error: r.error });
       // aplicar el nombre nuevo en las salas y escuadras donde está esa cuenta
       for (const room of rooms.values()) for (const [cid, acct] of room.accts) if (acct === a) { const id = room.clients.get(cid); if (id != null) { room.actors[id].name = a.display; room.rosterDirty = true; } }
+      for (const sq of squads.values()) { let ch = false; for (const mem of sq.members.values()) if (mem.acctId === a.id) { mem.name = a.display; ch = true; } if (ch) sqBroadcast(sq); }
       return json(res, 200, { me: ACC.view(a) });
     }
-    if (req.method === 'POST' && p === '/api/camo') { const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); const b = await body(req); const camoId = b.camo === null ? null : String(b.camo || ''); return (await ACC.setCamo(a, camoId)) ? json(res, 200, { me: ACC.view(a) }) : json(res, 400, { error: (PC.CAMOS.find(c => c.id === camoId) || {}).top ? 'Aurora es solo para el top 10 de experiencia de la temporada. Revisa el ranking.' : 'Ese camuflaje aún no está desbloqueado.' }); }
+    if (req.method === 'POST' && p === '/api/camo') { const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); const b = await body(req); const camoId = b.camo === null ? null : String(b.camo || ''); const wid = typeof b.w === 'string' ? b.w : null; return (await ACC.setCamo(a, camoId, wid)) ? json(res, 200, { me: ACC.view(a) }) : json(res, 400, { error: (PC.CAMOS.find(c => c.id === camoId) || {}).top ? 'Aurora es solo para el top 10 de experiencia de la temporada. Revisa el ranking.' : 'Ese camuflaje aún no está desbloqueado.' }); }
     return json(res, 404, { error: 'No encontrado' });
   } catch (e) { console.error('api', e); return json(res, 500, { error: 'Error del servidor. Intenta de nuevo.' }); }
 }
@@ -102,11 +103,11 @@ function sqBroadcast(sq) {
   for (const [cid, m] of sq.members) sqSend(m.ws, { t: 'sq', code: sq.code, gm: sq.gm, lead: cid === sq.leader ? 1 : 0, mine: m.ready ? 1 : 0, members });
 }
 function sqLeave(cid) {
-  for (const sq of squads.values()) {
+  for (const sq of [...squads.values()]) {
     if (!sq.members.has(cid)) continue; sq.members.delete(cid);
-    if (!sq.members.size) { squads.delete(sq.code); return; }
+    if (!sq.members.size) { squads.delete(sq.code); continue; }
     if (sq.leader === cid) sq.leader = sq.members.keys().next().value;
-    sqBroadcast(sq); return;
+    sqBroadcast(sq);
   }
 }
 function sqRoomFor(n, mode) {
@@ -120,17 +121,17 @@ function sqRoomFor(n, mode) {
 }
 async function sqMessage(ws, cid, m, getAcct) {
   const findMine = () => { for (const sq of squads.values()) if (sq.members.has(cid)) return sq; return null; };
-  const nameOf = async () => { const a = await getAcct(m.token); return a ? a.display : cleanName(m.name); };
-  if (m.t === 'sq_create') {
-    sqLeave(cid); const code = sqCode(); const sq = { code, leader: cid, gm: SQ_MODES.includes(m.gm) ? m.gm : 'bomb', members: new Map() };
-    sq.members.set(cid, { ws, name: await nameOf(), ready: false }); squads.set(code, sq); sqBroadcast(sq); return;
-  }
-  if (m.t === 'sq_join') {
+  if (m.t === 'sq_create' || m.t === 'sq_join') {
+    if (ws.sqBusy) return; ws.sqBusy = true;
+    let acct = null; try { acct = await getAcct(m.token); } finally { ws.sqBusy = false; }
+    if (ws.readyState !== 1) return;
+    const member = { ws, name: acct ? acct.display : cleanName(m.name), acctId: acct ? acct.id : null, ready: false };
+    if (m.t === 'sq_create') { sqLeave(cid); const code = sqCode(); const sq = { code, leader: cid, gm: SQ_MODES.includes(m.gm) ? m.gm : 'bomb', members: new Map() }; sq.members.set(cid, member); squads.set(code, sq); sqBroadcast(sq); return; }
     const sq = squads.get(String(m.code || '').toUpperCase().trim());
     if (!sq) return sqSend(ws, { t: 'sq_err', msg: 'No existe una escuadra con ese código. Revisa las 5 letras.' });
     if (sq.members.has(cid)) return sqBroadcast(sq);
     if (sq.members.size >= 4) return sqSend(ws, { t: 'sq_err', msg: 'La escuadra ya tiene 4 integrantes.' });
-    sqLeave(cid); sq.members.set(cid, { ws, name: await nameOf(), ready: false }); sqBroadcast(sq); return;
+    sqLeave(cid); sq.members.set(cid, member); sqBroadcast(sq); return;
   }
   const sq = findMine(); if (!sq) return;
   const me = sq.members.get(cid);
@@ -182,7 +183,7 @@ wss.on('connection', ws => {
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
       } else r = quickRoom(m.side, gm);
       if (r.humanCount >= 8) return ws.send(JSON.stringify({ t: 'err', msg: 'La sala está llena (8 de 8). Prueba partida rápida o crea otra sala.' }));
-      const a = acct ? r.addHuman(cid, acct.display, m.side, acct.profile.camo) : r.addHuman(cid, cleanName(m.name), m.side, null);
+      const a = acct ? r.addHuman(cid, acct.display, m.side, { d: acct.profile.camo || null, w: acct.profile.camos || {} }) : r.addHuman(cid, cleanName(m.name), m.side, null);
       if (!a) {
         if (r.humanCount === 0) rooms.delete(r.code);
         const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';

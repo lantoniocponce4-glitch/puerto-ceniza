@@ -40,6 +40,7 @@ class FileStore {
   async createUser(u) { const id = ++this.data.seq; const row = Object.assign({ id }, u); this.data.users[id] = row; this.save(); return row; }
   async saveUser(id, profile, stats) { const u = this.data.users[id]; if (u) { u.profile = profile; u.stats = stats; this.save(); } }
   async setDisplay(id, display) { const u = this.data.users[id]; if (u) { u.display = display; this.save(); } }
+  async displayTaken(display, id) { const k = display.toLowerCase(); return Object.values(this.data.users).some(u => u.id !== id && String(u.display).toLowerCase() === k); }
   async createSession(hash, userId, exp) { this.data.sessions[hash] = { userId, exp }; this.save(); }
   async getSession(hash) { const s = this.data.sessions[hash]; return s && s.exp > Date.now() ? s : null; }
   async deleteSession(hash) { delete this.data.sessions[hash]; this.save(); }
@@ -66,6 +67,7 @@ class PgStore {
   async createUser(u) { const r = await this.pool.query('INSERT INTO pc_users (username, display, salt, pass_hash, profile, stats) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *', [u.username, u.display, u.salt, u.pass_hash, u.profile, u.stats]); return r.rows[0]; }
   async saveUser(id, profile, stats) { await this.pool.query('UPDATE pc_users SET profile=$2, stats=$3 WHERE id=$1', [id, profile, stats]); }
   async setDisplay(id, display) { await this.pool.query('UPDATE pc_users SET display=$2 WHERE id=$1', [id, display]); }
+  async displayTaken(display, id) { const r = await this.pool.query('SELECT 1 FROM pc_users WHERE lower(display)=lower($1) AND id<>$2 LIMIT 1', [display, id]); return r.rowCount > 0; }
   async createSession(hash, userId, exp) { await this.pool.query('INSERT INTO pc_sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)', [hash, userId, exp]); await this.pool.query('UPDATE pc_users SET last_login=now() WHERE id=$1', [userId]); }
   async getSession(hash) { const r = await this.pool.query('SELECT user_id AS "userId", expires_at AS exp FROM pc_sessions WHERE token_hash=$1 AND expires_at > $2', [hash, Date.now()]); return r.rows[0] || null; }
   async deleteSession(hash) { await this.pool.query('DELETE FROM pc_sessions WHERE token_hash=$1', [hash]); }
@@ -141,7 +143,9 @@ class Accounts {
     const row = await this.store.getUser(s.userId); return row ? this.load(row) : null;
   }
   async logout(token) { if (typeof token === 'string') await this.store.deleteSession(sha(token)); }
-  async setCamo(a, camo) { const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; } if (!c || a.profile.lvl < c.lvl) return false;
+  async setCamo(a, camo, wid) {
+    if (wid !== undefined && wid !== null) { if (typeof wid !== 'string' || !Object.prototype.hasOwnProperty.call(PC.WEAPONS, wid)) return false; const cm = a.profile.camos || (a.profile.camos = {}); if (camo === null || camo === '') { delete cm[wid]; a.dirty = true; return true; } if (camo === 'none') { cm[wid] = 'none'; a.dirty = true; return true; } if (!(await this.setCamo({ profile: Object.assign({}, a.profile), stats: a.stats, id: a.id }, camo))) return false; cm[wid] = camo; a.dirty = true; return true; }
+    const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; } if (!c || a.profile.lvl < c.lvl) return false;
     if (c.top) { await this.flush(); const ss = freshSeason(a.stats); if (!(ss.xp > 0)) return false; const pos = await this.store.rankOf(seasonId(), 'xp', ss.xp, a.id); if (!(pos <= c.top)) return false; } a.profile.camo = c.id; a.dirty = true; return true; }
   // Aplica la experiencia de un evento de juego; devuelve lo que hay que avisarle al jugador
   award(a, gains) {
@@ -160,6 +164,7 @@ class Accounts {
     if (name.length < 3) return { error: 'El nombre debe tener entre 3 y 14 caracteres.' };
     if (name === a.display) return { ok: true };
     if (this.limited('name:' + a.id)) return { error: 'Cambiaste el nombre muchas veces. Espera unos minutos.' };
+    if (await this.store.displayTaken(name, a.id)) return { error: 'Ese nombre ya lo usa otro jugador. Prueba con otro.' };
     for (let i = 0; i < 2; i++) this.fail('name:' + a.id);
     await this.store.setDisplay(a.id, name); a.display = name; a.lastUse = Date.now();
     return { ok: true };

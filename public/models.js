@@ -74,6 +74,8 @@ const MG = {
 };
 
 const MCAMO = {};
+// skin efectiva de un arma: spec puede ser un id (todas las armas) o { d: general, w: { arma: id | 'none' } }
+function camoFor(spec, id) { if (!spec) return null; if (typeof spec === 'string') return spec; const v = spec.w && Object.prototype.hasOwnProperty.call(spec.w, id) ? spec.w[id] : spec.d; return v && v !== 'none' ? v : null; }
 const CAMO_PBR = { acero: [.95, .3], cobre: [.92, .32], oceano: [.7, .24], grafito: [.45, .4], aurora: [.75, .2] };
 for (const id of ['bosque', 'digital', 'desierto', 'tigre', 'carbono', 'carmesi', 'oro', 'acero', 'cobre', 'oceano', 'grafito', 'aurora']) {
   const t = camoTex(id);
@@ -213,6 +215,8 @@ const DEF = {
   },
   he() { const P = [['od', sph(.032, 0, 0, 0, 1, 1.15, 1, 18)], ['metal', vcyl(.011, .011, .03, .05)], ['metal', ex([[-.006, .045], [.006, .045], [.012, -.025], [.0, -.03]], .014, .03)], ['steel', tor(.012, .002, 0, .055, .02)]]; return { P, muzzle: 0, boreY: 0, grip: [0, 0], fore: [0, 0], cls: 'nade' }; },
   fl() { const P = [['park', vcyl(.022, .022, -.05, .05)], ['poly', vcyl(.0225, .0225, -.03, -.02)], ['poly', vcyl(.0225, .0225, .02, .03)], ['metal', vcyl(.011, .011, .05, .065)], ['metal', ex([[-.006, .06], [.006, .06], [.012, -.03], [0, -.035]], .014, .026)], ['steel', tor(.012, .002, 0, .07, .02)]]; return { P, muzzle: 0, boreY: 0, grip: [0, 0], fore: [0, 0], cls: 'nade' }; },
+  in() { const P = [['park', vcyl(.024, .026, -.055, .045)], ['red', vcyl(.0262, .0262, -.01, .006)], ['metal', vcyl(.014, .02, .045, .062)], ['steel', vcyl(.008, .008, .062, .075)], ['metal', ex([[-.006, .07], [.006, .07], [.012, -.03], [0, -.035]], .014, .028)]]; return { P, muzzle: 0, boreY: 0, grip: [0, 0], fore: [0, 0], cls: 'nade' }; },
+  de() { const P = [['poly', vcyl(.02, .02, -.04, .04)], ['dotg', vcyl(.0205, .0205, .018, .024)], ['metal', vcyl(.01, .01, .04, .055)], ['rubber', vcyl(.021, .021, -.045, -.03)]]; return { P, muzzle: 0, boreY: 0, grip: [0, 0], fore: [0, 0], cls: 'nade' }; },
   sm() { const P = [['od', vcyl(.025, .025, -.055, .055)], ['tan', vcyl(.0255, .0255, -.015, .02)], ['metal', vcyl(.012, .012, .055, .07)], ['metal', ex([[-.006, .065], [.006, .065], [.012, -.035], [0, -.04]], .014, .029)], ['steel', tor(.012, .002, 0, .075, .022)]]; return { P, muzzle: 0, boreY: 0, grip: [0, 0], fore: [0, 0], cls: 'nade' }; }
 };
 function pistolDef(len, mag, comp) {
@@ -350,7 +354,7 @@ function buildSoldier(team, idx, opt = {}) {
   const model = { g, body, upper, hips, legs, head, helmet, pack, hand, flash, muzzle: new T.Object3D(), curGun: null, camo: opt.camo || null };
   model.setGun = function (id) {
     if (model.curGun === id) return; if (cur) cur.visible = false; model.curGun = id;
-    if (!guns[id]) { guns[id] = buildGun(id, { camo: model.camo }); hand.add(guns[id]); }
+    if (!guns[id]) { guns[id] = buildGun(id, { camo: camoFor(model.camo, id) }); hand.add(guns[id]); }
     cur = guns[id]; cur.visible = true; const info = cur.userData.info; const cls = info.cls;
     hand.position.set(...HANDPOS[cls]); hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
     cur.userData.muzzle.add(flash); model.muzzle = cur.userData.muzzle;
@@ -365,7 +369,7 @@ function buildSoldier(team, idx, opt = {}) {
   const groups = [hips, upper, head, helmet, pack]; if (cap) groups.push(cap); for (const l of legs) groups.push(l.hip, l.knee);
   for (const grp of groups) mergeChildren(grp, skip);
   model.setCamo = function (c) {
-    c = c || null; if (c === model.camo) return; model.camo = c;
+    c = c || null; if (JSON.stringify(c) === JSON.stringify(model.camo)) return; model.camo = c;
     for (const k in guns) { hand.remove(guns[k]); delete guns[k]; } cur = null;
     const was = model.curGun; model.curGun = null; if (was) model.setGun(was);
   };
@@ -400,7 +404,7 @@ function fpArms(gun, pos, s) {
 }
 
 window.PCM = {
-  buildGun, buildSoldier, fpArms, setFpTeam, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
+  buildGun, buildSoldier, fpArms, setFpTeam, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setEnv(env) { for (const m of Object.values(MCAMO).concat(Object.values(MG))) if (m && m.isMeshStandardMaterial && m.metalness > .3) { m.envMap = env; m.envMapIntensity = .9; m.needsUpdate = true; } },
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };
