@@ -314,10 +314,10 @@
     return { hy: a.pos.y + a.h - .17, top: a.pos.y + a.h - .36, mid: a.pos.y + a.h * .5 };
   }
   function rayActor(o, d, a, maxT) {
-    let best = null; const z = hitZones(a);
-    const ox = o[0] - a.pos.x, oy = o[1] - z.hy, oz = o[2] - a.pos.z; const b = ox * d[0] + oy * d[1] + oz * d[2]; const c = ox * ox + oy * oy + oz * oz - .04; const disc = b * b - c;
+    let best = null; const z = hitZones(a); const ln = a.lean || 0, lx = Math.cos(a.yaw || 0) * ln, lz = -Math.sin(a.yaw || 0) * ln;
+    const ox = o[0] - (a.pos.x + lx * .32), oy = o[1] - z.hy, oz = o[2] - (a.pos.z + lz * .32); const b = ox * d[0] + oy * d[1] + oz * d[2]; const c = ox * ox + oy * oy + oz * oz - .04; const disc = b * b - c;
     if (disc >= 0) { const t = -b - Math.sqrt(disc); if (t > 0 && t < maxT) best = { t, zone: 'h' }; }
-    const r1 = rayBox(o, d, { minX: a.pos.x - .27, maxX: a.pos.x + .27, minY: z.mid, maxY: z.top, minZ: a.pos.z - .27, maxZ: a.pos.z + .27 }, maxT);
+    const cx = a.pos.x + lx * .16, cz = a.pos.z + lz * .16; const r1 = rayBox(o, d, { minX: cx - .27, maxX: cx + .27, minY: z.mid, maxY: z.top, minZ: cz - .27, maxZ: cz + .27 }, maxT);
     if (r1 && r1.t > 0 && (!best || r1.t < best.t)) best = { t: r1.t, zone: 'c' };
     const r2_ = rayBox(o, d, { minX: a.pos.x - .22, maxX: a.pos.x + .22, minY: a.pos.y, maxY: z.mid, minZ: a.pos.z - .22, maxZ: a.pos.z + .22 }, maxT);
     if (r2_ && r2_.t > 0 && (!best || r2_.t < best.t)) best = { t: r2_.t, zone: 'l' };
@@ -445,6 +445,11 @@
 
   /* ================= SALA ================= */
   const WAVE_REVIVE = 8;
+  // Partidas personalizadas: reglas por sala (se validan aquí)
+  const RULE_OPTS = { rounds: [3, 5, 7, 9], time: [60, 90, 115, 150], money: [800, 2000, 4000, 10000, 16000], arms: ['all', 'pistolas', 'franco', 'escopetas', 'cuchillo'], bots: [1, 0], ff: [0, 1] };
+  const RULES_DEF = { rounds: 5, time: 115, money: 800, arms: 'all', bots: 1, ff: 0 };
+  const ARMS_OK = { all: () => true, pistolas: w => w.slot === 2, franco: w => w.slot === 2 || !!w.scope, escopetas: w => w.slot === 2 || !!w.pellets, cuchillo: () => false };
+  function cleanRules(r) { const o = Object.assign({}, RULES_DEF); if (r && typeof r === 'object') for (const k in RULE_OPTS) { const v = typeof RULES_DEF[k] === 'number' ? Number(r[k]) : r[k]; if (RULE_OPTS[k].includes(v)) o[k] = v; } return o; }
   const STREAKS = { 3: { id: 'radar', reveal: 5 }, 5: { id: 'kit' }, 7: { id: 'dron', reveal: 12 } };
   const BOT_STYLE = ['rush', 'flank', 'steady'];
   const BOT_RANGE = { k11: [3, 12], pump: [2, 8], bp9: [9, 26], dmr: [15, 45], ax50: [22, 80], b3: [5, 16], knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
@@ -453,7 +458,8 @@
     veterano: { react: .42, err: .045, turn: 7 },
     elite: { react: .27, err: .028, turn: 10 }
   };
-  const eyeOf = a => [a.pos.x, a.pos.y + a.h - .14, a.pos.z];
+  // ojo con inclinación lateral (asomarse): hasta 32 cm hacia el lado
+  const eyeOf = a => { const l = (a.lean || 0) * .32; return [a.pos.x + Math.cos(a.yaw) * l, a.pos.y + a.h - .14 - Math.abs(a.lean || 0) * .04, a.pos.z - Math.sin(a.yaw) * l]; };
   let nextEnt = 1;
 
   class Room {
@@ -465,6 +471,7 @@
       this.isPublic = opts.isPublic !== false;
       this.mode = ['elim', 'gg', 'tdm', 'range', 'waves'].includes(opts.mode) ? opts.mode : 'bomb';
       this.reveal = [0, 0]; this.brk = []; this.brkT = 0;
+      this.rules = cleanRules(opts.rules); this.R = Object.assign({}, ROUND, { total: this.rules.rounds, half: Math.floor(this.rules.rounds / 2), win: Math.floor(this.rules.rounds / 2) + 1, live: this.rules.time });
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
       this.actors = []; this.events = []; this.now = 0; this.tickN = 0; this.teamRadio = [0, 0]; this.cond = { night: false, weather: null }; this.votes = new Map();
       for (let t = 0; t < 2; t++) for (let i = 0; i < 4; i++) this.actors.push(this.makeActor(t, i));
@@ -481,7 +488,21 @@
     }
     side(team) { return (team === 0) === this.swap ? 'atk' : 'def'; } // equipo 0 empieza defendiendo
     teamOfSide(s) { return this.side(0) === s ? 0 : 1; }
-    ev(e) { this.events.push(e); }
+    ev(e) {
+      if (e.k === 'kill') this.hlKill(e); else if (e.k === 'defused') this.hlDefuse(e); else if (e.k === 'mend') { e.hl = this.hl || null; }
+      this.events.push(e);
+    }
+    /* --- jugada de la partida: la de mayor puntaje se repite al final --- */
+    hlOffer(v, sc, d, w) { if (this.mode === 'range' || !(sc > ((this.hl && this.hl.sc) || 0))) return; this.hl = { v, sc: Math.round(sc), d, w: Math.min(5.5, w) }; this.events.push({ k: 'hl', v, sc: this.hl.sc, d, w: this.hl.w }); }
+    hlKill(e) {
+      const att = this.actors[e.a], v = this.actors[e.v]; if (!att || !v || att === v || att.team === v.team) return;
+      att.kt = (att.kt || []).filter(t => this.now - t < 7); att.kt.push(this.now); const n = att.kt.length; const wn = (WEAPONS[e.w] && WEAPONS[e.w].name) || (e.w === 'he' ? 'granada' : e.w === 'in' ? 'incendiaria' : e.w);
+      if (n >= 2) this.hlOffer(att.id, 150 * n * n + (e.h ? 60 : 0), ['', '', 'Doble baja', 'Triple baja', 'Cuádruple baja', '¡Equipo completo!'][Math.min(n, 5)] + ' con ' + wn, this.now - att.kt[0] + 1.5);
+      if (e.dist >= 35 && e.w !== 'knife') this.hlOffer(att.id, e.dist * 6 + (e.h ? 150 : 0), 'Baja a ' + e.dist + ' m' + (e.h ? ' a la cabeza' : '') + ' con ' + wn, 2.4);
+      if (e.w === 'knife') this.hlOffer(att.id, 380, 'Baja con cuchillo', 2.4);
+      const mates = this.actors.filter(a => a.alive && a.team === att.team).length; if (mates === 1 && this.mode !== 'tdm' && this.mode !== 'gg') this.hlOffer(att.id, 200 + 150 * n, 'Último en pie: ' + (n >= 2 ? (['', '', 'doble', 'triple', 'cuádruple'][Math.min(n, 4)] + ' baja') : 'baja decisiva'), Math.max(2.4, this.now - att.kt[0] + 1.5));
+    }
+    hlDefuse(e) { const B = this.bomb; const left = B.explodeAt - this.now; if (left < 3) this.hlOffer(e.v, 900 + (3 - left) * 200, 'Desactivó la carga con ' + left.toFixed(1) + ' s de sobra', 3); }
     get humanCount() { return this.clients.size; }
 
     /* --- partida y rondas --- */
@@ -495,7 +516,8 @@
     }
     newMatch() {
       this.scores = [0, 0]; this.round = 0; this.swap = false; this.lossStreak = { atk: 0, def: 0 };
-      for (const a of this.actors) { a.kills = a.deaths = a.assists = a.score = 0; a.streak = 0; this.resetLoadout(a, true); a.money = MONEY.start; }
+      this.hl = null;
+      for (const a of this.actors) { a.kills = a.deaths = a.assists = a.score = 0; a.streak = 0; a.kt = []; this.resetLoadout(a, true); a.money = this.rules.money; }
       if (this.mode === 'gg') return this.startGG();
       if (this.mode === 'tdm') return this.startTDM();
       if (this.mode === 'range') return this.startRange();
@@ -574,8 +596,8 @@
       this.ev({ k: 'tdm', t: TDM.time, goal: TDM.goal }); this.rosterDirty = true;
     }
     equipTDM(a) {
-      const p = a.tdmGun || (a.human ? 'ar' : TDM.guns[(Math.random() * TDM.guns.length) | 0]);
-      a.inv = { p, s: 'p9', n: { he: 1, fl: 1, sm: 0, in: 0, de: 0 } }; a.cur = p; a.ammo = WEAPONS[p].mag; a.reloadT = 0; a.armor = 100; a.helmet = true; a.kit = false; a.money = 0; a.pdirty = true;
+      let p = a.tdmGun || (a.human ? 'ar' : TDM.guns[(Math.random() * TDM.guns.length) | 0]); if (!this.allowed(p)) { const ok = TDM.guns.filter(g => this.allowed(g)); p = ok.length ? ok[(Math.random() * ok.length) | 0] : null; }
+      const sec = this.allowed('p9') ? 'p9' : null; a.inv = { p, s: sec, n: { he: 1, fl: 1, sm: 0, in: 0, de: 0 } }; a.cur = p || sec || 'knife'; a.ammo = WEAPONS[a.cur].mag || 0; a.reloadT = 0; a.armor = 100; a.helmet = true; a.kit = false; a.money = 0; a.pdirty = true;
     }
     spawnTDM(a) {
       let best = null, bs = -1e9;
@@ -632,26 +654,27 @@
       this.ev({ k: 'mend', gg: 1, win: w ? w.id : -1, w: w ? w.team : -1, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); this.rosterDirty = true;
     }
     // Las armas (principal y secundaria) se conservan entre rondas, cambio de lado y partidas nuevas, aunque mueras
+    allowed(wid) { const w = WEAPONS[wid]; return !!w && !w.melee && ARMS_OK[this.rules.arms](w); }
     rememberGuns(a) { if (a.inv && (a.inv.p || (a.inv.s && a.inv.s !== 'p9'))) a.keep = { p: a.inv.p || null, s: a.inv.s || 'p9' }; }
     resetLoadout(a, full) {
       if (a.alive) this.rememberGuns(a); const k = a.keep;
-      a.inv = { p: k && WEAPONS[k.p] ? k.p : null, s: k && WEAPONS[k.s] ? k.s : 'p9', n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = a.inv.p || a.inv.s; a.kit = false;
+      a.inv = { p: k && this.allowed(k.p) ? k.p : null, s: k && this.allowed(k.s) ? k.s : this.allowed('p9') ? 'p9' : null, n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = a.inv.p || a.inv.s || 'knife'; a.kit = false;
       if (full) { a.armor = 0; a.helmet = false; }
       a.pdirty = true;
     }
     startRound() {
       this.round++;
-      if (this.round === ROUND.half + 1) {
+      if (this.round === this.R.half + 1) {
         this.swap = true; this.lossStreak = { atk: 0, def: 0 };
-        for (const a of this.actors) { this.resetLoadout(a, true); a.money = MONEY.start; }
+        for (const a of this.actors) { this.resetLoadout(a, true); a.money = this.rules.money; }
         this.ev({ k: 'half' });
       }
-      this.phase = 'buy'; this.phaseEnd = this.now + (this.round === 1 || this.round === ROUND.half + 1 ? ROUND.buyFirst : ROUND.buy);
+      this.phase = 'buy'; this.phaseEnd = this.now + (this.round === 1 || this.round === this.R.half + 1 ? ROUND.buyFirst : ROUND.buy);
       this.drops = []; this.nades = []; this.smokes = []; this.fires = []; this.decoys = []; this.liveStart = 1e9; this.reveal = [0, 0]; this.restoreBreakables(true);
       for (const a of this.actors) {
         a.order = null;
         if (!a.alive) this.resetLoadout(a, true);
-        if (!a.inv.s && !a.inv.p) a.inv.s = 'p9';
+        if (!a.inv.s && !a.inv.p && this.allowed('p9')) a.inv.s = 'p9';
         a.cur = a.inv.p || a.inv.s || 'knife';
         this.spawn(a);
         a.snap = { inv: JSON.parse(JSON.stringify(a.inv)), armor: a.armor, helmet: a.helmet, kit: a.kit, money: a.money, cur: a.cur };
@@ -667,6 +690,7 @@
       this.rosterDirty = true;
     }
     spawn(a, at) {
+      if (this.rules.bots === 0 && !a.human && !(this.mode === 'waves' && a.team !== this.teamOfSide('def'))) { a.alive = false; a.respawnAt = Infinity; return; }
       a.mvT = undefined; a.mvB = 3; a.mags = {}; a.resv = {}; a.rlW = null; a.mvIgnore = this.now + .35;
       const side = this.side(a.team); const pts = this.M.spawns[side]; const i = this.actors.filter(x => x.team === a.team).indexOf(a);
       const [x, z] = at || pts[i % pts.length];
@@ -689,7 +713,7 @@
         this.give(a, m);
       }
       this.phase = 'post'; this.phaseEnd = this.now + ROUND.post;
-      const over = this.scores[wt] >= ROUND.win || this.round >= ROUND.total;
+      const over = this.scores[wt] >= this.R.win || this.round >= this.R.total;
       this.ev({ k: 'rend', w: wt, side: winSide, why: reason, sc: this.scores.slice(), over: over ? 1 : 0 });
       if (over) { this.phase = 'over'; this.phaseEnd = this.now + ROUND.over; const win = this.scores[0] === this.scores[1] ? -1 : (this.scores[0] > this.scores[1] ? 0 : 1); this.ev({ k: 'mend', w: win, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); }
       this.rosterDirty = true;
@@ -724,7 +748,7 @@
       return a;
     }
     removeHuman(cid) {
-      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid); this.actors[id].humanRound = this.round; this.actors[id].streak = 0; this.actors[id].card = this.actors[id].title = this.actors[id].clanTag = null;
+      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid); this.actors[id].humanRound = this.round; this.actors[id].streak = 0; this.actors[id].card = this.actors[id].title = this.actors[id].clanTag = null; if (this.rules.bots === 0) this.actors[id].alive = false;
       const a = this.actors[id]; const n = a.name; a.human = null; a.camo = null; a.name = BOT_NAMES[a.team][a.slot]; a.act = false; a.path = null; a.goalKey = '';
       a.kills = a.deaths = a.assists = a.score = 0; a.cur = a.inv.p || a.inv.s || 'knife'; a.ammo = WEAPONS[a.cur].mag;
       this.ev({ k: 'leave', id, n }); this.rosterDirty = true;
@@ -741,6 +765,7 @@
       const side = this.side(a.team);
       if (typeof item !== 'string') return false;
       const w = has(WEAPONS, item) ? WEAPONS[item] : null;
+      if (w && !this.allowed(item)) return false;
       if (w && w.price && !w.melee) {
         if (a.money < w.price) return false;
         const slot = w.slot === 1 ? 'p' : 's';
@@ -795,7 +820,7 @@
           if (this.phase !== 'buy' && this.now >= (a.mvIgnore || 0)) this.applyMove(a, cid, num(m.p[0], a.pos.x), num(m.p[1], a.pos.y), num(m.p[2], a.pos.z));
           a.vel.x = clamp(num(m.v[0]), -8, 8); a.vel.y = clamp(num(m.v[1]), -20, 9); a.vel.z = clamp(num(m.v[2]), -8, 8);
           a.yaw = ((num(m.y, a.yaw) % TAU) + TAU) % TAU; a.pitch = clamp(num(m.pi), -1.5, 1.5); a.h = clamp(num(m.h, 1.8), 1.2, 1.8); a.crouch = a.h < 1.6; a.walking = !!m.w;
-          a.act = !!m.act; break;
+          a.act = !!m.act; a.lean = clamp(num(m.ln), -1, 1); if (a.lean && !this.W.visible([a.pos.x, a.pos.y + a.h - .14, a.pos.z], eyeOf(a))) a.lean = 0; break;
         }
         case 'shot': this.humanShot(a, m); break;
         case 'eq': { const w = String(m.w || ''); if (a.rlW && a.rlW !== w) a.rlW = null; if (w === 'knife' || a.inv.p === w || a.inv.s === w || (has(NADES, w) && a.inv.n[w] > 0)) a.cur = w; break; }
@@ -843,14 +868,14 @@
         const tt = clamp(num(r.tt, 160), 0, w.melee ? 2.4 : 200);
         const end = [o[0] + d[0] * tt, o[1] + d[1] * tt, o[2] + d[2] * tt];
         let ok = false, zone = 'c'; const v = (typeof r.hit === 'number') ? this.actors[r.hit | 0] : null;
-        if (v && v.alive && v.team !== a.team) {
+        if (v && v.alive && v !== a && (v.team !== a.team || this.rules.ff)) {
           const tol = 1.3 + Math.hypot(v.vel.x, v.vel.z) * .3; const hy = end[1] - v.pos.y;
           if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.seeThrough(o, end) > 0 && this.exposed(o, v)) {
             ok = true; zone = ['h', 'c', 'l'].includes(r.z) ? r.z : 'c'; if (zone === 'h' && hy < v.h - .5) zone = 'c';
           }
         }
         if (!w.melee) { const tr = this.W.traceShot(o, d, Math.min(tt + .06, 200)); for (const h of tr.through) this.dmgBox(h.b, w.dmg * .8); if (tr.stop && tr.t <= tt + .06) this.dmgBox(tr.stop, w.dmg * .8); }
-        if (ok) { const pf = this.W.seeThrough(o, end) || 1; const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt) * pf; if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
+        if (ok) { const pf = (this.W.seeThrough(o, end) || 1) * (v.team === a.team ? .5 : 1); const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt) * pf; if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
         if (!first) first = { end, n: !ok && Array.isArray(r.n) ? [num(r.n[0]), num(r.n[1]), num(r.n[2])] : 0, hit: ok };
       }
       for (const [v, x] of dmgBy) this.damage(v, a, x.dmg, x.zone, wid);
@@ -868,7 +893,7 @@
       if (this.W.restoreAll(occ)) { this.brk = this.W.breakables.filter(b => b.gone).map(b => b.bid); this.ev({ k: 'brkreset', keep: this.brk.slice() }); for (const a of this.actors) if (!a.human) { a.path = null; a.goalKey = ''; } } }
     exposed(o, v) {
       const x = v.pos.x, y = v.pos.y, z = v.pos.z, h = v.h;
-      for (const p of [[x, y + h - .12, z], [x, y + h * .62, z], [x, y + .35, z], [x + .3, y + h * .62, z], [x - .3, y + h * .62, z], [x, y + h * .62, z + .3], [x, y + h * .62, z - .3], [x + .25, y + .35, z], [x - .25, y + .35, z]])
+      const ln = v.lean || 0; for (const p of [[x + Math.cos(v.yaw) * ln * .32, y + h - .12, z - Math.sin(v.yaw) * ln * .32], [x, y + h - .12, z], [x, y + h * .62, z], [x, y + .35, z], [x + .3, y + h * .62, z], [x - .3, y + h * .62, z], [x, y + h * .62, z + .3], [x, y + h * .62, z - .3], [x + .25, y + .35, z], [x - .25, y + .35, z]])
         if (this.W.seeThrough(o, p) > 0) return true;
       return false;
     }
@@ -1006,7 +1031,7 @@
         for (const a of this.actors) {
           if (!a.alive) continue; const dist = Math.hypot(a.pos.x - p.x, a.pos.y + 1 - p.y, a.pos.z - p.z); if (dist > 7.5) continue;
           if (!this.W.visible([p.x, p.y + .3, p.z], [a.pos.x, a.pos.y + 1.1, a.pos.z])) continue;
-          if (a.team === g.team && a !== owner) continue;
+          if (a.team === g.team && a !== owner && !this.rules.ff) continue;
           let dm = 98 * Math.pow(1 - dist / 7.5, 1.4); if (a.armor > 0) { dm *= .55; a.armor = Math.max(0, a.armor - dm * .3); }
           this.damage(a, owner, dm, 'c', 'he');
         }
@@ -1081,7 +1106,7 @@
     botBuy(b) {
       const side = this.side(b.team); let m = b.money;
       const buy = (i) => this.buy(b, i);
-      const eco = m < 2000 && this.round !== 1 && this.round !== ROUND.half + 1;
+      const eco = m < 2000 && this.round !== 1 && this.round !== this.R.half + 1;
       if (!b.inv.p) {
         if (m >= 4750 + 1000 && Math.random() < .18) buy('sr');
         else if (m >= 2700 + 650) buy('ar');
@@ -1100,7 +1125,7 @@
         else if (!eco && b.money >= 1100 + 650 && r < .25) buy('es12');
       }
       if (!b.inv.p && b.inv.s === 'p9' && b.money >= 500 && Math.random() < .25) buy(Math.random() < .5 ? 'ap18' : 'b3');
-      if (b.helmet && b.armor >= 100) { } else if (b.money >= 1000 && b.inv.p) buy('helm'); else if (b.money >= 650 && (b.inv.p || this.round === 1 || this.round === ROUND.half + 1)) buy('kevlar');
+      if (b.helmet && b.armor >= 100) { } else if (b.money >= 1000 && b.inv.p) buy('helm'); else if (b.money >= 650 && (b.inv.p || this.round === 1 || this.round === this.R.half + 1)) buy('kevlar');
       if (!b.inv.p && b.inv.s === 'p9' && b.money >= 700 && Math.random() < .35) buy('r50');
       if (side === 'def' && b.money >= 400 && b.inv.p) buy('kit');
       if (b.money >= 300 && b.inv.p && Math.random() < .6) buy('he');
@@ -1328,7 +1353,7 @@
     tick(dt) {
       this.dt = dt; this.now += dt; this.tickN++;
       if (this.now >= this.phaseEnd) {
-        if (this.phase === 'buy') { this.phase = 'live'; this.phaseEnd = this.now + ROUND.live; this.liveStart = this.now; this.ev({ k: 'live' }); if (this.mode === 'waves') this.beginWave(); }
+        if (this.phase === 'buy') { this.phase = 'live'; this.phaseEnd = this.now + this.R.live; this.liveStart = this.now; this.ev({ k: 'live' }); if (this.mode === 'waves') this.beginWave(); }
         else if (this.phase === 'live') {
           if (this.mode === 'tdm') this.endTDM(this.scores[0] === this.scores[1] ? -1 : this.scores[0] > this.scores[1] ? 0 : 1);
           else if (this.mode === 'gg') { const lead = this.actors.slice().sort((p, q) => (q.lvl - p.lvl) || (q.kills - p.kills))[0]; this.endGG(lead); }
@@ -1346,7 +1371,7 @@
         // recoger armas del suelo si el espacio está libre
         if (this.mode !== 'gg' && this.mode !== 'tdm') for (let i = 0; i < this.drops.length; i++) {
           const dr = this.drops[i]; if (this.now - dr.t < .8) continue; if (Math.hypot(a.pos.x - dr.x, a.pos.z - dr.z) > 1.1) continue;
-          const w = WEAPONS[dr.w]; const slot = w.slot === 1 ? 'p' : 's';
+          const w = WEAPONS[dr.w]; const slot = w.slot === 1 ? 'p' : 's'; if (!this.allowed(dr.w)) continue;
           if (!a.inv[slot] || (!a.human && slot === 'p' && w.price > (WEAPONS[a.inv.p] || { price: 0 }).price + 900)) {
             if (a.inv[slot]) this.dropWeapon(a, a.inv[slot]);
             a.inv[slot] = dr.w; if (!a.human || slot === 'p') a.cur = dr.w; a.ammo = w.mag; a.pdirty = true; this.drops.splice(i, 1); this.ev({ k: 'pick', v: a.id, w: dr.w }); break;
@@ -1359,8 +1384,9 @@
       if ((this.mode === 'tdm' || this.mode === 'gg' || this.mode === 'range') && this.brk.length && this.now - this.brkT > 60) this.restoreBreakables();
       if (this.mode === 'range') for (const a of this.actors) if (a.human && a.money < 99999) { a.money = 99999; a.pdirty = true; }
       if (this.phase === 'live' && this.mode !== 'gg' && this.mode !== 'tdm' && this.mode !== 'range' && this.mode !== 'waves') {
-        const alive = { atk: 0, def: 0 }; for (const a of this.actors) if (a.alive) alive[this.side(a.team)]++;
-        if (alive.def === 0) this.endRound('atk', 'elim');
+        const alive = { atk: 0, def: 0 }, pres = { atk: 0, def: 0 }; for (const a of this.actors) { if (a.alive) alive[this.side(a.team)]++; if (a.human || this.rules.bots) pres[this.side(a.team)]++; }
+        if (!pres.atk || !pres.def) { }
+        else if (alive.def === 0) this.endRound('atk', 'elim');
         else if (alive.atk === 0 && this.bomb.st !== 'planted') this.endRound('def', 'elim');
       }
       this.broadcastState();
@@ -1372,7 +1398,7 @@
         b: [B.st, B.x, B.y, B.z, B.by, B.st === 'planted' ? r2(B.explodeAt - this.now) : 0, r2(B.pp / ROUND.plant), B.dneed ? r2(B.dp / B.dneed) : 0, B.site || ''],
         a: this.actors.map(a => [a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Math.round(a.yaw * 1000) / 1000, r2(a.pitch), r2(a.h), Math.ceil(Math.max(0, a.hp)), a.alive ? 1 : 0, a.cur,
           ((this.now - a.firedAt < 1.5) ? 1 : 0) | (a.walking ? 2 : 0) | ((B.st === 'carried' && B.by === a.id) ? 4 : 0) | ((B.planter === a.id || B.defuser === a.id) ? 8 : 0) | (this.now < a.blindUntil ? 16 : 0) | (a.armor > 0 ? 32 : 0) | (a.kit ? 64 : 0) | (a.helmet ? 128 : 0),
-          r2(a.vel.x), r2(a.vel.z)]),
+          r2(a.vel.x), r2(a.vel.z), r2(a.lean || 0)]),
         g: this.nades.map(g => [g.id, g.k, r2(g.p.x), r2(g.p.y), r2(g.p.z)]),
         sm: this.smokes.map(s => [s.id, r2(s.x), r2(s.z), r2(s.until - this.now)]),
         dr: this.drops.map(d => [d.id, d.w, d.x, d.y, d.z]),
@@ -1384,8 +1410,8 @@
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
     }
     privateState(a) { return { t: 'p', stk: a.streak | 0, lvl: a.lvl | 0, m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
-    roster() { return { t: 'r', brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
+    roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
   }
 
-  return { CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

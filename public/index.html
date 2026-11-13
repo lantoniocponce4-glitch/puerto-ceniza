@@ -116,6 +116,7 @@ button{font:inherit;color:inherit}
 #reloadBar s{position:absolute;inset:0 auto 0 0;background:var(--sand);width:0}
 #spec{position:absolute;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:6px 14px;font-size:13px;text-align:center}
 #spec b{font-family:var(--f-display);font-size:20px;letter-spacing:.04em}
+.rtag{color:var(--amber);font-weight:600}
 .ctag{color:var(--amber);font-family:var(--f-mono);font-size:.85em}
 .bombTag{display:inline-block;font-family:var(--f-mono);font-size:10px;color:#1a0f02;background:var(--amber);padding:2px 6px;border-radius:2px;letter-spacing:.06em}
 #roomChip{position:absolute;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);font-size:11px;color:var(--dim);display:flex;gap:8px;align-items:center;background:var(--panel);padding:3px 10px;border-radius:2px}
@@ -265,6 +266,7 @@ tr.dead td{opacity:.5}
 #orderWheel button:hover,#orderWheel button:focus-visible{border-color:var(--amber);outline:none}#orderWheel kbd{font-family:var(--f-mono);font-size:10px;color:var(--amber);margin-right:6px}
 #orderWheel .hub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);text-align:center;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:50%;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center}#orderWheel .hub small{font-weight:500;letter-spacing:0;text-transform:none;font-size:10px;color:var(--dim)}
 #voiceInd{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--amber);border-radius:3px;padding:8px 14px;display:flex;gap:10px;align-items:center;font-size:13px;max-width:min(520px,90vw)}#voiceInd .dot{width:10px;height:10px;border-radius:50%;background:#ff4d3a;animation:vpulse 1s infinite}#voiceTxt{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@keyframes vpulse{50%{opacity:.3}}@media (prefers-reduced-motion:reduce){#voiceInd .dot{animation:none}}
+#bLeanL,#bLeanR{width:46px;height:46px;border-radius:50%;font-size:16px;bottom:calc(196px + env(safe-area-inset-bottom,0px))}#bLeanL{right:calc(150px + env(safe-area-inset-right,0px))}#bLeanR{right:calc(96px + env(safe-area-inset-right,0px))}#bLeanL.on,#bLeanR.on{border-color:var(--amber);color:var(--amber)}
 #bVoice{width:46px;height:40px;border-radius:4px;left:calc(210px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px;border-color:var(--amber)}
 #radioWheel kbd{font-family:var(--f-mono);font-size:10px;color:var(--amber);margin-right:6px}
 #radioWheel .hub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);text-align:center;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:50%;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -335,6 +337,9 @@ tr.dead td{opacity:.5}
 .clanChat{max-height:150px;overflow-y:auto;font-size:13px;display:flex;flex-direction:column;gap:3px;padding:6px;border:1px solid var(--line);border-radius:3px;background:rgba(14,18,22,.5)}.clanChat .sys{color:var(--amber);font-size:12px}.clanChat b{color:var(--sand)}
 .join.grow{flex:1 1 200px}.join.grow input{flex:1}
 #clanErr:empty{display:none}#clanErr{color:var(--bad)}
+.rulesBox{flex-basis:100%;border:1px solid var(--line);border-radius:3px;padding:6px 10px}.rulesBox summary{cursor:pointer;font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;min-height:28px;display:flex;align-items:center;gap:8px}
+.rulesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 12px;margin:8px 0}.rulesGrid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}
+.rulesGrid select{background:rgba(20,25,30,.9);color:var(--sand);border:1px solid var(--line);border-radius:3px;padding:7px 8px;font-size:14px;min-height:36px}.rulesGrid select:focus-visible{outline:2px solid var(--amber)}
 .sqrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
 .sqhead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:13px;color:var(--dim)}.sqhead code{font-family:var(--f-mono);font-size:18px;color:var(--amber);letter-spacing:.18em}
 .sqmem{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:6px}
@@ -447,7 +452,7 @@ tr.dead td{opacity:.5}
     <div id="radioWheel" hidden></div>
     <div id="orderWheel" hidden></div>
     <div id="voiceInd" hidden><span class="dot"></span><b>Escuchando…</b><span id="voiceTxt"></span></div>
-    <div id="killcam" hidden><div class="kcb"><span class="tagr">REPETICIÓN</span><span class="small">Te eliminó</span><div id="kcCard" hidden><b id="kcName">—</b><span id="kcTitle"></span></div><span id="kcInfo"></span><div class="bar"><s id="kcBar"></s></div><span class="hint">Clic o espacio para saltar</span></div></div>
+    <div id="killcam" hidden><div class="kcb"><span class="tagr" id="kcTag">REPETICIÓN</span><span class="small" id="kcSub">Te eliminó</span><div id="kcCard" hidden><b id="kcName">—</b><span id="kcTitle"></span></div><span id="kcInfo"></span><div class="bar"><s id="kcBar"></s></div><span class="hint">Clic o espacio para saltar</span></div></div>
     <div id="clickPlay" hidden><b>Haz clic para jugar</b><span>El mouse queda capturado para apuntar. Esc lo suelta.</span></div>
   </div>
 
@@ -470,6 +475,8 @@ tr.dead td{opacity:.5}
     <div class="tb" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
     <div class="tb" id="bChat" aria-label="Chat de equipo">Chat</div>
     <div class="tb" id="bVoice" aria-label="Órdenes por voz a los bots">Voz</div>
+    <div class="tb" id="bLeanL" aria-label="Asomarse a la izquierda">◀</div>
+    <div class="tb" id="bLeanR" aria-label="Asomarse a la derecha">▶</div>
   </div>
 
   <div id="menu" class="ov">
@@ -501,11 +508,22 @@ tr.dead td{opacity:.5}
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
       <div class="keys" id="keysHelp">
-        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>F</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span><span><kbd>T</kbd>órdenes por voz (mantén)</span>
+        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>F</kbd>plantar / desactivar</span><span><kbd>Q</kbd><kbd>E</kbd>asomarse</span><span><kbd>C</kbd> corriendo · deslizarse</span><span><kbd>X</kbd>arma anterior</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>L</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span><span><kbd>T</kbd>órdenes por voz (mantén)</span>
       </div>
       <div class="modes">
         <button class="go" id="quick" type="button">Partida rápida ▸</button>
         <button class="go ghost sm" id="create" type="button">Crear sala</button>
+        <details class="rulesBox" id="rulesBox"><summary>Reglas personalizadas <span class="small" id="rulesSum"></span></summary>
+          <div class="rulesGrid">
+            <label><span>Rondas</span><select id="rRounds"><option value="3">3 (al mejor de 3)</option><option value="5">5 (al mejor de 5)</option><option value="7">7 (al mejor de 7)</option><option value="9">9 (al mejor de 9)</option></select></label>
+            <label><span>Tiempo por ronda</span><select id="rTime"><option value="60">60 s</option><option value="90">90 s</option><option value="115">115 s</option><option value="150">150 s</option></select></label>
+            <label><span>Dinero inicial</span><select id="rMoney"><option value="800">$800</option><option value="2000">$2.000</option><option value="4000">$4.000</option><option value="10000">$10.000</option><option value="16000">$16.000</option></select></label>
+            <label><span>Armas permitidas</span><select id="rArms"><option value="all">Todas</option><option value="pistolas">Solo pistolas</option><option value="franco">Solo francotiradores</option><option value="escopetas">Solo escopetas</option><option value="cuchillo">Solo cuchillo</option></select></label>
+            <label><span>Bots</span><select id="rBots"><option value="1">Completar con bots</option><option value="0">Sin bots</option></select></label>
+            <label><span>Fuego amigo</span><select id="rFF"><option value="0">No</option><option value="1">Sí (mitad de daño)</option></select></label>
+          </div>
+          <div class="small">Se aplican al crear sala y en la práctica sin conexión. La partida rápida usa las reglas normales.</div>
+        </details>
         <label class="pubchk" for="pubRoom"><input type="checkbox" id="pubRoom"> Pública (aparece en la lista)</label>
         <div class="join"><input id="code" type="text" maxlength="4" placeholder="CÓDIGO" aria-label="Código de sala" autocomplete="off"><button id="joinBtn" type="button">Unirse</button></div>
       </div>
@@ -581,7 +599,7 @@ tr.dead td{opacity:.5}
       <div class="stats" id="endStats"></div>
       <div id="voteBox" class="sec"></div>
       <div class="tblw" id="endT"></div>
-      <div class="btns"><span class="small mono" id="endCount"></span><button class="go ghost" id="toMenu" type="button">Salir de la sala</button></div>
+      <div class="btns"><span class="small mono" id="endCount"></span><a class="go ghost" id="hlSave" hidden download="jugada-puerto-ceniza.webm">Descargar tu jugada (video)</a><button class="go ghost" id="toMenu" type="button">Salir de la sala</button></div>
     </div>
   </div>
 
@@ -635,9 +653,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=32"></script>
-<script src="/models.js?v=32"></script>
-<script src="/client.js?v=32"></script>
+<script src="/core.js?v=34"></script>
+<script src="/models.js?v=34"></script>
+<script src="/client.js?v=34"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

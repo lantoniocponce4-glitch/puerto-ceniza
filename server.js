@@ -25,7 +25,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/api/') && url.pathname !== '/api/rooms') return api(req, res, url);
   if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify({ ok: true, cuentas: ACC.store.kind, baseLista: ACC.ok === true, error: ACC.err || null, version: String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7) })); }
   if (url.pathname === '/api/rooms') {
-    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode, diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8), teams: teamSlots(r) })).sort((a, b) => b.players - a.players);
+    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode, diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8), teams: teamSlots(r), rules: r.rules })).sort((a, b) => b.players - a.players);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify(list));
   }
   let file = url.pathname === '/' ? '/index.html' : url.pathname;
@@ -90,9 +90,9 @@ async function api(req, res, url) {
 const rooms = new Map();
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 function newCode() { let c; do { c = Array.from({ length: 4 }, () => LETTERS[(Math.random() * LETTERS.length) | 0]).join(''); } while (rooms.has(c)); return c; }
-function createRoom(isPublic, diff, map, mode) {
+function createRoom(isPublic, diff, map, mode, rules) {
   const code = newCode();
-  const room = new PC.Room({ code, diff, isPublic, map, mode });
+  const room = new PC.Room({ code, diff, isPublic, map, mode, rules });
   room.sockets = new Map(); room.bornAt = Date.now();
   room.accts = new Map();
   room.onBroadcast = msg => {
@@ -197,7 +197,7 @@ wss.on('connection', ws => {
       joining = false; if (ws.readyState !== 1) return;
       let r = null;
       const gm = ['elim', 'gg', 'tdm', 'waves'].includes(m.gm) ? m.gm : 'bomb';
-      if (m.mode === 'create') r = createRoom(!!m.pub, m.diff, m.map, gm);
+      if (m.mode === 'create') r = createRoom(!!m.pub, m.diff, m.map, gm, m.rules);
       else if (m.mode === 'code') {
         r = rooms.get(String(m.code || '').toUpperCase().trim());
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
