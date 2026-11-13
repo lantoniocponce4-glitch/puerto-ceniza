@@ -60,6 +60,7 @@ button{font:inherit;color:inherit}
 #xh i{position:absolute;background:var(--ok);box-shadow:0 0 0 1px rgba(0,0,0,.55)}
 #xh .u,#xh .d{width:2px;height:7px;left:-1px}
 #xh .l,#xh .r{height:2px;width:7px;top:-1px}
+#adsDot{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 1px rgba(0,0,0,.75);opacity:0;transition:opacity .08s}
 #hit{position:absolute;left:50%;top:50%;width:0;height:0;opacity:0}
 #hit i{position:absolute;width:2px;height:8px;background:#fff;left:-1px;top:-4px}
 #hit i:nth-child(1){transform:rotate(45deg) translateY(-10px)}#hit i:nth-child(2){transform:rotate(135deg) translateY(-10px)}#hit i:nth-child(3){transform:rotate(225deg) translateY(-10px)}#hit i:nth-child(4){transform:rotate(315deg) translateY(-10px)}
@@ -270,6 +271,7 @@ tr.dead td{opacity:.5}
     <div id="zoneTag" class="lbl"></div>
     <div id="feed"></div>
     <div id="xh"><i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i></div>
+    <div id="adsDot" aria-hidden="true"></div>
     <div id="hit"><i></i><i></i><i></i><i></i></div>
     <div id="dmgdirs"></div>
     <div id="reloadBar"><s id="rbar"></s></div>
@@ -384,8 +386,8 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=6"></script>
-<script src="/models.js?v=6"></script>
-<script src="/client.js?v=6"></script>
+<script src="/core.js?v=7"></script>
+<script src="/models.js?v=7"></script>
+<script src="/client.js?v=7"></script>
 </body>
 </html>
