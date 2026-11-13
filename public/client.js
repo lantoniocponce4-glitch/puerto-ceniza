@@ -16,7 +16,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in wi
 const nowS = () => performance.now() / 1000;
 const TEAMC = ['#5cc8e0', '#ef6a45'], TEAMN = ['Halcón', 'Cobra'];
 const SIDE_N = { atk: 'Terroristas', def: 'Antiterroristas' }, SIDE_L = { atk: 'terroristas', def: 'antiterroristas' };
-const SHORT = { knife: 'CUCHILLO', p9: 'P-9', r50: 'R-50', smg: 'SMG-9', ar: 'AR-17', sr: 'SR-8', ap18: 'AP-18', es12: 'ES-12', fr9: 'FR-9', lmg: 'LMG-60', tr7: 'TR-7', he: 'HE', in: 'FUEGO', bomb: 'CARGA' };
+const SHORT = { k11: 'K-11', pump: 'P-12', bp9: 'BP-9', dmr: 'M-14', ax50: 'AX-50', b3: 'B-3', knife: 'CUCHILLO', p9: 'P-9', r50: 'R-50', smg: 'SMG-9', ar: 'AR-17', sr: 'SR-8', ap18: 'AP-18', es12: 'ES-12', fr9: 'FR-9', lmg: 'LMG-60', tr7: 'TR-7', he: 'HE', in: 'FUEGO', bomb: 'CARGA' };
 const PIST = new Set(['p9', 'r50', 'ap18']);
 const NADE_IDS = ['he', 'fl', 'sm', 'in', 'de'];
 const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
@@ -709,7 +709,7 @@ function ensureAmmo(wid) { const w = WEAPONS[wid]; if (w && !w.melee && !me.ammo
 function refillAmmo() { me.ammo = {}; if (me.inv.p) ensureAmmo(me.inv.p); if (me.inv.s) ensureAmmo(me.inv.s); }
 function slotList() { const l = []; if (me.inv.p) l.push(me.inv.p); if (me.inv.s) l.push(me.inv.s); l.push('knife'); for (const k of NADE_IDS) if (me.inv.n[k] > 0) l.push(k); return l; }
 function setCur(wid, send = true) {
-  if (!wid || me.cur === wid) return; me.lastCur = me.cur; me.cur = wid; me.drawT = WEAPONS[wid] && WEAPONS[wid].melee ? .3 : .5; me.reloadT = 0; me.scoped = false; me.altScope = false; me.rescopeT = 0; me.adsToggle = false; me.adsK = 0; me.scopeK = 0; me.nadeArm = false; me.sprayI = 0; $('#bAds').classList.remove('on');
+  if (!wid || me.cur === wid) return; me.lastCur = me.cur; me.cur = wid; me.burstLeft = 0; me.drawT = WEAPONS[wid] && WEAPONS[wid].melee ? .3 : .5; me.reloadT = 0; me.scoped = false; me.altScope = false; me.rescopeT = 0; me.adsToggle = false; me.adsK = 0; me.scopeK = 0; me.nadeArm = false; me.sprayI = 0; $('#bAds').classList.remove('on');
   ensureAmmo(wid); showVM(wid); if (send) sendMsg({ t: 'eq', w: wid }); drawSlots();
 }
 
@@ -1129,6 +1129,12 @@ function updateLocal(dt) {
     return;
   }
   if (w.melee) { if ((me.fireHeld || me.altHeld) && T - me.lastShot >= (me.altHeld ? 1.0 : .42) && me.drawT <= 0) knife(me.altHeld); return; }
+  if (w.burst) {
+    // pistola de ráfaga: un clic dispara 3 balas seguidas
+    if (me.fireHeld && !me.trigLock && !me.burstLeft && me.reloadT <= 0 && me.drawT <= 0 && T - me.lastShot >= w.gap) { me.burstLeft = w.burst; me.trigLock = true; }
+    if (me.burstLeft > 0 && T - me.lastShot >= 60 / w.rpm) { const am = me.ammo[me.cur]; if (am && am.mag > 0 && me.reloadT <= 0) { shoot(w, am); me.burstLeft--; } else { if (me.burstLeft === w.burst) sTone(1800, .03, .15, 'square'); me.burstLeft = 0; if (am && am.mag <= 0 && am.res > 0) me.reloadReq = true; } }
+    if (!me.fireHeld) me.trigLock = false; return;
+  }
   if (me.fireHeld && me.reloadT <= 0 && me.drawT <= 0 && (w.auto || !me.trigLock) && T - me.lastShot >= 60 / w.rpm) {
     const am = me.ammo[me.cur];
     if (am && am.mag > 0) { shoot(w, am); me.trigLock = true; }
@@ -1390,7 +1396,7 @@ function aimedEnemy() { if (!me.alive) return null; const o = [camera.position.x
 
 /* ---------- Compra ---------- */
 const BUY = [
-  ['Pistolas', ['p9', 'ap18', 'r50']], ['Subfusiles y pesadas', ['smg', 'es12', 'lmg']], ['Fusiles', ['fr9', 'ar', 'tr7', 'sr']], ['Equipo', ['kevlar', 'helm', 'kit']], ['Granadas', NADE_IDS]
+  ['Pistolas', ['p9', 'b3', 'ap18', 'r50']], ['Subfusiles y escopetas', ['smg', 'k11', 'es12', 'pump']], ['Fusiles', ['fr9', 'bp9', 'ar', 'lmg']], ['Precisión', ['tr7', 'dmr', 'sr', 'ax50']], ['Equipo', ['kevlar', 'helm', 'kit']], ['Granadas', NADE_IDS]
 ];
 const GEARN = { kevlar: ['Chaleco', 650], helm: ['Chaleco + casco', 1000], kit: ['Kit de desactivación', 400] };
 function priceOf(i) { if (WEAPONS[i]) return WEAPONS[i].price; if (NADES[i]) return NADES[i].price; if (i === 'helm' && me.armor >= 100) return 350; return GEARN[i][1]; }
@@ -1897,7 +1903,7 @@ addEventListener('keydown', e => { if (!$('#pass').hidden && e.key === 'Escape')
 
 /* ================= INVENTARIO DE SKINS ================= */
 const INV = { open: false, w: 'ar', sel: null, scene: null, cam: null, gun: null, key: '', rot: 0, drag: null, auto: true };
-const INV_GROUPS = [['Pistolas', ['p9', 'r50', 'ap18']], ['Subfusiles y escopeta', ['smg', 'es12']], ['Fusiles', ['ar', 'fr9', 'tr7', 'lmg']], ['Francotirador', ['sr']], ['Cuerpo a cuerpo', ['knife']]];
+const INV_GROUPS = [['Pistolas', ['p9', 'b3', 'r50', 'ap18']], ['Subfusiles y escopetas', ['smg', 'k11', 'es12', 'pump']], ['Fusiles', ['ar', 'bp9', 'fr9', 'lmg']], ['Precisión', ['tr7', 'dmr', 'sr', 'ax50']], ['Cuerpo a cuerpo', ['knife']]];
 function invSkinOf(w) { const v = (prof.camos || {})[w]; return v === undefined ? null : v; }
 function invSetup() {
   if (INV.scene) return; const sc = new THREE.Scene(); INV.scene = sc; INV.cam = new THREE.PerspectiveCamera(30, 1.6, .05, 20);
@@ -2189,7 +2195,7 @@ function frame(now) {
       else { const k = Math.min(1, me.deadT * 2); camera.position.set(me.pos.x, me.pos.y + lerp(1.6, .4, k), me.pos.z); camera.rotation.set(me.pitch * (1 - k) - .2 * k, me.yaw, .5 * k); camYaw = me.yaw; }
     }
     if (shake > 0) { shake = Math.max(0, shake - dt * 2); camera.rotation.x += gauss() * shake * .03; camera.rotation.y += gauss() * shake * .03; }
-    const w = WEAPONS[me.cur]; const adsF = w && w.auto ? 58 : 64; const fovT = w && w.scope ? lerp(74, me.cur === 'sr' ? 18 : 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
+    const w = WEAPONS[me.cur]; const adsF = w && w.auto ? 58 : 64; const fovT = w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
     if (me.alive && me.scopeK > .5) { const tt = nowS(), mv = Math.min(1, Math.hypot(me.vel.x, me.vel.z) / 3); camera.rotation.x += Math.sin(tt * 1.3) * .0012 * (1 + mv * 4); camera.rotation.y += Math.sin(tt * .9) * .0014 * (1 + mv * 4); }
     updateVM(dt); updateRange(dt); updateHUD(dt); radarT += dt; if (radarT >= .05) { radarT = 0; drawRadar(); }
   } else {

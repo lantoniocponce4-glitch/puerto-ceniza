@@ -25,16 +25,22 @@
     r50: { id: 'r50', name: 'R-50 Toro', cls: 'Pistola pesada', slot: 2, price: 700, dmg: 58, ap: .93, rm: .81, rpm: 240, auto: false, mag: 7, res: 35, reload: 2.2, stand: .006, run: .13, crouch: .0045, jump: .22, kick: .075, speed: 5.0, kill: 300, snd: { cut: 2600, dec: .3, thump: 90, vol: 1.05 } },
     smg: { id: 'smg', name: 'SMG-9 Tábano', cls: 'Subfusil', slot: 1, price: 1250, dmg: 26, ap: .6, rm: .75, rpm: 860, auto: true, mag: 30, res: 120, reload: 2.1, stand: .008, run: .045, crouch: .006, jump: .15, kick: .0095, speed: 5.0, kill: 600, snd: { cut: 4200, dec: .14, thump: 150, vol: .72 } },
     ar: { id: 'ar', name: 'AR-17 Saeta', cls: 'Fusil', slot: 1, price: 2700, dmg: 35, ap: .78, rm: .98, rpm: 600, auto: true, mag: 30, res: 90, reload: 2.5, stand: .0035, run: .13, crouch: .0026, jump: .22, kick: .016, speed: 4.6, kill: 300, snd: { cut: 3100, dec: .24, thump: 105, vol: .95 } },
-    sr: { id: 'sr', name: 'SR-8 Garza', cls: 'Francotirador', slot: 1, price: 4750, dmg: 115, ap: .97, rm: .99, rpm: 41, auto: false, mag: 10, res: 30, reload: 3.6, stand: .06, scoped: .0006, run: .25, crouch: .05, jump: .32, kick: .06, speed: 4.0, kill: 100, scope: true, snd: { cut: 2000, dec: .5, thump: 70, vol: 1.2 } },
+    sr: { id: 'sr', name: 'SR-8 Garza', cls: 'Francotirador', slot: 1, price: 4750, dmg: 115, ap: .97, rm: .99, rpm: 41, auto: false, mag: 10, res: 30, reload: 3.6, stand: .06, scoped: .0006, run: .25, crouch: .05, jump: .32, kick: .06, speed: 4.0, kill: 100, scope: true, zoom: 18, snd: { cut: 2000, dec: .5, thump: 70, vol: 1.2 } },
     ap18: { id: 'ap18', name: 'AP-18 Colibrí', cls: 'Pistola automática', slot: 2, price: 500, dmg: 23, ap: .47, rm: .8, rpm: 900, auto: true, mag: 20, res: 80, reload: 2.2, stand: .009, run: .05, crouch: .007, jump: .15, kick: .011, speed: 5.1, kill: 300, snd: { cut: 3900, dec: .11, thump: 160, vol: .62 } },
     es12: { id: 'es12', name: 'ES-12 Jabalí', cls: 'Escopeta', slot: 1, price: 1100, dmg: 24, pellets: 8, spreadP: .055, ap: .5, rm: .55, rpm: 70, auto: false, mag: 7, res: 32, reload: 2.9, stand: .004, run: .02, crouch: .004, jump: .08, kick: .07, speed: 4.9, kill: 900, snd: { cut: 2100, dec: .36, thump: 65, vol: 1.2 } },
     fr9: { id: 'fr9', name: 'FR-9 Cierzo', cls: 'Fusil ligero', slot: 1, price: 2050, dmg: 30, ap: .7, rm: .96, rpm: 666, auto: true, mag: 25, res: 90, reload: 2.3, stand: .0045, run: .12, crouch: .0032, jump: .2, kick: .014, speed: 4.75, kill: 300, snd: { cut: 3400, dec: .2, thump: 115, vol: .9 } },
     lmg: { id: 'lmg', name: 'LMG-60 Mula', cls: 'Ametralladora', slot: 1, price: 5200, dmg: 32, ap: .8, rm: .97, rpm: 750, auto: true, mag: 100, res: 200, reload: 5.0, stand: .008, run: .18, crouch: .005, jump: .3, kick: .013, speed: 4.2, kill: 300, snd: { cut: 2900, dec: .26, thump: 95, vol: 1.0 } },
+    k11: { id: 'k11', name: 'K-11 Zorro', cls: 'Subfusil compacto', slot: 1, price: 1450, dmg: 23, ap: .62, rm: .7, rpm: 1000, auto: true, mag: 32, res: 128, reload: 2.0, stand: .0085, run: .04, crouch: .0065, jump: .14, kick: .0085, speed: 5.15, kill: 600, snd: { cut: 4600, dec: .11, thump: 170, vol: .66 } },
+    pump: { id: 'pump', name: 'P-12 Martillo', cls: 'Escopeta de corredera', slot: 1, price: 1300, dmg: 27, pellets: 9, spreadP: .042, ap: .5, rm: .6, rpm: 58, auto: false, mag: 6, res: 30, reload: 3.2, stand: .004, run: .02, crouch: .004, jump: .08, kick: .08, speed: 4.85, kill: 900, snd: { cut: 1900, dec: .42, thump: 55, vol: 1.3 } },
+    bp9: { id: 'bp9', name: 'BP-9 Escorpión', cls: 'Fusil bullpup', slot: 1, price: 2400, dmg: 31, ap: .74, rm: .97, rpm: 720, auto: true, mag: 30, res: 90, reload: 2.7, stand: .004, run: .11, crouch: .003, jump: .2, kick: .0125, speed: 4.75, kill: 300, snd: { cut: 3300, dec: .21, thump: 112, vol: .92 } },
+    dmr: { id: 'dmr', name: 'M-14 Halcón', cls: 'Tirador designado', slot: 1, price: 3300, dmg: 62, ap: .86, rm: .98, rpm: 200, auto: false, mag: 15, res: 45, reload: 2.9, stand: .02, scoped: .0012, run: .14, crouch: .016, jump: .25, kick: .04, speed: 4.5, kill: 300, scope: true, zoom: 32, snd: { cut: 2700, dec: .32, thump: 85, vol: 1.08 } },
+    ax50: { id: 'ax50', name: 'AX-50 Cóndor', cls: 'Francotirador pesado', slot: 1, price: 6000, dmg: 165, ap: 1, rm: .995, rpm: 30, auto: false, mag: 5, res: 15, reload: 4.2, stand: .08, scoped: .0004, run: .3, crouch: .06, jump: .4, kick: .09, speed: 3.8, kill: 100, scope: true, zoom: 15, snd: { cut: 1700, dec: .65, thump: 55, vol: 1.35 } },
+    b3: { id: 'b3', name: 'B-3 Ráfaga', cls: 'Pistola de ráfaga', slot: 2, price: 600, dmg: 26, ap: .55, rm: .84, rpm: 1100, burst: 3, gap: .32, auto: false, mag: 21, res: 63, reload: 2.3, stand: .006, run: .06, crouch: .0045, jump: .16, kick: .012, speed: 5.15, kill: 300, snd: { cut: 3800, dec: .12, thump: 150, vol: .68 } },
     tr7: { id: 'tr7', name: 'TR-7 Cernícalo', cls: 'Rifle ligero', slot: 1, price: 1700, dmg: 75, ap: .85, rm: .98, rpm: 48, auto: false, mag: 10, res: 90, reload: 3.0, stand: .035, scoped: .001, run: .12, crouch: .03, jump: .05, kick: .05, speed: 4.85, kill: 300, scope: true, snd: { cut: 2500, dec: .4, thump: 80, vol: 1.1 } }
   };
   // Escalada de armas: una baja con el arma actual sube de nivel; la última es el cuchillo
-  const LADDER = ['ar', 'fr9', 'lmg', 'smg', 'es12', 'tr7', 'sr', 'r50', 'ap18', 'p9', 'knife'];
-  const TDM = { goal: 50, time: 480, respawn: 3, protect: 2.5, guns: ['ar', 'fr9', 'smg', 'es12', 'lmg', 'tr7', 'sr'] };
+  const LADDER = ['ar', 'bp9', 'fr9', 'lmg', 'smg', 'k11', 'es12', 'pump', 'dmr', 'tr7', 'sr', 'ax50', 'r50', 'b3', 'ap18', 'p9', 'knife'];
+  const TDM = { goal: 50, time: 480, respawn: 3, protect: 2.5, guns: ['ar', 'fr9', 'smg', 'es12', 'lmg', 'tr7', 'sr', 'k11', 'pump', 'bp9', 'dmr'] };
   const GG_TIME = 600;
   const NADES = {
     he: { id: 'he', name: 'Granada HE', price: 300, max: 1 },
@@ -441,7 +447,7 @@
   const WAVE_REVIVE = 8;
   const STREAKS = { 3: { id: 'radar', reveal: 5 }, 5: { id: 'kit' }, 7: { id: 'dron', reveal: 12 } };
   const BOT_STYLE = ['rush', 'flank', 'steady'];
-  const BOT_RANGE = { knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
+  const BOT_RANGE = { k11: [3, 12], pump: [2, 8], bp9: [9, 26], dmr: [15, 45], ax50: [22, 80], b3: [5, 16], knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
   const DIFF = {
     recluta: { react: .7, err: .07, turn: 4.5 },
     veterano: { react: .42, err: .045, turn: 7 },
@@ -524,7 +530,7 @@
     spawnWaveEnemy(a) {
       if (this.waveSpawned >= this.waveQuota) { a.respawnAt = Infinity; return; }
       this.waveSpawned++; const n = this.wave;
-      const pool = n < 2 ? ['p9', 'r50', 'ap18'] : n < 4 ? ['smg', 'es12', 'r50'] : n < 6 ? ['ar', 'fr9', 'smg', 'es12'] : ['ar', 'fr9', 'tr7', 'lmg', 'sr', 'es12'];
+      const pool = n < 2 ? ['p9', 'r50', 'ap18', 'b3'] : n < 4 ? ['smg', 'es12', 'r50', 'k11', 'pump'] : n < 6 ? ['ar', 'fr9', 'smg', 'es12', 'bp9', 'k11'] : ['ar', 'fr9', 'tr7', 'lmg', 'sr', 'es12', 'bp9', 'dmr', 'pump'];
       const w = pool[(Math.random() * pool.length) | 0]; const pri = WEAPONS[w].slot === 1;
       a.inv = { p: pri ? w : null, s: pri ? 'p9' : w, n: { he: n >= 3 && Math.random() < .3 ? 1 : 0, fl: n >= 2 && Math.random() < .3 ? 1 : 0, sm: 0, in: n >= 5 && Math.random() < .25 ? 1 : 0, de: 0 } };
       a.cur = w; a.armor = n >= 3 ? 100 : 0; a.helmet = n >= 5; a.kit = false;
@@ -814,6 +820,7 @@
       const wid = String(m.w || ''); const w = has(WEAPONS, wid) ? WEAPONS[wid] : null;
       if (!w || !(wid === 'knife' || a.inv.p === wid || a.inv.s === wid)) return;
       if (this.now - a.lastShot < 60 / w.rpm * .7) return;
+      if (w.burst) { if (this.now - a.lastShot >= w.gap * .7) a.burstN = 0; if ((a.burstN || 0) >= w.burst) return; a.burstN = (a.burstN || 0) + 1; }
       if (!w.melee && w.mag) {
         const mg = a.mags || (a.mags = {}), rs = a.resv || (a.resv = {}); if (mg[wid] === undefined) { mg[wid] = w.mag; rs[wid] = w.res; }
         const refill = () => { const take = Math.min(w.mag - mg[wid], rs[wid]); mg[wid] += take; rs[wid] -= take; };
@@ -1079,11 +1086,16 @@
       if (!b.inv.p) {
         const r = Math.random();
         if (b.money >= 5200 + 1000 && r < .08) buy('lmg');
-        else if (b.money >= 2050 + 650 && r < .3) buy('fr9');
+        else if (b.money >= 6000 + 1000 && r < .12) buy('ax50');
+        else if (b.money >= 3300 + 650 && r < .22) buy('dmr');
+        else if (b.money >= 2400 + 650 && r < .35) buy('bp9');
+        else if (b.money >= 2050 + 650 && r < .45) buy('fr9');
+        else if (!eco && b.money >= 1450 + 650 && r < .6) buy('k11');
+        else if (!eco && b.money >= 1300 + 650 && r < .7) buy('pump');
         else if (b.money >= 1700 + 650 && r < .15) buy('tr7');
         else if (!eco && b.money >= 1100 + 650 && r < .25) buy('es12');
       }
-      if (!b.inv.p && b.inv.s === 'p9' && b.money >= 500 && Math.random() < .25) buy('ap18');
+      if (!b.inv.p && b.inv.s === 'p9' && b.money >= 500 && Math.random() < .25) buy(Math.random() < .5 ? 'ap18' : 'b3');
       if (b.helmet && b.armor >= 100) { } else if (b.money >= 1000 && b.inv.p) buy('helm'); else if (b.money >= 650 && (b.inv.p || this.round === 1 || this.round === ROUND.half + 1)) buy('kevlar');
       if (!b.inv.p && b.inv.s === 'p9' && b.money >= 700 && Math.random() < .35) buy('r50');
       if (side === 'def' && b.money >= 400 && b.inv.p) buy('kit');
@@ -1283,8 +1295,8 @@
     botFire(b, t, dist, w) {
       const iv = 60 / w.rpm * (w.auto ? 1 : 1.5);
       if (this.now - b.lastShot < iv) return;
-      if (b.burst <= 0) { if (b.burstPause > this.now) return; b.burst = w.auto ? (rand(dist > 20 ? 2 : 4, dist > 20 ? 5 : 10) | 0) : 1; b.sprayI = 0; }
-      b.burst--; if (b.burst <= 0) b.burstPause = this.now + (w.auto ? rand(.2, .45) : rand(.3, .8));
+      if (b.burst <= 0) { if (b.burstPause > this.now) return; b.burst = w.burst ? w.burst : w.auto ? (rand(dist > 20 ? 2 : 4, dist > 20 ? 5 : 10) | 0) : 1; b.sprayI = 0; }
+      b.burst--; if (b.burst <= 0) b.burstPause = this.now + (w.burst ? w.gap + rand(.1, .4) : w.auto ? rand(.2, .45) : rand(.3, .8));
       b.lastShot = this.now; b.ammo--; b.firedAt = this.now; b.sprayI = (b.sprayI || 0) + 1;
       const e = eyeOf(b); const tsp = Math.hypot(t.vel.x, t.vel.z);
       let err = (b.errMul || 1) * this.D.err * (b.seenT < b.react + .5 ? 1.6 : 1) * (1 + tsp * .07) * (b.crouch ? .85 : 1) + (w.scope ? .002 : w.stand) + Math.min(b.sprayI, 10) * w.kick * .12;

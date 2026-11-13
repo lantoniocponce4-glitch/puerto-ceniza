@@ -220,12 +220,12 @@ tr.dead td{opacity:.5}
 
 /* Menú de compra */
 #buy{background:rgba(6,8,10,.55);align-items:center}
-.buybox{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:18px;width:min(940px,100%);display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+.buybox{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:18px;width:min(1120px,100%);display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .buyhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 .buyhead h2{font-family:var(--f-display);font-weight:800;font-size:30px;margin:0;text-transform:uppercase}
 #buyMoney{font-family:var(--f-display);font-weight:800;font-size:28px;color:var(--money)}
 #buyTime{font-family:var(--f-mono);font-size:12px;color:var(--dim)}
-.bcols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.bcols{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}@media (max-width:1100px){.bcols{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .bcol{display:flex;flex-direction:column;gap:6px;min-width:0}
 .bcol>.lbl{font-size:11px;color:var(--dim)}
 .bi{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:2px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.03);min-height:52px}
@@ -635,9 +635,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=30"></script>
-<script src="/models.js?v=30"></script>
-<script src="/client.js?v=30"></script>
+<script src="/core.js?v=31"></script>
+<script src="/models.js?v=31"></script>
+<script src="/client.js?v=31"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>
