@@ -42,7 +42,7 @@ class FileStore {
 }
 // Limpia errores típicos al pegar la dirección: comillas, prefijo DATABASE_URL= y parámetros que el cliente no soporta
 function cleanDbUrl(raw) {
-  let u = String(raw || '').trim().replace(/^DATABASE_URL\s*=\s*/i, '').replace(/^psql\s+/i, '').replace(/^['"]|['"]$/g, '').replace(/\s+/g, '');
+  let u = String(raw || '').trim().replace(/^DATABASE_URL\s*=\s*/i, '').replace(/^psql\s+/i, '').replace(/^['"]|['"]$/g, '').replace(/[\s\u00AD\u200B-\u200F\u2028\u2029\u2060\uFEFF]+/g, '');
   try { const x = new URL(u); x.searchParams.delete('channel_binding'); x.searchParams.delete('sslmode'); u = x.toString(); } catch (e) { }
   return u;
 }
