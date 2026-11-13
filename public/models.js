@@ -32,6 +32,23 @@ function texCamo(team) {
   return mk(c, 2);
 }
 const TXW = texWear(), TXG = texGrain(), TXWOOD = texWoodG(), TXCLOTH = texCloth(), CAMO = [texCamo(0), texCamo(1)];
+/* ---------- Camuflajes de armas ---------- */
+function blobs(x, base, cols, n, rmin, rmax) { x.fillStyle = base; x.fillRect(0, 0, 256, 256); for (let i = 0; i < n; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; x.save(); x.translate(rand(0, 256), rand(0, 256)); x.rotate(rand(0, 3)); x.beginPath(); x.ellipse(0, 0, rand(rmin, rmax), rand(rmin * .5, rmax * .55), 0, 0, 7); x.fill(); x.restore(); } }
+const CAMO_SW = {};
+function camoTex(id) {
+  const [c, x] = cnv(256, 256);
+  if (id === 'bosque') blobs(x, '#4b5b33', ['#2e3a1e', '#6b7a45', '#5a4a30', '#3c4a26'], 70, 12, 34);
+  else if (id === 'desierto') blobs(x, '#c2a878', ['#9c8156', '#d8c49a', '#b0925f'], 60, 12, 32);
+  else if (id === 'digital') { x.fillStyle = '#6c7a86'; x.fillRect(0, 0, 256, 256); const cols = ['#3e4955', '#9aa6b0', '#55626e', '#2c343c']; for (let i = 0; i < 700; i++) { x.fillStyle = cols[(Math.random() * 4) | 0]; let px = (Math.random() * 64 | 0) * 4, py = (Math.random() * 64 | 0) * 4; for (let k = 0; k < 4; k++) { x.fillRect(px, py, 4, 4); if (Math.random() < .5) px += 4; else py += 4; } } }
+  else if (id === 'tigre') { x.fillStyle = '#d4892a'; x.fillRect(0, 0, 256, 256); x.fillStyle = '#17110b'; for (let i = 0; i < 22; i++) { const y0 = rand(-40, 256); x.beginPath(); x.moveTo(0, y0); for (let k = 0; k <= 16; k++) x.lineTo(k * 16, y0 + k * 6 + Math.sin(k * 1.3 + i) * 7); for (let k = 16; k >= 0; k--) x.lineTo(k * 16, y0 + k * 6 + 6 + Math.sin(k * 1.7 + i) * 5 * rand(.5, 1.3)); x.fill(); } }
+  else if (id === 'carbono') { for (let yy = 0; yy < 256; yy += 8) for (let xx = 0; xx < 256; xx += 8) { const o = ((xx + yy) / 8) % 2; const g = x.createLinearGradient(xx, yy, xx + 8, yy + 8); g.addColorStop(0, o ? '#2c2e31' : '#18191b'); g.addColorStop(1, o ? '#1a1b1d' : '#2a2c2f'); x.fillStyle = g; x.fillRect(xx, yy, 8, 8); } }
+  else if (id === 'carmesi') blobs(x, '#8e1d1d', ['#5c0f12', '#b02a24', '#741518'], 50, 14, 36);
+  else { x.fillStyle = '#e8c35c'; x.fillRect(0, 0, 256, 256); for (let i = 0; i < 220; i++) { x.strokeStyle = `rgba(255,250,220,${rand(.1, .35)})`; x.lineWidth = rand(.5, 1.5); x.beginPath(); const px = rand(0, 256), py = rand(0, 256); x.moveTo(px, py); x.lineTo(px + rand(-20, 20), py + rand(-3, 3)); x.stroke(); } }
+  speck(x, 256, 256, 3000, .08);
+  CAMO_SW[id] = c.toDataURL('image/png');
+  return mk(c, 4);
+}
+
 
 /* ---------- Materiales ---------- */
 const S = (o) => new T.MeshStandardMaterial(Object.assign({ roughness: .8, metalness: 0 }, o));
@@ -50,6 +67,13 @@ const MG = {
   rubber: S({ color: 0x141414, roughness: .95 }),
   brass: S({ color: 0xc9a043, metalness: .9, roughness: .3 })
 };
+
+const MCAMO = {};
+for (const id of ['bosque', 'digital', 'desierto', 'tigre', 'carbono', 'carmesi', 'oro']) {
+  const t = camoTex(id);
+  MCAMO[id] = id === 'oro' ? S({ map: t, metalness: 1, roughness: .22 }) : id === 'carbono' ? S({ map: t, metalness: .45, roughness: .3 }) : id === 'carmesi' ? S({ map: t, metalness: .35, roughness: .38 }) : S({ map: t, roughness: .62, metalness: .1 });
+}
+const CAMO_KEYS = new Set(['poly', 'tan', 'od', 'park', 'wood']);
 
 /* ---------- Geometría ---------- */
 function shape(pts) { const s = new T.Shape(); let st = false; for (const p of pts) { if (p[0] === 'q') s.quadraticCurveTo(p[1], p[2], p[3], p[4]); else if (!st) { s.moveTo(p[0], p[1]); st = true; } else s.lineTo(p[0], p[1]); } return s; }
@@ -214,7 +238,7 @@ function gunParts(id) {
 const toLocal = (p) => new T.Vector3(0, p[1], -p[0]);
 function buildGun(id, opt = {}) {
   const { meshes, info } = gunParts(id); const g = new T.Group();
-  for (const [m, geo] of meshes) { const mesh = new T.Mesh(geo, MG[m]); mesh.castShadow = opt.shadow !== false; mesh.receiveShadow = opt.shadow !== false; g.add(mesh); }
+  for (const [m, geo] of meshes) { const mat = opt.camo && MCAMO[opt.camo] && CAMO_KEYS.has(m) ? MCAMO[opt.camo] : MG[m]; const mesh = new T.Mesh(geo, mat); mesh.castShadow = opt.shadow !== false; mesh.receiveShadow = opt.shadow !== false; g.add(mesh); }
   const mz = new T.Object3D(); mz.position.set(0, info.boreY, -info.muzzle); g.add(mz);
   g.userData = { muzzle: mz, info };
   return g;
@@ -317,10 +341,10 @@ function buildSoldier(team, idx, opt = {}) {
   const hand = new T.Group(); upper.add(hand);
   const flash = new T.Sprite(opt.flashMat || new T.SpriteMaterial({ color: 0xffcc88 })); flash.scale.set(.42, .42, .42); flash.visible = false;
   const guns = {}; let cur = null;
-  const model = { g, body, upper, hips, legs, head, helmet, pack, hand, flash, muzzle: new T.Object3D(), curGun: null };
+  const model = { g, body, upper, hips, legs, head, helmet, pack, hand, flash, muzzle: new T.Object3D(), curGun: null, camo: opt.camo || null };
   model.setGun = function (id) {
     if (model.curGun === id) return; if (cur) cur.visible = false; model.curGun = id;
-    if (!guns[id]) { guns[id] = buildGun(id); hand.add(guns[id]); }
+    if (!guns[id]) { guns[id] = buildGun(id, { camo: model.camo }); hand.add(guns[id]); }
     cur = guns[id]; cur.visible = true; const info = cur.userData.info; const cls = info.cls;
     hand.position.set(...HANDPOS[cls]); hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
     cur.userData.muzzle.add(flash); model.muzzle = cur.userData.muzzle;
@@ -334,6 +358,11 @@ function buildSoldier(team, idx, opt = {}) {
   const skip = new Set(); for (const k in arms) for (const m of Object.values(arms[k])) skip.add(m);
   const groups = [hips, upper, head, helmet, pack]; if (cap) groups.push(cap); for (const l of legs) groups.push(l.hip, l.knee);
   for (const grp of groups) mergeChildren(grp, skip);
+  model.setCamo = function (c) {
+    c = c || null; if (c === model.camo) return; model.camo = c;
+    for (const k in guns) { hand.remove(guns[k]); delete guns[k]; } cur = null;
+    const was = model.curGun; model.curGun = null; if (was) model.setGun(was);
+  };
   model.setHelmet = function (on) { helmet.visible = on; if (cap) cap.visible = !on; };
   model.animate = function (spd, ph, cr, pitch) {
     const k = Math.min(1, spd / 3.2) * (1 - cr); const sw = Math.sin(ph) * .6 * k;
@@ -365,7 +394,7 @@ function fpArms(gun, pos, s) {
 }
 
 window.PCM = {
-  buildGun, buildSoldier, fpArms, setFpTeam, gunInfo: (id) => gunParts(id).info, toLocal, merge,
+  buildGun, buildSoldier, fpArms, setFpTeam, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };
 })();

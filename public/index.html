@@ -227,6 +227,56 @@ tr.dead td{opacity:.5}
 .bi.own{border-color:rgba(143,214,148,.6)}
 .bi.own .p::after{content:" · equipado";color:var(--ok)}
 
+
+/* --- progresión, repetición, radio y chat --- */
+#xpPop{position:absolute;left:50%;top:calc(50% + 118px);transform:translateX(-50%);font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:.04em;color:var(--amber);text-shadow:0 1px 6px #000;opacity:0;pointer-events:none;white-space:nowrap}
+#xpPop.on{animation:xpp 1.5s ease-out forwards}
+@keyframes xpp{0%{opacity:0;transform:translate(-50%,8px)}15%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-14px)}}
+#killcam{position:absolute;inset:0;pointer-events:none}
+#killcam::before,#killcam::after{content:"";position:absolute;left:0;right:0;height:7vh;background:#000}
+#killcam::before{top:0}#killcam::after{bottom:0}
+#killcam .kcb{position:absolute;left:50%;bottom:calc(7vh + 18px);transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:10px 16px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:260px}
+#killcam .tagr{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;color:#fff;background:var(--bad);padding:2px 7px;border-radius:2px}
+#kcName{font-family:var(--f-display);font-weight:800;font-size:24px}
+#kcInfo{font-size:13px;color:var(--dim)}
+#killcam .bar{width:100%;height:3px;background:rgba(255,255,255,.15);position:relative}#kcBar{position:absolute;inset:0 auto 0 0;background:var(--bad);width:0}
+#killcam .hint{font-size:11px;color:var(--dim)}
+#chatBox{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(132px + env(safe-area-inset-bottom,0px));max-width:min(440px,62vw);display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
+.cl{background:var(--panel);padding:3px 8px;border-radius:2px;transition:opacity 1.2s;overflow-wrap:anywhere}
+.cl.old{opacity:0}
+.cl .rd{font-family:var(--f-mono);font-size:10px;color:var(--amber);border:1px solid var(--amber);padding:0 4px;border-radius:2px;margin-right:6px}
+#chatIn{position:absolute;left:calc(10px + env(safe-area-inset-left,0px));bottom:calc(100px + env(safe-area-inset-bottom,0px));width:min(440px,78vw);box-sizing:border-box;background:var(--panel2);border:1px solid var(--amber);border-radius:3px;color:var(--sand);font:14px var(--f-body);padding:8px 10px;pointer-events:auto;outline:none}
+#radioWheel{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:auto}
+#radioWheel button{position:absolute;left:0;top:0;transform:rotate(var(--a)) translate(0,-132px) rotate(calc(-1 * var(--a))) translate(-50%,-50%);background:var(--panel2);border:1px solid var(--line);border-radius:3px;color:var(--sand);font:600 13px var(--f-body);padding:8px 12px;white-space:nowrap;cursor:pointer;min-height:36px}
+#radioWheel button:hover,#radioWheel button:focus-visible{border-color:var(--amber);outline:none}
+#radioWheel kbd{font-family:var(--f-mono);font-size:10px;color:var(--amber);margin-right:6px}
+#radioWheel .hub{position:absolute;left:0;top:0;transform:translate(-50%,-50%);text-align:center;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:50%;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#radioWheel .hub small{font-family:var(--f-body);font-weight:500;letter-spacing:0;text-transform:none;font-size:10px;color:var(--dim)}
+.ping{position:absolute;left:0;top:0;color:var(--amber);font-family:var(--f-mono);font-size:11px;text-align:center;text-shadow:0 1px 3px #000;white-space:nowrap;will-change:transform}
+.ping i{display:block;width:12px;height:12px;margin:0 auto 3px;border:2px solid currentColor;transform:rotate(45deg);background:rgba(242,179,61,.25)}
+.ping.enemy{color:var(--bad)}.ping.enemy i{background:rgba(255,77,58,.25)}
+#bRadio{width:46px;height:40px;border-radius:4px;left:calc(8px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
+#bPing{width:46px;height:40px;border-radius:4px;left:calc(60px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px;border-color:var(--amber)}
+#bChat{width:46px;height:40px;border-radius:4px;left:calc(112px + env(safe-area-inset-left,0px));top:calc(138px + env(safe-area-inset-top,0px));font-size:10px}
+.prof{display:flex;align-items:center;gap:12px}
+.prof .lvl{width:54px;height:54px;border:2px solid var(--amber);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.prof .lvl b{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1;color:var(--amber)}
+.prof .lvl span{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+.xpw{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.xpbar{height:6px;background:rgba(255,255,255,.1);position:relative;border-radius:1px;overflow:hidden}.xpbar s{position:absolute;inset:0 auto 0 0;background:var(--amber)}
+.camos{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:6px}
+.camo{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px;align-items:center;min-width:0}
+.camo:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.camo[aria-pressed="true"]{border-color:var(--amber);background:rgba(242,179,61,.1)}
+.camo[aria-disabled="true"]{opacity:.4;cursor:not-allowed}
+.camo .sw{width:100%;height:26px;border-radius:2px;background:#2a2c2f center/cover}
+.camo .cn{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.daily{display:flex;flex-direction:column;gap:6px}
+.ch{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px;align-items:baseline}
+.ch b{font-family:var(--f-mono);font-size:12px;color:var(--dim)}
+.ch i{grid-column:1/-1;height:3px;background:rgba(255,255,255,.1);position:relative}.ch i s{position:absolute;inset:0 auto 0 0;background:var(--ok)}
+.ch.done span{color:var(--ok)}
+#profBox{display:flex;flex-direction:column;gap:10px;background:rgba(20,25,30,.7);border:1px solid var(--line);border-radius:3px;padding:12px}
 @media (max-width:700px){
   .bcols{grid-template-columns:repeat(2,minmax(0,1fr))}
   .maps{grid-template-columns:1fr}
@@ -290,6 +340,11 @@ tr.dead td{opacity:.5}
     <div id="spec" hidden><div class="small lbl">Observando</div><b id="specName">—</b><div class="small" id="specHint">Clic para cambiar de compañero</div></div>
     <div id="roomChip"><span id="netDot"></span><span class="lbl">Sala</span><b id="roomCode">—</b><span id="mapName"></span></div>
     <div id="flashOv"></div>
+    <div id="xpPop" aria-live="polite"></div>
+    <div id="chatBox" aria-live="polite"></div>
+    <input id="chatIn" type="text" maxlength="90" placeholder="Mensaje al equipo · Enter envía, Esc cancela" autocomplete="off" hidden>
+    <div id="radioWheel" hidden></div>
+    <div id="killcam" hidden><div class="kcb"><span class="tagr">REPETICIÓN</span><span class="small">Te eliminó</span><b id="kcName">—</b><span id="kcInfo"></span><div class="bar"><s id="kcBar"></s></div><span class="hint">Clic o espacio para saltar</span></div></div>
     <div id="clickPlay" hidden><b>Haz clic para jugar</b><span>El mouse queda capturado para apuntar. Esc lo suelta.</span></div>
   </div>
 
@@ -307,6 +362,9 @@ tr.dead td{opacity:.5}
     <div class="tb" id="bBuy" aria-label="Comprar">$</div>
     <div class="tb" id="bBoard" aria-label="Marcador">Tabla</div>
     <div class="tb" id="bPause" aria-label="Menú">II</div>
+    <div class="tb" id="bRadio" aria-label="Radio rápida">Radio</div>
+    <div class="tb" id="bPing" aria-label="Marcar">Marcar</div>
+    <div class="tb" id="bChat" aria-label="Chat de equipo">Chat</div>
   </div>
 
   <div id="menu" class="ov">
@@ -316,6 +374,7 @@ tr.dead td{opacity:.5}
         <h1>Puerto<br><em>Ceniza</em></h1>
       </div>
       <p class="lead">Los <b>terroristas</b> plantan la carga en el sitio A o B; los <b>antiterroristas</b> lo impiden o la desactivan. Una vida por ronda, sin regeneración. Gana dinero, compra tu equipo y llega primero a <b>7 rondas</b>. Hasta 8 personas por sala; los cupos vacíos los ocupan bots.</p>
+      <div id="profBox"></div>
       <label class="field sec" for="pname"><span class="lbl small">Tu nombre</span><input id="pname" type="text" maxlength="14" autocomplete="nickname" placeholder="Operador"></label>
       <div class="row2">
         <div class="sec"><div class="lbl">Tu bando</div>
@@ -335,7 +394,7 @@ tr.dead td{opacity:.5}
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
       <div class="keys" id="keysHelp">
-        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span>
+        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span>
       </div>
       <div class="modes">
         <button class="go" id="quick" type="button">Partida rápida ▸</button>
@@ -386,8 +445,8 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=7"></script>
-<script src="/models.js?v=7"></script>
-<script src="/client.js?v=7"></script>
+<script src="/core.js?v=10"></script>
+<script src="/models.js?v=10"></script>
+<script src="/client.js?v=10"></script>
 </body>
 </html>

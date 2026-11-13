@@ -70,7 +70,7 @@ wss.on('connection', ws => {
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
       } else r = quickRoom(m.side, gm);
       if (r.humanCount >= 8) return ws.send(JSON.stringify({ t: 'err', msg: 'La sala está llena (8 de 8). Prueba partida rápida o crea otra sala.' }));
-      const a = r.addHuman(cid, cleanName(m.name), m.side);
+      const a = r.addHuman(cid, cleanName(m.name), m.side, typeof m.camo === 'string' ? m.camo : null);
       if (!a) {
         if (r.humanCount === 0) rooms.delete(r.code);
         const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';
