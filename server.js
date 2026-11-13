@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
   if (url.pathname === '/api/rooms') {
-    const list = [...rooms.values()].filter(r => r.isPublic).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId }));
+    const list = [...rooms.values()].filter(r => r.isPublic).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode }));
     res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(list));
   }
   let file = url.pathname === '/' ? '/index.html' : url.pathname;
@@ -32,19 +32,23 @@ const server = http.createServer((req, res) => {
 const rooms = new Map();
 const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 function newCode() { let c; do { c = Array.from({ length: 4 }, () => LETTERS[(Math.random() * LETTERS.length) | 0]).join(''); } while (rooms.has(c)); return c; }
-function createRoom(isPublic, diff, map) {
+function createRoom(isPublic, diff, map, mode) {
   const code = newCode();
-  const room = new PC.Room({ code, diff, isPublic, map });
+  const room = new PC.Room({ code, diff, isPublic, map, mode });
   room.sockets = new Map();
   room.onBroadcast = msg => { const s = JSON.stringify(msg); for (const ws of room.sockets.values()) if (ws.readyState === 1) ws.send(s); };
   room.onSend = (cid, msg) => { const ws = room.sockets.get(cid); if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); };
   rooms.set(code, room);
   return room;
 }
-function quickRoom() {
+function quickRoom(side, mode) {
   let best = null;
-  for (const r of rooms.values()) if (r.isPublic && r.humanCount < 8 && (!best || r.humanCount > best.humanCount)) best = r;
-  return best || createRoom(true, 'veterano', null);
+  for (const r of rooms.values()) {
+    if (!r.isPublic || r.humanCount >= 8 || r.mode !== mode) continue;
+    if ((side === 'atk' || side === 'def') && r.sideHumans(side) >= 4) continue;
+    if (!best || r.humanCount > best.humanCount) best = r;
+  }
+  return best || createRoom(true, 'veterano', null, mode);
 }
 const cleanName = n => (String(n || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14)) || 'Operador';
 
@@ -59,16 +63,21 @@ wss.on('connection', ws => {
     if (!m || typeof m !== 'object') return;
     if (m.t === 'join' && !room) {
       let r = null;
-      if (m.mode === 'create') r = createRoom(false, m.diff, m.map);
+      const gm = m.gm === 'elim' ? 'elim' : 'bomb';
+      if (m.mode === 'create') r = createRoom(false, m.diff, m.map, gm);
       else if (m.mode === 'code') {
         r = rooms.get(String(m.code || '').toUpperCase().trim());
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
-      } else r = quickRoom();
+      } else r = quickRoom(m.side, gm);
       if (r.humanCount >= 8) return ws.send(JSON.stringify({ t: 'err', msg: 'La sala está llena (8 de 8). Prueba partida rápida o crea otra sala.' }));
-      const a = r.addHuman(cid, cleanName(m.name));
-      if (!a) return ws.send(JSON.stringify({ t: 'err', msg: 'No se pudo entrar a la sala.' }));
+      const a = r.addHuman(cid, cleanName(m.name), m.side);
+      if (!a) {
+        if (r.humanCount === 0) rooms.delete(r.code);
+        const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';
+        return ws.send(JSON.stringify({ t: 'err', msg: r.lastErr === 'side' ? `El bando ${sideName} ya tiene 4 personas. Elige el otro bando o «Automático».` : 'No se pudo entrar a la sala.' }));
+      }
       room = r; r.sockets.set(cid, ws);
-      ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId }));
+      ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId, gm: r.mode }));
       ws.send(JSON.stringify(r.privateState(a)));
       ws.send(JSON.stringify(r.roster()));
       return;

@@ -245,6 +245,7 @@
       this.mapId = MAPS[opts.map] ? opts.map : MAP_IDS[(Math.random() * MAP_IDS.length) | 0];
       this.W = new World(this.mapId); this.M = this.W.map;
       this.isPublic = opts.isPublic !== false;
+      this.mode = opts.mode === 'elim' ? 'elim' : 'bomb';
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
       this.actors = []; this.events = []; this.now = 0; this.tickN = 0;
       for (let t = 0; t < 2; t++) for (let i = 0; i < 4; i++) this.actors.push(this.makeActor(t, i));
@@ -291,10 +292,10 @@
         this.spawn(a);
         a.snap = { inv: JSON.parse(JSON.stringify(a.inv)), armor: a.armor, helmet: a.helmet, kit: a.kit, money: a.money, cur: a.cur };
       }
-      // carga explosiva a un atacante
+      // carga explosiva a un terrorista (solo en modo con carga)
       const atks = this.actors.filter(a => this.side(a.team) === 'atk');
       const carrier = atks[(Math.random() * atks.length) | 0];
-      this.bomb = { st: 'carried', by: carrier.id, x: 0, y: 0, z: 0, site: null, explodeAt: 0, pp: 0, dp: 0, planter: -1, defuser: -1 };
+      this.bomb = { st: this.mode === 'bomb' ? 'carried' : 'none', by: this.mode === 'bomb' ? carrier.id : -1, x: 0, y: 0, z: 0, site: null, explodeAt: 0, pp: 0, dp: 0, planter: -1, defuser: -1 };
       this.plan = { site: Math.random() < .5 ? 'A' : 'B' };
       for (const a of this.actors) if (!a.human) this.botBuy(a);
       this.assignBots();
@@ -331,13 +332,17 @@
     give(a, m) { a.money = clamp(a.money + m, 0, MONEY.max); a.pdirty = true; }
 
     /* --- jugadores humanos --- */
+    sideHumans(side) { let n = 0; for (const a of this.actors) if (a.human && this.side(a.team) === side) n++; return n; }
     addHuman(cid, name, pref) {
-      if (this.clients.size >= 8) return null;
+      this.lastErr = '';
+      if (this.clients.size >= 8) { this.lastErr = 'full'; return null; }
       const hum = [0, 0]; for (const a of this.actors) if (a.human) hum[a.team]++;
       let team = hum[0] <= hum[1] ? 0 : 1;
+      const forced = pref === 'atk' || pref === 'def';
+      if (forced) { team = this.teamOfSide(pref); if (hum[team] >= 4) { this.lastErr = 'side'; return null; } }
       let a = this.actors.find(x => x.team === team && !x.human && !x.alive) || this.actors.find(x => x.team === team && !x.human);
-      if (!a) { team = 1 - team; a = this.actors.find(x => x.team === team && !x.human); }
-      if (!a) return null;
+      if (!a && !forced) { team = 1 - team; a = this.actors.find(x => x.team === team && !x.human); }
+      if (!a) { this.lastErr = 'full'; return null; }
       a.human = cid; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false;
       if (this.phase === 'buy' && a.snap) { Object.assign(a, { inv: JSON.parse(JSON.stringify(a.snap.inv)), armor: a.snap.armor, helmet: a.snap.helmet, kit: a.snap.kit, money: a.snap.money, cur: a.snap.cur }); }
       this.clients.set(cid, a.id);
@@ -632,6 +637,10 @@
         }
         if (this.now - this.liveStart < (b.lurk ? 14 : 3)) { b.walkSpeed = 2.4; }
         if (b.route && b.ri < b.route.length) { const [x, z] = b.route[b.ri]; if (this.goTo(b, x, z, 'r' + b.ri)) b.ri++; return; }
+        if (this.mode === 'elim' && this.now - this.liveStart > 25) {
+          let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
+          if (n) { const key = 'hunt' + n.id + Math.floor(this.now / 4); this.goTo(b, n.pos.x, n.pos.z, key); return; }
+        }
         const c = site.c; if (!b.siteOff) b.siteOff = [rand(-3, 3), rand(-3, 3)];
         if (this.goTo(b, carrier ? c[0] : c[0] + b.siteOff[0], carrier ? c[1] : c[1] + b.siteOff[1], 'site')) this.lookAround(b, b.yaw);
       } else {
@@ -640,6 +649,10 @@
           return;
         }
         if (b.lastKnown && this.now - b.lastKnownT < 6 && b.hold && Math.hypot(b.lastKnown.x - b.hold[0], b.lastKnown.z - b.hold[1]) < 14) { this.goTo(b, b.lastKnown.x, b.lastKnown.z, 'lk' + Math.round(b.lastKnownT)); return; }
+        if (this.mode === 'elim' && this.now - this.liveStart > 60) {
+          let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
+          if (n) { this.goTo(b, n.pos.x, n.pos.z, 'hunt' + n.id + Math.floor(this.now / 4)); return; }
+        }
         if (b.hold) { if (this.goTo(b, b.hold[0], b.hold[1], 'hold' + b.hold[0])) { this.lookAround(b, b.hold[2]); b.crouch = false; } }
       }
     }
@@ -717,7 +730,10 @@
       this.dt = dt; this.now += dt; this.tickN++;
       if (this.now >= this.phaseEnd) {
         if (this.phase === 'buy') { this.phase = 'live'; this.phaseEnd = this.now + ROUND.live; this.liveStart = this.now; this.ev({ k: 'live' }); }
-        else if (this.phase === 'live') { if (this.bomb.st !== 'planted') this.endRound('def', 'time'); }
+        else if (this.phase === 'live') {
+          if (this.mode === 'elim') { const al = { atk: 0, def: 0 }; for (const a of this.actors) if (a.alive) al[this.side(a.team)]++; this.endRound(al.atk > al.def ? 'atk' : 'def', 'time'); }
+          else if (this.bomb.st !== 'planted') this.endRound('def', 'time');
+        }
         else if (this.phase === 'post') this.startRound();
         else if (this.phase === 'over') { this.newMatch(); this.ev({ k: 'mstart' }); }
       }
@@ -765,7 +781,7 @@
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
     }
     privateState(a) { return { t: 'p', m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
-    roster() { return { t: 'r', code: this.code, map: this.mapId, diff: this.diffKey, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money]) }; }
+    roster() { return { t: 'r', code: this.code, map: this.mapId, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money]) }; }
   }
 
   return { WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };

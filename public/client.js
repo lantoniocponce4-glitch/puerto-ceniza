@@ -10,11 +10,11 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
 const nowS = () => performance.now() / 1000;
 const TEAMC = ['#5cc8e0', '#ef6a45'], TEAMN = ['Halcón', 'Cobra'];
-const SIDE_N = { atk: 'Ataca', def: 'Defiende' }, SIDE_L = { atk: 'atacantes', def: 'defensores' };
+const SIDE_N = { atk: 'Terroristas', def: 'Antiterroristas' }, SIDE_L = { atk: 'terroristas', def: 'antiterroristas' };
 const SHORT = { knife: 'CUCHILLO', p9: 'P-9', r50: 'R-50', smg: 'SMG-9', ar: 'AR-17', sr: 'SR-8', he: 'HE', bomb: 'CARGA' };
 
 /* ---------- Preferencias ---------- */
-let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano' };
+let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
 if (!MAPS[prefs.map]) prefs.map = 'alcazaba';
 const savePrefs = () => { try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } };
@@ -427,10 +427,10 @@ function joinOnline(join) {
 }
 function startOffline() {
   leaveNet(); net.mode = 'offline';
-  const room = new PC.Room({ code: 'LOCAL', map: prefs.map, diff: prefs.diff, isPublic: false }); net.room = room;
+  const room = new PC.Room({ code: 'LOCAL', map: prefs.map, diff: prefs.diff, isPublic: false, mode: prefs.gm }); net.room = room;
   room.onBroadcast = m => onMsg(m); room.onSend = (cid, m) => onMsg(m);
-  const a = room.addHuman('local', cleanName(prefs.name));
-  onMsg({ t: 'joined', code: 'LOCAL', you: a.id, team: a.team, diff: room.diffKey, pub: false, map: room.mapId });
+  const a = room.addHuman('local', cleanName(prefs.name), prefs.side === 'auto' ? null : prefs.side);
+  onMsg({ t: 'joined', code: 'LOCAL', you: a.id, team: a.team, diff: room.diffKey, pub: false, map: room.mapId, gm: room.mode });
   onMsg(room.privateState(a));
   net.timer = setInterval(() => room.tick(.05), 50);
 }
@@ -442,12 +442,12 @@ function onMsg(m) {
   switch (m.t) {
     case 'err': setBusy(false); $('#err').textContent = m.msg; leaveNet(); break;
     case 'joined': {
-      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; me.id = m.you; me.team = m.team;
+      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm || 'bomb'; me.id = m.you; me.team = m.team;
       buildWorld(m.map); sleeveMat.color.setHex(TEAMLOOK[me.team].uni); for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0;
       enterGame(); break;
     }
     case 'r': {
-      G.roster = m.r; if (m.map && m.map !== CURMAP) buildWorld(m.map);
+      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.map && m.map !== CURMAP) buildWorld(m.map);
       for (const [id, name, team, k, d, as, sc, hum, money] of m.r) { const a = getActor(id, team); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; if (id === me.id && team !== me.team) { me.team = team; sleeveMat.color.setHex(TEAMLOOK[team].uni); } }
       $('#roomCode').textContent = G.code; $('#mapName').textContent = '· ' + MAPS[CURMAP].name + ' · ' + m.r.filter(x => x[7]).length + ' en línea';
       break;
@@ -503,9 +503,9 @@ function handleEvent(e) {
   const t = nowS();
   switch (e.k) {
     case 'sp': if (e.v === me.id) { me.pos = { x: e.p[0], y: e.p[1], z: e.p[2] }; me.vel = { x: 0, y: 0, z: 0 }; me.yaw = e.y; me.pitch = 0; me.alive = true; me.hp = 100; me.deadT = 0; me.h = 1.8; } else { const a = actors[e.v]; if (a) a.buf = []; } break;
-    case 'round': refillAmmo(); me.sprayI = 0; announce('Ronda ' + e.n, sideOf(me.team) === 'atk' ? 'Compra tu equipo · después planta la carga en A o B' : 'Compra tu equipo · después defiende los sitios A y B', 3.2); if (e.n === ROUND.half + 1) toast('Cambio de lado: ahora ' + (sideOf(me.team) === 'atk' ? 'atacas' : 'defiendes')); break;
+    case 'round': refillAmmo(); me.sprayI = 0; announce('Ronda ' + e.n, 'Eres ' + SIDE_L[sideOf(me.team)] + ' · ' + (G.mode === 'elim' ? 'compra y elimina al otro bando' : sideOf(me.team) === 'atk' ? 'compra y después planta la carga en A o B' : 'compra y después defiende los sitios A y B'), 3.2); if (e.n === ROUND.half + 1) toast('Medio tiempo: cambio de bando, ahora eres ' + SIDE_L[sideOf(me.team)]); break;
     case 'half': break;
-    case 'live': announce('En marcha', sideOf(me.team) === 'atk' ? 'Planta la carga en A o B' : 'Que no planten la carga', 1.6); sTone(660, .12, .12, 'square'); break;
+    case 'live': announce('En marcha', G.mode === 'elim' ? 'Sin carga: gana el bando que elimine al otro' : sideOf(me.team) === 'atk' ? 'Planta la carga en A o B' : 'Que no planten la carga', 1.6); sTone(660, .12, .12, 'square'); break;
     case 'shot': onShotEvent(e); break;
     case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
     case 'hit': {
@@ -531,7 +531,7 @@ function handleEvent(e) {
     case 'throw': { const a = actors[e.s]; if (a && e.s !== me.id && sideOf(a.team) === sideOf(me.team)) { const msg = { he: 'Granada', fl: 'Cegadora', sm: 'Humo' }[e.g]; toast(nameOf(e.s) + ': ¡' + msg + ' va!'); } break; }
     case 'bounce': { const p = posAudio(e.p[0], e.p[2]); if (p.d < 25) sTone(2400 + rand(-300, 300), .04, .12 * (1 - p.d / 25), 'triangle'); break; }
     case 'rend': {
-      const mine = e.w === me.team; const why = { elim: 'Eliminaron al equipo rival', time: 'Se acabó el tiempo', bomb: 'La carga explotó', defuse: 'Desactivaron la carga' }[e.why];
+      const mine = e.w === me.team; const why = { elim: 'Eliminaron al bando rival', time: G.mode === 'elim' ? 'Se acabó el tiempo · más jugadores en pie' : 'Se acabó el tiempo', bomb: 'La carga explotó', defuse: 'Desactivaron la carga' }[e.why];
       announce('Ganan los ' + SIDE_L[e.side], TEAMN[e.w] + ' · ' + why, 4, TEAMC[e.w]);
       if (mine) { sTone(523, .18, .18, 'triangle'); sTone(659, .18, .18, 'triangle', 0, .16); sTone(784, .3, .18, 'triangle', 0, .32); } else { sTone(392, .22, .16, 'triangle'); sTone(311, .4, .16, 'triangle', 0, .2); }
       break;
@@ -567,18 +567,26 @@ function smokeList() { const l = []; for (const s of smokes.values()) if (nowS()
 
 /* ================= ENTRADA ================= */
 const keys = {}; const look = { dx: 0, dy: 0 };
-let locked = false, lockFailed = false, wantUnlock = false, lastMX = null, lastMY = null;
+let locked = false, lockFailed = false, lockFails = 0, wantUnlock = false, lastMX = null, lastMY = null;
 function uiOpen() { return !$('#buy').hidden || !$('#pause').hidden || !$('#end').hidden; }
-function requestLock() { if (isTouch || lockFailed || uiOpen()) return; try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(() => { lockFailed = true; }); } catch (e) { lockFailed = true; } }
+function requestLock(gesture) {
+  // El navegador solo permite capturar el mouse justo después de un clic o una tecla.
+  if (isTouch || locked || uiOpen() || !gesture || lockFailed) return;
+  const fail = () => { lockFails++; if (lockFails >= 3) lockFailed = true; };
+  try {
+    const r = canvas.requestPointerLock({ unadjustedMovement: true });
+    if (r && r.catch) r.catch(err => { if (err && err.name === 'NotSupportedError') { try { const r2 = canvas.requestPointerLock(); if (r2 && r2.catch) r2.catch(fail); } catch (e) { fail(); } } else fail(); });
+  } catch (e) { try { canvas.requestPointerLock(); } catch (_) { fail(); } }
+}
 function releaseLock() { if (locked && document.exitPointerLock) { wantUnlock = true; document.exitPointerLock(); } }
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (!locked && G.state === 'playing') { if (wantUnlock) wantUnlock = false; else if (!uiOpen()) openPause(); } });
-document.addEventListener('pointerlockerror', () => { lockFailed = true; });
+document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; if (locked) lockFails = 0; $('#app').classList.toggle('locked', locked); if (!locked && G.state === 'playing') { if (wantUnlock) wantUnlock = false; else if (!uiOpen()) openPause(); } });
+document.addEventListener('pointerlockerror', () => { lockFails++; if (lockFails >= 3) lockFailed = true; });
 addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'Tab') { e.preventDefault(); showBoard(true); return; }
   keys[e.code] = true; if (G.state !== 'playing' || e.repeat) return;
-  if (e.code === 'KeyB') { toggleBuy(); return; }
-  if (e.code === 'Escape') { if (!$('#buy').hidden) closeBuy(); else if (lockFailed || isTouch) openPause(); return; }
+  if (e.code === 'KeyB') { toggleBuy(true); return; }
+  if (e.code === 'Escape') { if (!$('#buy').hidden) closeBuy(true); else if (lockFailed || isTouch) openPause(); return; }
   if (!$('#buy').hidden) return;
   if (e.code === 'KeyR') me.reloadReq = true;
   if (e.code === 'Space') { e.preventDefault(); me.jumpReq = true; }
@@ -602,7 +610,7 @@ addEventListener('mousemove', e => {
 });
 canvas.addEventListener('mousedown', e => {
   if (G.state !== 'playing' || isTouch) return; initAudio();
-  if (!locked && !lockFailed) { requestLock(); return; }
+  if (!locked && !lockFailed) { requestLock(true); return; }
   if (!me.alive) { me.specIdx++; return; }
   if (e.button === 0) me.fireHeld = true; if (e.button === 2) { me.altHeld = true; onAlt(); }
 });
@@ -856,6 +864,7 @@ function updateHUD(dt) {
   for (let i = dmgDirs.length - 1; i >= 0; i--) { const d = dmgDirs[i]; d.life -= dt; if (d.life <= 0) { d.el.remove(); dmgDirs.splice(i, 1); continue; } const ang = Math.atan2(-(d.src.x - me.pos.x), -(d.src.z - me.pos.z)); d.el.style.transform = `rotate(${-angDiff(me.yaw, ang)}rad)`; d.el.style.opacity = Math.min(1, d.life); }
   if (annT > 0) { annT -= dt; if (annT <= 0) $('#announce').classList.remove('on'); }
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('#toast').classList.remove('on'); }
+  $('#clickPlay').hidden = isTouch || locked || lockFailed || uiOpen() || G.state !== 'playing';
   // pista de acción
   const B = G.bomb; let hint = '', prog = 0; const mySide = sideOf(me.team); const site = WORLD && me.alive ? siteAt(me.pos.x, me.pos.z) : null;
   const myA = actors[me.id];
@@ -899,9 +908,9 @@ function drawBuy() {
   }).join('')}</div>`).join('');
 }
 $('#bcols').addEventListener('click', e => { const b = e.target.closest('.bi'); if (!b || b.getAttribute('aria-disabled') === 'true') return; sendMsg({ t: 'buy', i: b.dataset.i }); sNoise(.06, .3, 1800); });
-function toggleBuy() { if (!$('#buy').hidden) closeBuy(); else if (me.cb && me.alive) { drawBuy(); $('#buy').hidden = false; releaseLock(); me.fireHeld = false; } else toast(G.phase === 'buy' || G.phase === 'live' ? 'Solo puedes comprar en tu zona de inicio al comienzo de la ronda' : 'La compra abre al empezar la ronda'); }
-function closeBuy() { if ($('#buy').hidden) return; $('#buy').hidden = true; if (G.state === 'playing' && $('#pause').hidden) requestLock(); }
-$('#buy').addEventListener('pointerdown', e => { if (e.target === $('#buy')) closeBuy(); });
+function toggleBuy(gesture) { if (!$('#buy').hidden) closeBuy(gesture); else if (me.cb && me.alive) { drawBuy(); $('#buy').hidden = false; releaseLock(); me.fireHeld = false; } else toast(G.phase === 'buy' || G.phase === 'live' ? 'Solo puedes comprar en tu zona de inicio al comienzo de la ronda' : 'La compra abre al empezar la ronda'); }
+function closeBuy(gesture) { if ($('#buy').hidden) return; $('#buy').hidden = true; if (G.state === 'playing' && $('#pause').hidden) requestLock(gesture); }
+$('#buy').addEventListener('pointerdown', e => { if (e.target === $('#buy')) closeBuy(true); });
 
 /* ---------- Marcador y final ---------- */
 function teamTable(tm) {
@@ -924,11 +933,12 @@ function drawMaps() {
 }
 drawMaps();
 $('#maps').addEventListener('click', e => { const b = e.target.closest('.mapc'); if (!b) return; prefs.map = b.dataset.m; savePrefs(); drawMaps(); buildWorld(prefs.map); });
+for (const [sel, key] of [['#sideSeg', 'side'], ['#gmSeg', 'gm']]) { document.querySelectorAll(sel + ' button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === prefs[key]); b.onclick = () => { prefs[key] = b.dataset.v; savePrefs(); document.querySelectorAll(sel + ' button').forEach(x => x.setAttribute('aria-pressed', x === b)); }; }); }
 document.querySelectorAll('#diff button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.d === prefs.diff); b.onclick = () => { prefs.diff = b.dataset.d; savePrefs(); document.querySelectorAll('#diff button').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
 const nameEl = $('#pname'); nameEl.value = prefs.name || ''; nameEl.oninput = () => { prefs.name = nameEl.value; savePrefs(); };
 for (const id of ['#sens', '#sens2']) { const el = $(id); el.value = prefs.sens; el.oninput = () => { prefs.sens = +el.value; savePrefs(); $('#sens').value = $('#sens2').value = prefs.sens; }; }
 const codeEl = $('#code'); const qs = new URLSearchParams(location.search); if (qs.get('sala')) { codeEl.value = qs.get('sala').toUpperCase().slice(0, 4); }
-const baseJoin = () => ({ t: 'join', name: cleanName(prefs.name), map: prefs.map, diff: prefs.diff });
+const baseJoin = () => ({ t: 'join', name: cleanName(prefs.name), map: prefs.map, diff: prefs.diff, side: prefs.side === 'auto' ? null : prefs.side, gm: prefs.gm });
 $('#quick').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'quick' })); };
 $('#create').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'create' })); };
 $('#joinBtn').onclick = () => { initAudio(); const c = codeEl.value.trim().toUpperCase(); if (c.length !== 4) { $('#err').textContent = 'El código tiene 4 letras. Pídelo a quien creó la sala.'; return; } joinOnline(Object.assign(baseJoin(), { mode: 'code', code: c })); };
@@ -941,16 +951,16 @@ function enterGame() {
   const link = location.origin + location.pathname + '?sala=' + G.code; $('#inviteUrl').textContent = link; $('#inviteBox').hidden = net.mode !== 'online';
   $('#roomCode').textContent = G.code; me.ammo = {}; me.shots = me.hits = me.heads = me.kills = 0; refillAmmo(); drawSlots();
   if (net.mode === 'online') try { history.replaceState(null, '', '?sala=' + G.code); } catch (e) { }
-  requestLock();
+  $('#app').classList.add('playing');
 }
 function leaveToMenu() {
-  leaveNet(); G.state = 'menu'; toastT = annT = 0; $('#toast').classList.remove('on'); $('#announce').classList.remove('on'); $('#feed').innerHTML = ''; $('#hud').hidden = true; $('#touch').hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#buy').hidden = true; $('#board').hidden = true; $('#menu').hidden = false;
+  leaveNet(); G.state = 'menu'; $('#app').classList.remove('playing'); toastT = annT = 0; $('#toast').classList.remove('on'); $('#announce').classList.remove('on'); $('#feed').innerHTML = ''; $('#hud').hidden = true; $('#touch').hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#buy').hidden = true; $('#board').hidden = true; $('#menu').hidden = false;
   for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0; for (const el of tagEls.values()) el.remove(); tagEls.clear();
   for (const [id, s] of smokes) { scene.remove(s.g); } smokes.clear(); updateDrops([]); updateNades([]); bombMesh.visible = false; me.alive = false; releaseLock();
   try { history.replaceState(null, '', location.pathname); } catch (e) { }
 }
 function openPause() { if (G.state !== 'playing') return; closeBuy(); $('#pause').hidden = false; me.fireHeld = false; releaseLock(); }
-$('#resume').onclick = () => { $('#pause').hidden = true; requestLock(); };
+$('#resume').onclick = () => { $('#pause').hidden = true; requestLock(true); };
 $('#quit').onclick = () => leaveToMenu(); $('#toMenu').onclick = () => leaveToMenu();
 $('#copyBtn').onclick = async () => { const txt = $('#inviteUrl').textContent; try { await navigator.clipboard.writeText(txt); $('#copyBtn').textContent = 'Copiado'; setTimeout(() => $('#copyBtn').textContent = 'Copiar link', 1600); } catch (e) { const r = document.createRange(); r.selectNodeContents($('#inviteUrl')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('#copyBtn').textContent = 'Selecciona y copia'; } };
 
