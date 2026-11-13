@@ -52,7 +52,7 @@
     if (armored) { const hp = d * w.ap; const arm = (d - hp) * .5; v.armor = Math.max(0, v.armor - arm); if (v.armor <= 0) v.helmet = false; d = hp; }
     return d;
   }
-  const ROUND = { buy: 12, buyFirst: 15, live: 115, fuse: 40, post: 5, plant: 3.2, defuse: 10, defuseKit: 5, half: 6, win: 7, total: 12, buyWindow: 20, over: 14 };
+  const ROUND = { buy: 12, buyFirst: 15, live: 115, fuse: 40, post: 5, plant: 3.2, defuse: 10, defuseKit: 5, half: 2, win: 3, total: 5, buyWindow: 20, over: 14 };
   const MONEY = { start: 800, max: 16000, winElim: 3250, winObj: 3500, lossBase: 1400, lossStep: 500, lossMax: 3400, plant: 300, plantTeam: 800 };
   // Camuflajes de armas que se desbloquean con el nivel del jugador
   const CAMOS = [
@@ -336,6 +336,12 @@
     get humanCount() { return this.clients.size; }
 
     /* --- partida y rondas --- */
+    nextMapId() { const i = MAP_IDS.indexOf(this.mapId); return MAP_IDS[(i + 1) % MAP_IDS.length]; }
+    setMap(id) {
+      if (!MAPS[id] || id === this.mapId) return;
+      this.mapId = id; this.W = new World(id); this.M = this.W.map; this._gp = null;
+      for (const a of this.actors) { a.path = null; a.goalKey = ''; a.route = null; a.hold = null; a.post = null; }
+    }
     newMatch() {
       this.scores = [0, 0]; this.round = 0; this.swap = false; this.lossStreak = { atk: 0, def: 0 };
       for (const a of this.actors) { a.kills = a.deaths = a.assists = a.score = 0; this.resetLoadout(a, true); a.money = MONEY.start; }
@@ -373,7 +379,7 @@
     }
     endGG(w) {
       if (this.phase === 'over') return; this.phase = 'over'; this.phaseEnd = this.now + ROUND.over;
-      this.ev({ k: 'mend', gg: 1, win: w ? w.id : -1, w: w ? w.team : -1, sc: this.scores.slice(), t: ROUND.over }); this.rosterDirty = true;
+      this.ev({ k: 'mend', gg: 1, win: w ? w.id : -1, w: w ? w.team : -1, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); this.rosterDirty = true;
     }
     resetLoadout(a, full) {
       a.inv = { p: null, s: 'p9', n: { he: 0, fl: 0, sm: 0 } }; a.cur = 'p9'; a.kit = false;
@@ -430,7 +436,7 @@
       this.phase = 'post'; this.phaseEnd = this.now + ROUND.post;
       const over = this.scores[wt] >= ROUND.win || this.round >= ROUND.total;
       this.ev({ k: 'rend', w: wt, side: winSide, why: reason, sc: this.scores.slice(), over: over ? 1 : 0 });
-      if (over) { this.phase = 'over'; this.phaseEnd = this.now + ROUND.over; const win = this.scores[0] === this.scores[1] ? -1 : (this.scores[0] > this.scores[1] ? 0 : 1); this.ev({ k: 'mend', w: win, sc: this.scores.slice(), t: ROUND.over }); }
+      if (over) { this.phase = 'over'; this.phaseEnd = this.now + ROUND.over; const win = this.scores[0] === this.scores[1] ? -1 : (this.scores[0] > this.scores[1] ? 0 : 1); this.ev({ k: 'mend', w: win, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); }
       this.rosterDirty = true;
     }
     give(a, m) { a.money = clamp(a.money + m, 0, MONEY.max); a.pdirty = true; }
@@ -892,7 +898,7 @@
           else if (this.bomb.st !== 'planted') this.endRound('def', 'time');
         }
         else if (this.phase === 'post') this.startRound();
-        else if (this.phase === 'over') { this.newMatch(); this.ev({ k: 'mstart' }); }
+        else if (this.phase === 'over') { if (this.rotate !== false) this.setMap(this.nextMapId()); this.newMatch(); this.ev({ k: 'mstart', map: this.mapId }); this.rosterDirty = true; }
       }
       // pasos audibles para los bots
       if (this.tickN % 6 === 0) for (const a of this.actors) { if (!a.alive || !a.human || a.walking || a.crouch) continue; if (Math.hypot(a.vel.x, a.vel.z) > 3.2) this.alert(a, 16); }

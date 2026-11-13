@@ -702,7 +702,7 @@ function handleEvent(e) {
       break;
     }
     case 'demote': if (e.v === me.id) toast('Te apuñalaron: bajas al nivel ' + (e.l + 1)); else if (e.a === me.id) toast('Le quitaste un nivel a ' + nameOf(e.v)); break;
-    case 'mstart': $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; break;
+    case 'mstart': $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); buildWorld(e.map); applyGfx(); G.mapId = e.map; } if (e.map) announce(MAPS[e.map].name, 'Nueva partida · al mejor de 5 rondas', 3); break;
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
     case 'bdrop': if (sideOf(teamOf(e.v)) === sideOf(me.team) && sideOf(me.team) === 'atk') toast('La carga quedó en el suelo'); break;
@@ -1142,7 +1142,7 @@ function updateHUD(dt) {
   }
   drawPings(t);
   if (!$('#buy').hidden) { $('#buyMoney').textContent = '$' + me.money; $('#buyTime').textContent = G.phase === 'buy' ? 'Tiempo de compra: ' + Math.ceil(left) + ' s' : ''; if (!me.cb) closeBuy(); }
-  if (!$('#end').hidden) $('#endCount').textContent = 'Nueva partida en ' + Math.ceil(left) + ' s';
+  if (!$('#end').hidden) $('#endCount').textContent = (G.nextMap && MAPS[G.nextMap] ? 'Próximo mapa: ' + MAPS[G.nextMap].name + ' · ' : 'Nueva partida ') + 'en ' + Math.ceil(left) + ' s';
 }
 function siteAt(x, z) { const S = WORLD.map.sites; for (const k in S) if (PC.inRect(S[k].r, x, z)) return k; return null; }
 function aimedEnemy() { if (!me.alive) return null; const o = [camera.position.x, camera.position.y, camera.position.z]; const d = aimDir(me.punchP, 0, 0); const r = traceShot(o, d, 120); return r.hit; }
@@ -1177,6 +1177,7 @@ function teamTable(tm) {
 }
 function showBoard(on) { if (G.state !== 'playing') return; if (on) { $('#boardT').innerHTML = teamTable(me.team) + teamTable(1 - me.team); $('#board').hidden = false; } else $('#board').hidden = true; }
 function showEnd(e) {
+  G.nextMap = e.next || null;
   if (e.gg) {
     const wa = actors[e.win]; const mine = e.win === me.id;
     $('#endTitle').textContent = mine ? '¡Ganaste con el cuchillo!' : (wa ? wa.name + ' ganó' : 'Fin de la escalada'); $('#endTitle').className = wa ? 't' + wa.team : '';
