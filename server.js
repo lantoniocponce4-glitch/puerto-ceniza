@@ -53,7 +53,7 @@ function quickRoom(side, mode) {
 const cleanName = n => (String(n || '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14)) || 'Operador';
 
 let nextCid = 1;
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8192 });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8192, perMessageDeflate: { zlibDeflateOptions: { level: 1 }, threshold: 256 } });
 wss.on('connection', ws => {
   const cid = 'c' + (nextCid++);
   let room = null;

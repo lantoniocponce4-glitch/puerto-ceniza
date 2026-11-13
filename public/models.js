@@ -45,6 +45,8 @@ const MG = {
   steel: S({ color: 0xc9ccd0, metalness: 1, roughness: .16 }),
   glass: new T.MeshStandardMaterial({ color: 0x9fd0e8, metalness: .6, roughness: .02, transparent: true, opacity: .18, depthWrite: false }),
   red: new T.MeshBasicMaterial({ color: 0xff2b1a }),
+  dotw: new T.MeshBasicMaterial({ color: 0xf4f1e6 }),
+  dotg: new T.MeshBasicMaterial({ color: 0x8dff7a }),
   rubber: S({ color: 0x141414, roughness: .95 }),
   brass: S({ color: 0xc9a043, metalness: .9, roughness: .3 })
 };
@@ -68,6 +70,8 @@ function merge(list) {
   for (const q of parts) { const c = q.attributes.position.count; pos.set(q.attributes.position.array, o * 3); nor.set(q.attributes.normal.array, o * 3); if (q.attributes.uv) uv.set(q.attributes.uv.array, o * 2); o += c; }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('normal', new T.BufferAttribute(nor, 3)); g.setAttribute('uv', new T.BufferAttribute(uv, 2)); return g;
 }
+// alza de hierro: dos postes con ranura central, visible desde la posición de tiro
+const notch = (x0, x1, y0, yTop, yNotch, gap, w) => [bx(x0, y0, x1, yNotch, w), bx(x0, yNotch, x1, yTop, (w - gap) / 2, (gap + (w - gap) / 2) / 2), bx(x0, yNotch, x1, yTop, (w - gap) / 2, -(gap + (w - gap) / 2) / 2)];
 const rail = (x0, x1, y, w) => { const l = [bx(x0, y, x1, y + .006, w)]; for (let x = x0 + .004; x < x1 - .006; x += .011) l.push(bx(x, y + .006, x + .006, y + .012, w * .92)); return l; };
 const gripG = (x, w = .032) => ex([[x, .002], [x + .046, .002], [x + .022, -.1], [x - .028, -.096], [x - .033, -.08]], w, 0, .004);
 const trig = (x) => [ex([[x - .012, 0], [x + .066, 0], [x + .066, -.034], [x - .012, -.034]], .012, 0, .002, [[[x - .004, -.004], [x + .058, -.004], [x + .058, -.026], [x - .004, -.026]]]), ex([[x + .022, 0], [x + .029, 0], [x + .034, -.022], [x + .027, -.024]], .006, 0, .001)];
@@ -112,13 +116,13 @@ const DEF = {
     const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
     a('poly', ex([[-.13, 0], [.17, 0], [.18, .012], [.18, .066], [-.13, .068], [-.14, .04]], .05, 0, .004));
     a('park', bx(-.12, .066, .17, .075, .04));
-    a('park', ex([[-.1, .075], [-.078, .075], [-.082, .096], [-.096, .096]], .03, 0, .002, [[[-.093, .088], [-.085, .088], [-.085, .094], [-.093, .094]]]));
-    a('park', ex([[.15, .075], [.166, .075], [.162, .099], [.154, .099]], .012));
+    a('park', notch(-.1, -.08, .075, .099, .091, .007, .03)); a('dotw', sph(.0012, -.08, .0935, .0065, 1, 1, 1, 6)); a('dotw', sph(.0012, -.08, .0935, -.0065, 1, 1, 1, 6));
+    a('park', bx(.152, .075, .162, .0975, .0045)); a('dotg', sph(.0013, .151, .0955, 0, 1, 1, 1, 6));
     a('metal', cyl(.019, .019, .18, .25, .038)); a('metal', cyl(.011, .011, .25, .29, .038));
     a('metal', ex([[.035, 0], [.08, 0], [.088, -.2], [.043, -.205]], .026));
     a('poly', gripG(-.045)); a('metal', trig(-.035));
     a('metal', cyl(.006, .006, -.36, -.13, .05, .018)); a('metal', cyl(.006, .006, -.36, -.13, .05, -.018)); a('rubber', bx(-.375, -.02, -.36, .08, .05));
-    return { P, muzzle: .29, boreY: .038, grip: [-.04, -.05], fore: [.06, -.06], cls: 'rifle', sight: [.158, .093], adsZ: -.16 };
+    return { P, muzzle: .29, boreY: .038, grip: [-.04, -.05], fore: [.06, -.06], cls: 'rifle', sight: [.152, .0965], adsZ: -.2 };
   },
   lmg() {
     const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
@@ -140,11 +144,11 @@ const DEF = {
     a('park', ex([[-.1, 0], [.14, 0], [.15, .012], [.15, .07], [-.1, .072], [-.11, .05]], .05, 0, .004));
     a('metal', cyl(.0125, .0125, .15, .64, .056)); a('metal', cyl(.0125, .0125, .15, .57, .026)); a('metal', cyl(.014, .014, .57, .59, .026));
     a('steel', sph(.0045, .63, .0715, 0, 1, 1, 1, 10));
-    a('park', ex([[-.08, .072], [-.06, .072], [-.062, .082], [-.078, .082]], .03, 0, .002, [[[-.074, .076], [-.066, .076], [-.066, .081], [-.074, .081]]]));
+    a('park', notch(-.08, -.064, .072, .085, .079, .007, .03));
     a('wood', ex([[.24, .004], [.43, .004], [.44, .015], [.44, .045], [.43, .055], [.24, .055]], .06, 0, .006)); for (let x = .26; x < .42; x += .025) a('poly', bx(x, .004, x + .006, .055, .063));
     a('wood', ex([[-.1, .066], [-.1, .002], [-.13, -.035], [-.165, -.05], [-.43, -.075], [-.44, -.06], [-.44, .05], [-.42, .06], [-.18, .06]], .046, 0, .005));
     a('rubber', bx(-.455, -.078, -.44, .055, .048)); a('metal', trig(-.07));
-    return { P, muzzle: .64, boreY: .056, grip: [-.12, -.03], fore: [.34, 0], cls: 'rifle', sight: [.63, .0715], adsZ: -.1 };
+    return { P, muzzle: .64, boreY: .056, grip: [-.12, -.03], fore: [.34, 0], cls: 'rifle', sight: [.63, .0715], adsZ: -.16 };
   },
   sr() {
     const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
@@ -190,11 +194,11 @@ function pistolDef(len, mag, comp) {
     a('poly', ex([[-.035, .01], [.02, .01], [.004, -.105], [-.05, -.1], [-.052, -.085]], .031, 0, .004));
     a('poly', trig(.0)[0]); a('metal', trig(.0)[1]);
     a('metal', cyl(.007, .007, len - .002, len + .008, .046));
-    a('metal', ex([[-.032, .062], [-.016, .062], [-.018, .071], [-.03, .071]], .022, 0, .001, [[[-.027, .066], [-.021, .066], [-.021, .071], [-.027, .071]]]));
-    a('metal', bx(len - .016, .062, len - .009, .07, .006));
+    a('metal', notch(-.032, -.018, .062, .0725, .0665, .0062, .024)); a('dotw', sph(.0011, -.0178, .069, .0058, 1, 1, 1, 6)); a('dotw', sph(.0011, -.0178, .069, -.0058, 1, 1, 1, 6));
+    a('metal', bx(len - .016, .062, len - .009, .0715, .0034)); a('dotg', sph(.0012, len - .0165, .0692, 0, 1, 1, 1, 6));
     if (mag) a('metal', ex([[-.048, -.095], [0, -.095], [-.008, -.18], [-.05, -.18]], .026));
     if (comp) a('metal', ex([[len, .03], [len + .028, .032], [len + .028, .06], [len, .06]], .03, 0, .003));
-    return { P, muzzle: len + (comp ? .03 : .008), boreY: .046, grip: [-.015, -.045], fore: [-.02, -.06], cls: 'pistol', sight: [len - .0125, .068], adsZ: -.1 };
+    return { P, muzzle: len + (comp ? .03 : .008), boreY: .046, grip: [-.015, -.045], fore: [-.02, -.06], cls: 'pistol', sight: [len - .0125, .0705], adsZ: -.26 };
   };
 }
 DEF.p9 = pistolDef(.15); DEF.r50 = pistolDef(.2); DEF.ap18 = pistolDef(.155, true, true);
@@ -251,6 +255,17 @@ function solveArm(arm, Sh, Tg, a, b, pole) {
   const pv = pole.clone().sub(Sh); const perp = pv.sub(dir.clone().multiplyScalar(pv.dot(dir))).normalize();
   const E = Sh.clone().addScaledVector(dir, x).addScaledVector(perp, h); const T2 = Sh.clone().addScaledVector(dir, L);
   orientSeg(arm.up, Sh, E); arm.elbow.position.copy(E); orientSeg(arm.fore, E, T2); arm.hand.position.copy(T2); arm.hand.quaternion.copy(arm.fore.quaternion);
+}
+function mergeChildren(grp, skip) {
+  const by = new Map(); const kill = [];
+  for (const o of grp.children) {
+    if (!o.isMesh || skip.has(o)) continue; o.updateMatrix();
+    const key = o.material.uuid + '|' + (o.castShadow ? 1 : 0);
+    let b = by.get(key); if (!b) { b = { mat: o.material, cast: o.castShadow, geos: [] }; by.set(key, b); }
+    const g = o.geometry.clone(); g.applyMatrix4(o.matrix); b.geos.push(g); kill.push(o);
+  }
+  for (const o of kill) grp.remove(o);
+  for (const b of by.values()) { const geo = merge(b.geos); geo.computeBoundingSphere(); const m = new T.Mesh(geo, b.mat); m.castShadow = b.cast; m.receiveShadow = true; grp.add(m); for (const g of b.geos) g.dispose(); }
 }
 const HANDPOS = { rifle: [.1, .47, -.2], pistol: [.03, .47, -.44], knife: [.2, .3, -.27], nade: [.2, .34, -.25] };
 function buildSoldier(team, idx, opt = {}) {
@@ -313,6 +328,12 @@ function buildSoldier(team, idx, opt = {}) {
     const fp = cls === 'rifle' ? toLocal(info.fore).applyMatrix4(hand.matrix) : cls === 'pistol' ? gp.clone().add(new T.Vector3(-.035, -.01, .02)) : new T.Vector3(-.24, .14, -.08);
     solveArm(arms.R, SH.R, gp, .29, .27, new T.Vector3(.55, .1, .25)); solveArm(arms.L, SH.L, fp, .29, .27, new T.Vector3(-.6, 0, .05));
   };
+  // las piezas chicas no proyectan sombra: misma silueta, la mitad de llamadas de dibujo en la pasada de sombras
+  g.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); const sc = Math.max(o.scale.x, o.scale.y, o.scale.z); if (o.geometry.boundingSphere.radius * sc < .07) o.castShadow = false; } });
+  // fundir las piezas rígidas de cada articulación por material (los brazos con cinemática inversa quedan aparte)
+  const skip = new Set(); for (const k in arms) for (const m of Object.values(arms[k])) skip.add(m);
+  const groups = [hips, upper, head, helmet, pack]; if (cap) groups.push(cap); for (const l of legs) groups.push(l.hip, l.knee);
+  for (const grp of groups) mergeChildren(grp, skip);
   model.setHelmet = function (on) { helmet.visible = on; if (cap) cap.visible = !on; };
   model.animate = function (spd, ph, cr, pitch) {
     const k = Math.min(1, spd / 3.2) * (1 - cr); const sw = Math.sin(ph) * .6 * k;
@@ -335,15 +356,16 @@ function fpArms(gun, pos, s) {
   const k = 1 / s, a = .3 * k, b = .28 * k;
   const mkArm = () => ({ up: add(cylY(.058 * k, .052 * k, 1, 14), fpMats.sleeve), elbow: add(sphG(.053 * k, 12, 10), fpMats.sleeve), fore: add(cylY(.05 * k, .044 * k, 1, 14), fpMats.sleeve), hand: add(rbox(.08 * k, .1 * k, .055 * k, .02 * k), fpMats.glove) });
   const R = mkArm(); const gp = toLocal(info.grip);
-  solveArm(R, toGun([.26, -.42, .12]), gp, a, b, toGun([.5, -.4, -.1]));
+  const pist = info.cls === 'pistol', shR = pist ? [.24, -.56, .1] : [.26, -.42, .12], shL = pist ? [-.22, -.58, .08] : [-.24, -.44, .1];
+  solveArm(R, toGun(shR), gp, a, b, toGun([.5, -.4, -.1]));
   if (info.cls === 'rifle' || info.cls === 'pistol') {
     const L = mkArm(); const fp = info.cls === 'rifle' ? toLocal(info.fore) : gp.clone().add(new T.Vector3(-.035, -.012, .02));
-    solveArm(L, toGun([-.24, -.44, .1]), fp, a, b, toGun([-.55, -.45, -.1]));
+    solveArm(L, toGun(shL), fp, a, b, toGun([-.55, -.45, -.1]));
   }
 }
 
 window.PCM = {
-  buildGun, buildSoldier, fpArms, setFpTeam, gunInfo: (id) => gunParts(id).info, toLocal,
+  buildGun, buildSoldier, fpArms, setFpTeam, gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };
 })();

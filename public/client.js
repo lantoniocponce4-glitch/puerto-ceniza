@@ -187,6 +187,28 @@ function buildWorld(mapId) {
   for (const k in M.sites) { const s = M.sites[k]; const p = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: TX[k], transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 })); p.rotation.x = -Math.PI / 2; p.position.set(s.c[0], .02, s.c[1]); p.receiveShadow = true; worldGroup.add(p); }
   if (desert) desertDecor(M); else if (rural) ruralDecor(M); else portDecor(M);
   buildDust(desert || rural);
+  mergeStatic(worldGroup);
+}
+// Une todas las mallas estáticas del mapa por material: de cientos de llamadas de dibujo a unas decenas
+function mergeStatic(group) {
+  group.updateMatrixWorld(true);
+  const buckets = new Map(), victims = [];
+  group.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const m = o.material; if (Array.isArray(m)) return;
+    const key = m.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + (o.renderOrder || 0);
+    let b = buckets.get(key); if (!b) { b = { mat: m, cast: o.castShadow, recv: o.receiveShadow, ro: o.renderOrder || 0, geos: [] }; buckets.set(key, b); }
+    const g = o.geometry.clone(); if (!g.attributes.uv) return; if (!g.attributes.normal) g.computeVertexNormals();
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    g.applyMatrix4(o.matrixWorld); b.geos.push(g); victims.push(o);
+  });
+  for (const o of victims) if (o.parent) o.parent.remove(o);
+  for (const b of buckets.values()) {
+    if (!b.geos.length) continue;
+    const geo = PCM.merge(b.geos); geo.computeBoundingSphere(); geo.computeBoundingBox();
+    const mesh = new THREE.Mesh(geo, b.mat); mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; mesh.renderOrder = b.ro; mesh.matrixAutoUpdate = false; group.add(mesh);
+    for (const g of b.geos) g.dispose();
+  }
 }
 function solidAt(x, z, y) { for (const b of WORLD.colliders) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && y > b.minY && y < b.maxY) return true; return false; }
 function decorateBuilding(b, desert) {
@@ -367,9 +389,10 @@ for (let i = 0; i < 48; i++) { const g = new THREE.BufferGeometry(); g.setAttrib
 let tIdx = 0;
 function tracer(a, b) { const t = fx.tracers[tIdx++ % fx.tracers.length]; const p = t.l.geometry.attributes.position.array; const k = .15; p[0] = lerp(a.x, b.x, k); p[1] = lerp(a.y, b.y, k); p[2] = lerp(a.z, b.z, k); p[3] = b.x; p[4] = b.y; p[5] = b.z; t.l.geometry.attributes.position.needsUpdate = true; t.l.visible = true; t.life = .05; }
 const decalGeo = new THREE.PlaneGeometry(.11, .11); const decalMat = new THREE.MeshBasicMaterial({ map: TX.hole, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-for (let i = 0; i < 160; i++) { const m = new THREE.Mesh(decalGeo, decalMat); m.visible = false; scene.add(m); fx.decals.push(m); }
+const DECALS = 200; const decalIM = new THREE.InstancedMesh(decalGeo, decalMat, DECALS); decalIM.frustumCulled = false; { const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); } scene.add(decalIM);
+const _dO = new THREE.Object3D();
 const _v = new THREE.Vector3();
-function decal(p, n) { const m = fx.decals[fx.di++ % fx.decals.length]; m.position.set(p.x + n[0] * .012, p.y + n[1] * .012, p.z + n[2] * .012); _v.set(m.position.x + n[0], m.position.y + n[1], m.position.z + n[2]); m.lookAt(_v); m.rotation.z = Math.random() * 6; m.visible = true; }
+function decal(p, n) { const i = fx.di++ % DECALS; _dO.position.set(p.x + n[0] * .012, p.y + n[1] * .012, p.z + n[2] * .012); _v.set(_dO.position.x + n[0], _dO.position.y + n[1], _dO.position.z + n[2]); _dO.lookAt(_v); _dO.rotateZ(Math.random() * 6); _dO.scale.setScalar(rand(.8, 1.2)); _dO.updateMatrix(); decalIM.setMatrixAt(i, _dO.matrix); decalIM.instanceMatrix.needsUpdate = true; }
 const PN = 700; const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pLife = new Float32Array(PN); let pI = 0;
 for (let i = 0; i < PN; i++) pPos[i * 3 + 1] = -999;
 const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3)); pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
@@ -1204,8 +1227,23 @@ function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h
 addEventListener('resize', resize); resize();
 buildWorld(prefs.map); applyGfx();
 let last = performance.now(), menuT = 0;
+// Resolución adaptable: si los cuadros por segundo caen, baja la resolución interna; si sobra margen, la sube
+const perf = { acc: 0, n: 0, slow: 0, fast: 0, level: 0 };
+const PR_STEPS = [2, 1.75, 1.5, 1.25, 1];
+function adaptRes(dtReal) {
+  if (prefs.gfx !== 'high' || G.state !== 'playing' || document.hidden) return;
+  perf.acc += dtReal; perf.n++; if (perf.acc < 1) return;
+  const fps = perf.n / perf.acc; perf.acc = 0; perf.n = 0;
+  if (fps < 48) { perf.slow++; perf.fast = 0; } else if (fps > 58) { perf.fast++; perf.slow = 0; } else { perf.slow = perf.fast = 0; }
+  const maxPr = Math.min(devicePixelRatio || 1, isTouch ? 1.5 : 2); let idx = -1;
+  if (perf.slow >= 2) idx = 1; else if (perf.fast >= 8) idx = -1; else return;
+  perf.slow = perf.fast = 0;
+  const cur = renderer.getPixelRatio(); const list = PR_STEPS.filter(v => v <= maxPr + 1e-6); let i = list.findIndex(v => Math.abs(v - cur) < .01); if (i < 0) i = 0;
+  const ni = clamp(i + idx, 0, list.length - 1); if (ni === i) return;
+  renderer.setPixelRatio(list[ni]); resize();
+}
 function frame(now) {
-  requestAnimationFrame(frame); const dt = Math.min(.05, (now - last) / 1000); last = now;
+  requestAnimationFrame(frame); const dtReal = (now - last) / 1000; const dt = Math.min(.05, dtReal); last = now; if (dtReal > 0 && dtReal < .5) adaptRes(dtReal);
   if (G.state === 'playing' && WORLD) {
     updateLocal(dt); updateArc(); sendInput(); updateRemotes(dt); updateFx(dt); animSmokes();
     // cámara
