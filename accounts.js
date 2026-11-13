@@ -66,7 +66,9 @@ class PgStore {
 /* ---------- Servicio de cuentas ---------- */
 class Accounts {
   constructor() {
-    this.store = process.env.DATABASE_URL ? new PgStore(process.env.DATABASE_URL) : new FileStore(path.join(__dirname, 'data', 'cuentas.json'));
+    // Se prefiere la conexión con pool de Neon (DATABASE_URL_POOLED); si no está, se usa DATABASE_URL
+    const dbUrl = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
+    this.store = dbUrl ? new PgStore(dbUrl) : new FileStore(path.join(__dirname, 'data', 'cuentas.json'));
     this.cache = new Map(); // id -> { id, username, display, profile, stats, dirty }
     this.fails = new Map(); // clave de intento -> { n, until }
     const start = () => this.store.init().then(() => { this.ok = true; this.err = null; console.log('Cuentas: usando', this.store.kind); }).catch(e => { this.ok = false; this.err = (e.code ? e.code + ': ' : '') + scrub(e.message); console.error('Cuentas: no se pudo iniciar la base de datos:', this.err); setTimeout(() => { this.ready = start(); }, 20000); });
