@@ -40,8 +40,15 @@ class FileStore {
   async getSession(hash) { const s = this.data.sessions[hash]; return s && s.exp > Date.now() ? s : null; }
   async deleteSession(hash) { delete this.data.sessions[hash]; this.save(); }
 }
+// Limpia errores típicos al pegar la dirección: comillas, prefijo DATABASE_URL= y parámetros que el cliente no soporta
+function cleanDbUrl(raw) {
+  let u = String(raw || '').trim().replace(/^DATABASE_URL\s*=\s*/i, '').replace(/^psql\s+/i, '').replace(/^['"]|['"]$/g, '').trim();
+  try { const x = new URL(u); x.searchParams.delete('channel_binding'); x.searchParams.delete('sslmode'); u = x.toString(); } catch (e) { }
+  return u;
+}
+const scrub = (m) => String(m || '').replace(/postgres(ql)?:\/\/\S+/gi, '[dirección oculta]').replace(/password[^,;]*/gi, 'password [oculto]').slice(0, 160);
 class PgStore {
-  constructor(url) { const { Pool } = require('pg'); this.pool = new Pool({ connectionString: url, ssl: { rejectUnauthorized: false }, max: 4, idleTimeoutMillis: 20000 }); this.kind = 'Postgres'; }
+  constructor(url) { const { Pool } = require('pg'); this.pool = new Pool({ connectionString: cleanDbUrl(url), ssl: { rejectUnauthorized: false }, max: 4, idleTimeoutMillis: 20000, connectionTimeoutMillis: 15000 }); this.pool.on('error', e => console.error('Postgres:', scrub(e.message))); this.kind = 'Postgres'; }
   async init() {
     await this.pool.query(`CREATE TABLE IF NOT EXISTS pc_users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, display TEXT NOT NULL, salt TEXT NOT NULL, pass_hash TEXT NOT NULL, profile JSONB NOT NULL, stats JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now(), last_login TIMESTAMPTZ DEFAULT now())`);
     await this.pool.query(`CREATE TABLE IF NOT EXISTS pc_sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES pc_users(id) ON DELETE CASCADE, expires_at BIGINT NOT NULL)`);
@@ -62,7 +69,8 @@ class Accounts {
     this.store = process.env.DATABASE_URL ? new PgStore(process.env.DATABASE_URL) : new FileStore(path.join(__dirname, 'data', 'cuentas.json'));
     this.cache = new Map(); // id -> { id, username, display, profile, stats, dirty }
     this.fails = new Map(); // clave de intento -> { n, until }
-    this.ready = this.store.init().then(() => { this.ok = true; console.log('Cuentas: usando', this.store.kind); }).catch(e => { this.ok = false; console.error('Cuentas: no se pudo iniciar la base de datos:', e.message); });
+    const start = () => this.store.init().then(() => { this.ok = true; this.err = null; console.log('Cuentas: usando', this.store.kind); }).catch(e => { this.ok = false; this.err = (e.code ? e.code + ': ' : '') + scrub(e.message); console.error('Cuentas: no se pudo iniciar la base de datos:', this.err); setTimeout(() => { this.ready = start(); }, 20000); });
+    this.ready = start();
     setInterval(() => this.flush(), 10000).unref();
   }
   limited(key) { const f = this.fails.get(key); return f && f.until > Date.now(); }
@@ -114,4 +122,4 @@ class Accounts {
   }
   async flush() { for (const a of this.cache.values()) if (a.dirty) { a.dirty = false; try { await this.store.saveUser(a.id, a.profile, a.stats); } catch (e) { a.dirty = true; console.error('No se pudo guardar el perfil', a.username, e.message); } } }
 }
-module.exports = { Accounts };
+module.exports = { Accounts, cleanDbUrl, scrub };
