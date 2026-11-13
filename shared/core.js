@@ -631,8 +631,11 @@
       if (this.phase === 'over') return; this.phase = 'over'; this.phaseEnd = this.now + ROUND.over;
       this.ev({ k: 'mend', gg: 1, win: w ? w.id : -1, w: w ? w.team : -1, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); this.rosterDirty = true;
     }
+    // Las armas (principal y secundaria) se conservan entre rondas, cambio de lado y partidas nuevas, aunque mueras
+    rememberGuns(a) { if (a.inv && (a.inv.p || (a.inv.s && a.inv.s !== 'p9'))) a.keep = { p: a.inv.p || null, s: a.inv.s || 'p9' }; }
     resetLoadout(a, full) {
-      a.inv = { p: null, s: 'p9', n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = 'p9'; a.kit = false;
+      if (a.alive) this.rememberGuns(a); const k = a.keep;
+      a.inv = { p: k && WEAPONS[k.p] ? k.p : null, s: k && WEAPONS[k.s] ? k.s : 'p9', n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = a.inv.p || a.inv.s; a.kit = false;
       if (full) { a.armor = 0; a.helmet = false; }
       a.pdirty = true;
     }
@@ -710,7 +713,7 @@
       if (!a) { this.lastErr = 'full'; return null; }
       a.clanTag = look && typeof look.tag === 'string' && /^[A-Z0-9]{2,4}$/.test(look.tag) ? look.tag : null;
       a.card = look && CARDS.some(c => c.id === look.card) ? look.card : null; a.title = look && TITLES.some(c => c.id === look.title) ? look.title : null;
-      a.human = cid; a.streak = 0; a.joinedAt = this.now; a.joinedRound = this.round; a.mvT = undefined; a.mvB = 3; a.mags = {}; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = cleanCamo(camo);
+      a.human = cid; a.streak = 0; if (this.phase === 'buy' || !a.alive) { a.keep = null; } a.joinedAt = this.now; a.joinedRound = this.round; a.mvT = undefined; a.mvB = 3; a.mags = {}; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = cleanCamo(camo);
       if (this.mode === 'gg') { a.lvl = 0; this.equipGG(a); }
       else if (this.mode === 'tdm') { a.tdmGun = null; this.equipTDM(a); }
       else if (this.mode === 'range') { a.inv = { p: 'ar', s: 'p9', n: { he: 1, fl: 1, sm: 1, in: 1, de: 1 } }; a.cur = 'ar'; a.money = 99999; this.spawn(a, this.M.spawns.atk[0]); a.yaw = 0; }
@@ -897,6 +900,7 @@
       const ast = [];
       for (const [id, dm] of v.damagers) { if (att && id !== att.id && dm >= 40) { const a = this.actors[id]; a.assists++; a.score += 1; ast.push(id); } }
       // soltar arma principal (o secundaria) y la carga
+      this.rememberGuns(v);
       const gun = v.inv.p || (v.inv.s && v.inv.s !== 'p9' ? v.inv.s : null);
       if (gun) this.dropWeapon(v, gun);
       if (this.bomb.st === 'carried' && this.bomb.by === v.id) this.dropBomb(v);
