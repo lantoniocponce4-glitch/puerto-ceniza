@@ -59,6 +59,32 @@
     { id: 'bosque', name: 'Bosque', lvl: 2 }, { id: 'digital', name: 'Digital', lvl: 4 }, { id: 'desierto', name: 'Desierto', lvl: 6 },
     { id: 'tigre', name: 'Tigre', lvl: 9 }, { id: 'carbono', name: 'Carbono', lvl: 12 }, { id: 'carmesi', name: 'Carmesí', lvl: 16 }, { id: 'oro', name: 'Oro', lvl: 20 }
   ];
+  // Progresión compartida (servidor y cliente): experiencia por nivel y desafíos diarios
+  const CH_POOL = [
+    { id: 'kills', txt: 'Consigue {n} bajas', n: 15 }, { id: 'heads', txt: 'Consigue {n} bajas a la cabeza', n: 5 }, { id: 'rounds', txt: 'Gana {n} rondas', n: 4 },
+    { id: 'plant', txt: 'Planta la carga {n} veces', n: 2 }, { id: 'defuse', txt: 'Desactiva la carga {n} vez', n: 1 }, { id: 'knife', txt: 'Consigue {n} bajas con cuchillo', n: 2 },
+    { id: 'nade', txt: 'Consigue {n} baja con granada HE', n: 1 }, { id: 'ggwin', txt: 'Gana {n} escalada de armas', n: 1 }, { id: 'shotgun', txt: 'Consigue {n} bajas con la escopeta', n: 3 },
+    { id: 'sniper', txt: 'Consigue {n} bajas con rifle de mira', n: 3 }
+  ];
+  const needXP = l => 1000 + 150 * (l - 1);
+  function dailyFor(day) {
+    let h = 7; for (const c of day) h = (h * 31 + c.charCodeAt(0)) >>> 0; const pool = CH_POOL.slice(), pick = [];
+    while (pick.length < 3) { h = (Math.imul(h, 1103515245) + 12345) >>> 0; pick.push(pool.splice(h % pool.length, 1)[0]); }
+    return pick.map(c => ({ id: c.id, n: c.n, p: 0, done: false }));
+  }
+  // Qué experiencia y qué desafíos genera un evento para un jugador (team y id del jugador)
+  function xpFromEvent(e, id, team, teamOf) {
+    const out = [];
+    switch (e.k) {
+      case 'kill': if (e.a === id && e.v !== id && teamOf(e.v) !== team) { const ch = ['kills']; if (e.h) ch.push('heads'); if (e.w === 'knife') ch.push('knife'); if (e.w === 'he') ch.push('nade'); if (e.w === 'es12') ch.push('shotgun'); if (e.w === 'sr' || e.w === 'tr7') ch.push('sniper'); out.push({ n: 100 + (e.h ? 50 : 0), why: e.h ? 'baja a la cabeza' : 'baja', ch, stat: 'kills' }); } else if (e.ast && e.ast.includes(id)) out.push({ n: 40, why: 'asistencia', ch: [] }); if (e.v === id) out.push({ n: 0, why: '', ch: [], stat: 'deaths' }); break;
+      case 'plant': if (e.v === id) out.push({ n: 150, why: 'carga plantada', ch: ['plant'] }); break;
+      case 'defused': if (e.v === id) out.push({ n: 200, why: 'carga desactivada', ch: ['defuse'] }); break;
+      case 'rend': if (e.w === team) out.push({ n: 100, why: 'ronda ganada', ch: ['rounds'] }); break;
+      case 'mend': if (e.gg ? e.win === id : e.w === team) out.push({ n: 500, why: 'partida ganada', ch: e.gg ? ['ggwin'] : [], stat: 'wins' }); out.push({ n: 0, why: '', ch: [], stat: 'matches' }); break;
+      case 'lvl': if (e.v === id) out.push({ n: 40, why: 'nivel de arma', ch: [] }); break;
+    }
+    return out;
+  }
   const RADIO = ['¡Vamos A!', '¡Vamos B!', 'Enemigo a la vista', 'Necesito ayuda', 'Cúbreme', 'Retirada', 'Afirmativo', 'Negativo'];
   const BOT_NAMES = [['Vega', 'Ríos', 'Tano', 'Brea'], ['Krell', 'Mazur', 'Osei', 'Duarte']];
   const TEAMS = [{ name: 'Halcón' }, { name: 'Cobra' }];
@@ -915,5 +941,5 @@
     roster() { return { t: 'r', code: this.code, map: this.mapId, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '']) }; }
   }
 
-  return { CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

@@ -22,7 +22,12 @@ if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; if (prefs.gfx !== 'low' && prefs.g
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
 if (prof.camo && !(PC.CAMOS.find(c => c.id === prof.camo && c.lvl <= prof.lvl))) prof.camo = null;
-const saveProf = () => { try { localStorage.setItem('pc2_prof', JSON.stringify(prof)); } catch (e) { } };
+const saveProf = () => { if (auth.me) return; try { localStorage.setItem('pc2_prof', JSON.stringify(prof)); } catch (e) { } };
+// Cuenta: token de sesión en el navegador; el perfil vive en el servidor
+const auth = { token: null, me: null };
+try { auth.token = localStorage.getItem('pc2_tok'); } catch (e) { }
+function guestProfile() { const g = { xp: 0, lvl: 1, camo: null, day: '', ch: [] }; try { Object.assign(g, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { } return g; }
+function applyMe(me) { auth.me = me; if (me) { for (const k of Object.keys(prof)) delete prof[k]; Object.assign(prof, JSON.parse(JSON.stringify(me.profile))); } }
 const savePrefs = () => { try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } };
 if (isTouch) $('#keysHelp').innerHTML = '<span>Joystick a la izquierda para moverte, arrastra a la derecha para apuntar. Mantén Fuego y arrastra para seguir al objetivo.</span>';
 
@@ -567,6 +572,7 @@ function joinOnline(join) {
   ws.onclose = () => { clearTimeout(to); if (net.ws !== ws) return; setBusy(false); if (G.state !== 'menu') { leaveToMenu(); $('#err').textContent = 'Se perdió la conexión con el servidor. Vuelve a entrar con el código de la sala.'; } net.mode = null; };
 }
 function startOffline() {
+  if (auth.me) setTimeout(() => toast('En práctica sin conexión no se suma experiencia a tu cuenta'), 1500);
   leaveNet(); net.mode = 'offline';
   const room = new PC.Room({ code: 'LOCAL', map: prefs.map, diff: prefs.diff, isPublic: false, mode: prefs.gm }); net.room = room;
   room.onBroadcast = m => onMsg(m); room.onSend = (cid, m) => onMsg(m);
@@ -604,6 +610,13 @@ function onMsg(m) {
       break;
     }
     case 's': onSnap(m); break;
+    case 'xp': {
+      if (!auth.me) break; const prevLvl = prof.lvl; applyMe(m.me);
+      if (m.msgs && m.msgs.length) xpPop(m.msgs.join('  '));
+      if (m.up) { const unl = PC.CAMOS.filter(c => c.lvl > prevLvl && c.lvl <= prof.lvl).pop(); announce('Subiste a nivel ' + prof.lvl, unl ? 'Desbloqueaste el camuflaje ' + unl.name + '. Elígelo en el menú principal.' : 'Sigue sumando experiencia', 3.2, 'var(--amber)'); sTone(660, .12, .2, 'triangle'); sTone(880, .12, .2, 'triangle', 0, .1); sTone(1180, .22, .2, 'triangle', 0, .2); }
+      for (const id of m.done || []) { const c = prof.ch.find(x => x.id === id); if (c) toast('Desafío diario completado: ' + chText(c) + ' · +500'); }
+      break;
+    }
   }
 }
 function getActor(id, team) {
@@ -1190,7 +1203,7 @@ document.querySelectorAll('#diff button').forEach(b => { b.setAttribute('aria-pr
 const nameEl = $('#pname'); nameEl.value = prefs.name || ''; nameEl.oninput = () => { prefs.name = nameEl.value; savePrefs(); };
 for (const id of ['#sens', '#sens2']) { const el = $(id); el.value = prefs.sens; el.oninput = () => { prefs.sens = +el.value; savePrefs(); $('#sens').value = $('#sens2').value = prefs.sens; }; }
 const codeEl = $('#code'); const qs = new URLSearchParams(location.search); if (qs.get('sala')) { codeEl.value = qs.get('sala').toUpperCase().slice(0, 4); }
-const baseJoin = () => ({ t: 'join', camo: prof.camo, name: cleanName(prefs.name), map: prefs.map, diff: prefs.diff, side: prefs.side === 'auto' ? null : prefs.side, gm: prefs.gm });
+const baseJoin = () => ({ t: 'join', token: auth.me ? auth.token : undefined, camo: prof.camo, name: cleanName(prefs.name), map: prefs.map, diff: prefs.diff, side: prefs.side === 'auto' ? null : prefs.side, gm: prefs.gm });
 $('#quick').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'quick' })); };
 $('#create').onclick = () => { initAudio(); joinOnline(Object.assign(baseJoin(), { mode: 'create', pub: $('#pubRoom').checked })); };
 $('#pubRoom').checked = prefs.pubRoom !== false; $('#pubRoom').onchange = () => { prefs.pubRoom = $('#pubRoom').checked; savePrefs(); };
@@ -1266,7 +1279,7 @@ function addXP(n, why) {
 function progress(id, amt = 1) { ensureDaily(); for (const c of prof.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + amt); if (c.p >= c.n) { c.done = true; toast('Desafío diario completado: ' + chText(c)); saveProf(); addXP(500, 'desafío diario'); } } saveProf(); }
 function xpPop(s) { const el = $('#xpPop'); el.textContent = s; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
 function progressEvent(e) {
-  if (me.id < 0 || G.state !== 'playing') return;
+  if (me.id < 0 || G.state !== 'playing' || auth.me) return;
   switch (e.k) {
     case 'kill': if (e.a === me.id && e.v !== me.id && teamOf(e.v) !== me.team) { addXP(100 + (e.h ? 50 : 0), e.h ? 'baja a la cabeza' : 'baja'); progress('kills'); if (e.h) progress('heads'); if (e.w === 'knife') progress('knife'); if (e.w === 'he') progress('nade'); if (e.w === 'es12') progress('shotgun'); if (e.w === 'sr' || e.w === 'tr7') progress('sniper'); } else if (e.ast && e.ast.includes(me.id)) addXP(40, 'asistencia'); break;
     case 'plant': if (e.v === me.id) { addXP(150, 'carga plantada'); progress('plant'); } break;
@@ -1277,13 +1290,65 @@ function progressEvent(e) {
   }
 }
 function drawProfile() {
-  ensureDaily(); const need = needXP(prof.lvl);
+  if (!auth.me) ensureDaily(); drawAccount(); const need = needXP(prof.lvl);
   const camos = [{ id: null, name: 'Sin camuflaje', lvl: 1 }].concat(PC.CAMOS);
   $('#profBox').innerHTML = `<div class="prof"><div class="lvl"><b>${prof.lvl}</b><span>nivel</span></div><div class="xpw"><div class="small">${prof.xp} / ${need} de experiencia</div><div class="xpbar"><s style="width:${Math.min(100, prof.xp / need * 100)}%"></s></div></div></div>
   <div class="lbl small">Camuflaje de tus armas</div><div class="camos">${camos.map(c => { const lock = prof.lvl < c.lvl; const sel = (prof.camo || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${sel}" ${lock ? 'aria-disabled="true"' : ''} title="${c.name}${lock ? ' · se desbloquea en nivel ' + c.lvl : ''}"><span class="sw" style="${c.id ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span class="cn">${lock ? 'Nv ' + c.lvl : c.name}</span></button>`; }).join('')}</div>
   <div class="lbl small">Desafíos de hoy</div><div class="daily">${prof.ch.map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${chText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>`;
 }
-$('#profBox').addEventListener('click', e => { const b = e.target.closest('.camo'); if (!b || b.getAttribute('aria-disabled') === 'true') return; prof.camo = b.dataset.c || null; saveProf(); drawProfile(); rebuildVMs(); });
+$('#profBox').addEventListener('click', async e => {
+  const b = e.target.closest('.camo'); if (!b || b.getAttribute('aria-disabled') === 'true') return; const c = b.dataset.c || null;
+  if (auth.me) { const r = await apiCall('/api/camo', { camo: c }); if (r.me) applyMe(r.me); else if (r.error) toast(r.error); }
+  else { prof.camo = c; saveProf(); }
+  drawProfile(); rebuildVMs();
+});
+/* ---------- Cuenta: ingresar, crear y cerrar sesión ---------- */
+async function apiCall(path, body, method) {
+  try {
+    const r = await fetch(path, { method: method || (body ? 'POST' : 'GET'), headers: Object.assign({ 'content-type': 'application/json' }, auth.token ? { authorization: 'Bearer ' + auth.token } : {}), body: body ? JSON.stringify(body) : undefined });
+    return await r.json();
+  } catch (e) { return { error: 'No hay conexión con el servidor. Puede estar despertando; intenta en unos segundos.' }; }
+}
+let acctTab = 'login';
+function drawAccount() {
+  const box = $('#acctBox'); if (!box) return;
+  if (location.protocol === 'file:') { box.hidden = true; return; }
+  $('#pnameWrap').hidden = !!auth.me;
+  if (auth.me) {
+    const st = auth.me.stats || {};
+    box.innerHTML = `<div class="acctOn"><div><div class="small">Conectado como</div><b>${esc(auth.me.name)}</b> <span class="small">@${esc(auth.me.user)}</span></div><button type="button" class="linkbtn" id="logoutBtn">Cerrar sesión</button></div>
+    <div class="small">Bajas ${st.kills || 0} · Muertes ${st.deaths || 0} · Victorias ${st.wins || 0} · Partidas ${st.matches || 0}. Tu progreso se guarda en tu cuenta.</div>`;
+    $('#logoutBtn').onclick = async () => { await apiCall('/api/logout', {}); auth.token = null; auth.me = null; try { localStorage.removeItem('pc2_tok'); } catch (e) { } for (const k of Object.keys(prof)) delete prof[k]; Object.assign(prof, guestProfile()); drawProfile(); rebuildVMs(); };
+    return;
+  }
+  const reg = acctTab === 'register';
+  box.innerHTML = `<div class="seg acctTabs"><button type="button" data-t="login" aria-pressed="${!reg}">Ingresar</button><button type="button" data-t="register" aria-pressed="${reg}">Crear cuenta</button></div>
+  <form id="acctForm" class="acctForm" novalidate>
+    <label class="field" for="acUser"><span class="small">Usuario</span><input id="acUser" type="text" maxlength="16" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="tu_usuario"></label>
+    <label class="field" for="acPass"><span class="small">Clave${reg ? ' (mínimo 8 caracteres)' : ''}</span><input id="acPass" type="password" maxlength="100" autocomplete="${reg ? 'new-password' : 'current-password'}"></label>
+    ${reg ? '<label class="field" for="acName"><span class="small">Nombre en el juego</span><input id="acName" type="text" maxlength="14" autocomplete="nickname" placeholder="Como te verán los demás"></label>' : ''}
+    <button class="go sm" type="submit">${reg ? 'Crear cuenta' : 'Ingresar'}</button>
+    <span class="acctErr" id="acctErr" role="status"></span>
+  </form>
+  <div class="small">Sin cuenta también puedes jugar; tu progreso queda solo en este navegador.</div>`;
+  box.querySelectorAll('.acctTabs button').forEach(b => b.onclick = () => { acctTab = b.dataset.t; drawAccount(); });
+  $('#acctForm').onsubmit = async e => {
+    e.preventDefault(); const user = $('#acUser').value.trim(), pass = $('#acPass').value; const err = $('#acctErr');
+    if (!user || !pass) { err.textContent = 'Escribe tu usuario y tu clave.'; return; }
+    err.textContent = reg ? 'Creando tu cuenta…' : 'Ingresando…';
+    const r = await apiCall(reg ? '/api/register' : '/api/login', reg ? { user, pass, name: ($('#acName').value || '').trim() } : { user, pass });
+    $('#acPass').value = '';
+    if (r.error) { err.textContent = r.error; return; }
+    auth.token = r.token; try { localStorage.setItem('pc2_tok', r.token); } catch (e) { }
+    applyMe(r.me); drawProfile(); rebuildVMs(); toast(reg ? 'Cuenta creada. ¡Bienvenido, ' + r.me.name + '!' : 'Hola de nuevo, ' + r.me.name);
+  };
+}
+async function restoreSession() {
+  if (!auth.token || location.protocol === 'file:') return;
+  const r = await apiCall('/api/me');
+  if (r.me) { applyMe(r.me); drawProfile(); rebuildVMs(); }
+  else if (r.error && !/conexión/.test(r.error)) { auth.token = null; try { localStorage.removeItem('pc2_tok'); } catch (e) { } }
+}
 
 /* ================= REPETICIÓN DE LA BAJA ================= */
 const rec = [], recShots = []; let kc = null, meModel = null;
@@ -1463,6 +1528,6 @@ function updateVM(dt) {
   g.g.rotation.set((vm.kick * .05 + vm.swY * .05) * calm + reloadK * .55 + draw * -.6 + vm.swing * -.6, vm.swing * 1.2 + vm.swX * .08 * calm, reloadK * -.35 + vm.swing * .3 + (vm.swX * .05 - (me.roll || 0) * 1.5) * calm);
   vm.flashT = (vm.flashT || 0) - dt; g.flash.visible = vm.flashT > 0; g.flash.material.rotation = Math.random() * 6; g.light.intensity = vm.flashT > 0 ? 3 : 0;
 }
-drawProfile();
+drawProfile(); restoreSession();
 requestAnimationFrame(frame);
 })();

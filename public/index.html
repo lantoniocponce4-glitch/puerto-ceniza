@@ -293,6 +293,13 @@ tr.dead td{opacity:.5}
 .room button{all:unset;cursor:pointer;grid-row:1/3;grid-column:2;background:var(--amber);color:#1a1206;font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-size:14px;padding:10px 14px;border-radius:2px;text-align:center}
 .room button:focus-visible{outline:2px solid var(--sand);outline-offset:2px}
 .room button[aria-disabled="true"]{background:rgba(233,220,192,.15);color:var(--dim);cursor:not-allowed}
+#acctBox{background:rgba(20,25,30,.7);border:1px solid var(--line);border-radius:3px;padding:12px;gap:10px}
+.acctForm{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:flex-end}
+.acctForm .field{flex:1 1 150px;min-width:0}
+.acctForm .field input{max-width:none}
+.acctErr{flex-basis:100%;font-size:13px;color:var(--bad);min-height:1em}
+.acctOn{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.acctOn b{font-family:var(--f-display);font-size:22px;letter-spacing:.03em}
 #profBox{display:flex;flex-direction:column;gap:10px;background:rgba(20,25,30,.7);border:1px solid var(--line);border-radius:3px;padding:12px}
 @media (max-width:700px){
   .bcols{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -391,8 +398,9 @@ tr.dead td{opacity:.5}
         <h1>Puerto<br><em>Ceniza</em></h1>
       </div>
       <p class="lead">Los <b>terroristas</b> plantan la carga en el sitio A o B; los <b>antiterroristas</b> lo impiden o la desactivan. Una vida por ronda, sin regeneración. Gana dinero, compra tu equipo y llega primero a <b>7 rondas</b>. Hasta 8 personas por sala; los cupos vacíos los ocupan bots.</p>
+      <div id="acctBox" class="sec"></div>
       <div id="profBox"></div>
-      <label class="field sec" for="pname"><span class="lbl small">Tu nombre</span><input id="pname" type="text" maxlength="14" autocomplete="nickname" placeholder="Operador"></label>
+      <div id="pnameWrap"><label class="field sec" for="pname"><span class="lbl small">Tu nombre</span><input id="pname" type="text" maxlength="14" autocomplete="nickname" placeholder="Operador"></label></div>
       <div class="row2">
         <div class="sec"><div class="lbl">Tu bando</div>
           <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
@@ -467,9 +475,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=11"></script>
-<script src="/models.js?v=11"></script>
-<script src="/client.js?v=11"></script>
+<script src="/core.js?v=12"></script>
+<script src="/models.js?v=12"></script>
+<script src="/client.js?v=12"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>
