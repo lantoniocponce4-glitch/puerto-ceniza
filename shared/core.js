@@ -739,7 +739,7 @@
           if (this.siteAt(b.pos.x, b.pos.z) && !b.target) { const dc = Math.hypot(b.pos.x - site.c[0], b.pos.z - site.c[1]); if (dc < 4 || this.siteAt(b.pos.x, b.pos.z) === b.holdSite) { b.planting = true; return; } }
         }
         if (this.now - this.liveStart < (b.lurk ? 14 : 3)) { b.walkSpeed = 2.4; }
-        if (b.route && b.ri < b.route.length) { const [x, z] = b.route[b.ri]; if (this.goTo(b, x, z, 'r' + b.ri)) b.ri++; return; }
+        if (b.route && b.ri < b.route.length) { const [x, z] = b.route[b.ri]; if (this.goTo(b, x, z, 'r' + b.ri)) { b.ri++; if (b.ri === b.route.length - 1 && b.inv.n.sm > 0 && Math.random() < .6) { const c = site.c, e = eyeOf(b); const dx = c[0] - b.pos.x, dz = c[1] - b.pos.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(13, 4 + L * .45); b.inv.n.sm--; this.spawnNade(b, 'sm', e, [dx / L * sp, 4.5, dz / L * sp]); } } return; }
         if (this.mode === 'elim' && this.now - this.liveStart > 25) {
           let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
           if (n) { const key = 'hunt' + n.id + Math.floor(this.now / 4); this.goTo(b, n.pos.x, n.pos.z, key); return; }
@@ -791,7 +791,7 @@
           if (b.reloadT <= 0 && b.ammo <= 0) b.reloadT = w.reload;
           if (shooting && b.reloadT <= 0 && Math.hypot(b.vel.x, b.vel.z) < 1.6) this.botFire(b, t, dist, w);
           // granada ocasional a distancia media
-          if (!b.nadeT || this.now > b.nadeT) { b.nadeT = this.now + rand(6, 12); if (dist > 8 && dist < 26 && b.inv.n.he > 0 && Math.random() < .35) { b.inv.n.he--; const L = Math.hypot(dx, dz); this.spawnNade(b, 'he', e, [dx / L * 11, 4 + dist * .12, dz / L * 11]); } }
+          if (!b.nadeT || this.now > b.nadeT) { b.nadeT = this.now + rand(6, 12); const L = Math.hypot(dx, dz) || 1; if (dist > 8 && dist < 26 && b.inv.n.he > 0 && Math.random() < .35) { b.inv.n.he--; this.spawnNade(b, 'he', e, [dx / L * 11, 4 + dist * .12, dz / L * 11]); } else if (dist > 7 && dist < 22 && b.inv.n.fl > 0 && Math.random() < .25) { b.inv.n.fl--; this.spawnNade(b, 'fl', e, [dx / L * 10, 3 + dist * .1, dz / L * 10]); } }
           }
         } else {
           b.crouch = false;
