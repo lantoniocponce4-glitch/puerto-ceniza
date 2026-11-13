@@ -503,7 +503,7 @@ tr.dead td{opacity:.5}
         <div class="sec"><div class="lbl">Bots</div>
           <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
         </div>
-        <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+        <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
         <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
@@ -575,7 +575,7 @@ tr.dead td{opacity:.5}
       <h2>Menú</h2>
       <p class="lead">La ronda sigue corriendo mientras estás aquí.</p>
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
-      <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+      <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       <div class="btns"><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
@@ -653,9 +653,12 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=34"></script>
-<script src="/models.js?v=34"></script>
-<script src="/client.js?v=34"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+<script src="/core.js?v=37"></script>
+<script src="/models.js?v=37"></script>
+<script src="/client.js?v=37"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>
