@@ -181,6 +181,8 @@
     }
   };
   const MAP_IDS = Object.keys(MAPS);
+  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla' };
+  function pickCond(mapId) { const r = Math.random(); if (r < .4) return { night: false, weather: null }; if (r < .7) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
 
   /* ================= MUNDO (colisiones, rayos, navegación) ================= */
   function rayBox(o, d, b, maxT) {
@@ -317,7 +319,7 @@
       this.isPublic = opts.isPublic !== false;
       this.mode = opts.mode === 'elim' || opts.mode === 'gg' ? opts.mode : 'bomb';
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
-      this.actors = []; this.events = []; this.now = 0; this.tickN = 0; this.teamRadio = [0, 0];
+      this.actors = []; this.events = []; this.now = 0; this.tickN = 0; this.teamRadio = [0, 0]; this.cond = { night: false, weather: null }; this.votes = new Map();
       for (let t = 0; t < 2; t++) for (let i = 0; i < 4; i++) this.actors.push(this.makeActor(t, i));
       this.newMatch();
     }
@@ -336,6 +338,8 @@
     get humanCount() { return this.clients.size; }
 
     /* --- partida y rondas --- */
+    tally() { const t = {}; for (const id of MAP_IDS) t[id] = 0; for (const m of this.votes.values()) if (t[m] !== undefined) t[m]++; return t; }
+    votedMap() { const t = this.tally(); let best = null, n = 0, tie = false; for (const id of MAP_IDS) { if (t[id] > n) { best = id; n = t[id]; tie = false; } else if (t[id] === n && n > 0) tie = true; } return n > 0 && !tie ? best : null; }
     nextMapId() { const i = MAP_IDS.indexOf(this.mapId); return MAP_IDS[(i + 1) % MAP_IDS.length]; }
     setMap(id) {
       if (!MAPS[id] || id === this.mapId) return;
@@ -462,7 +466,7 @@
       return a;
     }
     removeHuman(cid) {
-      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid);
+      const id = this.clients.get(cid); if (id == null) return; this.clients.delete(cid); this.votes.delete(cid);
       const a = this.actors[id]; const n = a.name; a.human = null; a.camo = null; a.name = BOT_NAMES[a.team][a.slot]; a.act = false; a.path = null; a.goalKey = '';
       a.kills = a.deaths = a.assists = a.score = 0; a.cur = a.inv.p || a.inv.s || 'knife'; a.ammo = WEAPONS[a.cur].mag;
       this.ev({ k: 'leave', id, n }); this.rosterDirty = true;
@@ -524,6 +528,7 @@
           const msg = String(m.m || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); if (!msg) return;
           this.ev({ k: 'chat', v: a.id, tm: a.team, m: msg }); break;
         }
+        case 'vote': { if (this.phase !== 'over' || !MAPS[m.map]) return; this.votes.set(cid, m.map); this.ev({ k: 'votes', v: this.tally() }); break; }
         case 'radio': { const c = m.c | 0; if (c < 0 || c >= RADIO.length || this.now - (a.radioT === undefined ? -9 : a.radioT) < 1) return; a.radioT = this.now; this.ev({ k: 'radio', v: a.id, tm: a.team, c }); break; }
         case 'ping': {
           if (!a.alive || !Array.isArray(m.p) || this.now - (a.pingT === undefined ? -9 : a.pingT) < .6) return; a.pingT = this.now;
@@ -750,7 +755,7 @@
       const fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw); const alert = this.now < b.alertUntil;
       for (const t of this.actors) {
         if (t.team === b.team || !t.alive) continue;
-        const dx = t.pos.x - b.pos.x, dz = t.pos.z - b.pos.z; const dist = Math.hypot(dx, dz); if (dist > 80) continue;
+        const dx = t.pos.x - b.pos.x, dz = t.pos.z - b.pos.z; const dist = Math.hypot(dx, dz); if (dist > (this.cond.night ? 38 : this.cond.weather ? 46 : 80)) continue;
         const dot = (dx * fx + dz * fz) / (dist || 1);
         if (!(alert || dist < 5 || dot > .45)) continue;
         if (this.W.visible(e, [t.pos.x, t.pos.y + t.h * .72, t.pos.z], this.smokes) || this.W.visible(e, [t.pos.x, t.pos.y + t.h - .15, t.pos.z], this.smokes)) { const s = dist * (t === b.target ? .6 : 1); if (s < bd) { bd = s; best = t; } }
@@ -898,7 +903,7 @@
           else if (this.bomb.st !== 'planted') this.endRound('def', 'time');
         }
         else if (this.phase === 'post') this.startRound();
-        else if (this.phase === 'over') { if (this.rotate !== false) this.setMap(this.nextMapId()); this.newMatch(); this.ev({ k: 'mstart', map: this.mapId }); this.rosterDirty = true; }
+        else if (this.phase === 'over') { const voted = this.votedMap(); if (voted) this.setMap(voted); else if (this.rotate !== false) this.setMap(this.nextMapId()); this.cond = pickCond(this.mapId); this.votes.clear(); this.newMatch(); this.ev({ k: 'mstart', map: this.mapId, cond: this.cond, voted: voted ? 1 : 0 }); this.rosterDirty = true; }
       }
       // pasos audibles para los bots
       if (this.tickN % 6 === 0) for (const a of this.actors) { if (!a.alive || !a.human || a.walking || a.crouch) continue; if (Math.hypot(a.vel.x, a.vel.z) > 3.2) this.alert(a, 16); }
@@ -944,8 +949,8 @@
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
     }
     privateState(a) { return { t: 'p', lvl: a.lvl | 0, m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
-    roster() { return { t: 'r', code: this.code, map: this.mapId, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '']) }; }
+    roster() { return { t: 'r', code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '']) }; }
   }
 
-  return { CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

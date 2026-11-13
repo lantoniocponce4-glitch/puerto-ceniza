@@ -192,7 +192,7 @@ h1 em{font-style:normal;color:transparent;-webkit-text-stroke:1.5px var(--sand)}
 #err{color:var(--bad);font-size:14px;min-height:1em}
 .linkbtn{background:none;border:0;padding:0;color:var(--sand);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 
-#pause,#end,#board{background:rgba(6,8,10,.8)}
+#pause,#end,#board,#rank{background:rgba(6,8,10,.82)}
 .box{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:22px;width:min(660px,100%);display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
 .box h2{font-family:var(--f-display);font-weight:800;font-size:40px;line-height:.95;margin:0;text-transform:uppercase}
 .invite{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -300,6 +300,15 @@ tr.dead td{opacity:.5}
 .acctErr{flex-basis:100%;font-size:13px;color:var(--bad);min-height:1em}
 .acctOn{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .acctOn b{font-family:var(--f-display);font-size:22px;letter-spacing:.03em}
+.rankHead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+#rankT table td:nth-child(1){width:42px;color:var(--dim)}
+#rankT tr.sep td{border-top:1px dashed var(--line);padding:2px}
+#rankBtn{align-self:flex-start;font-size:13px}
+.votes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vote{all:unset;box-sizing:border-box;cursor:pointer;border:1px solid var(--line);border-radius:3px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-height:64px;background:rgba(255,255,255,.03)}
+.vote:hover{border-color:rgba(233,220,192,.5)} .vote:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.vote[aria-pressed="true"]{border-color:var(--amber);background:rgba(242,179,61,.1)}
+.vote .th{height:4px;border-radius:1px} .vote .n{font-family:var(--f-display);font-weight:800;font-size:17px} .vote b{font-family:var(--f-mono);font-size:20px;color:var(--amber)}
 #profBox{display:flex;flex-direction:column;gap:10px;background:rgba(20,25,30,.7);border:1px solid var(--line);border-radius:3px;padding:12px}
 @media (max-width:700px){
   .bcols{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -419,7 +428,7 @@ tr.dead td{opacity:.5}
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
       <div class="keys" id="keysHelp">
-        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span>
+        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>E</kbd>plantar / desactivar</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>F</kbd>linterna de noche</span>
       </div>
       <div class="modes">
         <button class="go" id="quick" type="button">Partida rápida ▸</button>
@@ -455,6 +464,14 @@ tr.dead td{opacity:.5}
     </div>
   </div>
 
+  <div id="rank" class="ov" hidden>
+    <div class="box">
+      <div class="rankHead"><h2>Ranking</h2><span class="small" id="rankSeason"></span></div>
+      <div class="seg" id="rankTabs"><button type="button" data-by="xp" aria-pressed="true">Experiencia</button><button type="button" data-by="kills" aria-pressed="false">Bajas</button><button type="button" data-by="wins" aria-pressed="false">Victorias</button></div>
+      <div class="tblw" id="rankT"></div>
+      <div class="btns"><button class="go ghost sm" id="rankClose" type="button">Cerrar</button></div>
+    </div>
+  </div>
   <div id="board" class="ov" hidden><div class="box"><div class="tblw" id="boardT"></div></div></div>
 
   <div id="end" class="ov" hidden>
@@ -462,6 +479,7 @@ tr.dead td{opacity:.5}
       <div class="eyebrow" id="endEye">FIN DE LA PARTIDA</div>
       <h2 id="endTitle">Victoria</h2>
       <div class="stats" id="endStats"></div>
+      <div id="voteBox" class="sec"></div>
       <div class="tblw" id="endT"></div>
       <div class="btns"><span class="small mono" id="endCount"></span><button class="go ghost" id="toMenu" type="button">Salir de la sala</button></div>
     </div>
@@ -475,9 +493,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="/core.js?v=13"></script>
-<script src="/models.js?v=13"></script>
-<script src="/client.js?v=13"></script>
+<script src="/core.js?v=14"></script>
+<script src="/models.js?v=14"></script>
+<script src="/client.js?v=14"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

@@ -43,6 +43,7 @@ async function api(req, res, url) {
     const p = url.pathname;
     if (req.method === 'POST' && p === '/api/register') { const b = await body(req); const r = await ACC.register(b.user, b.pass, b.name, ipOf(req)); return json(res, r.error ? 400 : 200, r); }
     if (req.method === 'POST' && p === '/api/login') { const b = await body(req); const r = await ACC.login(b.user, b.pass, ipOf(req)); return json(res, r.error ? 401 : 200, r); }
+    if (req.method === 'GET' && p === '/api/ranking') { const a = await ACC.fromToken(bearer(req)); return json(res, 200, await ACC.ranking(url.searchParams.get('by'), a)); }
     if (req.method === 'POST' && p === '/api/logout') { await ACC.logout(bearer(req)); return json(res, 200, { ok: true }); }
     if (req.method === 'GET' && p === '/api/me') { const a = await ACC.fromToken(bearer(req)); return a ? json(res, 200, { me: ACC.view(a) }) : json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); }
     if (req.method === 'POST' && p === '/api/camo') { const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' }); const b = await body(req); return ACC.setCamo(a, b.camo === null ? null : String(b.camo || '')) ? json(res, 200, { me: ACC.view(a) }) : json(res, 400, { error: 'Ese camuflaje aún no está desbloqueado.' }); }
@@ -116,7 +117,7 @@ wss.on('connection', ws => {
         return ws.send(JSON.stringify({ t: 'err', msg: r.lastErr === 'side' ? `El bando ${sideName} ya tiene 4 personas. Elige el otro bando o «Automático».` : 'No se pudo entrar a la sala.' }));
       }
       room = r; r.sockets.set(cid, ws); if (acct) r.accts.set(cid, acct);
-      ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId, gm: r.mode }));
+      ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId, gm: r.mode, cond: r.cond }));
       ws.send(JSON.stringify(r.privateState(a)));
       ws.send(JSON.stringify(r.roster()));
       return;

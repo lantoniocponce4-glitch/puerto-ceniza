@@ -197,6 +197,7 @@ function buildWorld(mapId) {
   if (desert) desertDecor(M); else if (rural) ruralDecor(M); else portDecor(M);
   buildDust(desert || rural);
   mergeStatic(worldGroup);
+  condKey = '';
 }
 // Une todas las mallas estáticas del mapa por material: de cientos de llamadas de dibujo a unas decenas
 function mergeStatic(group) {
@@ -589,12 +590,12 @@ function onMsg(m) {
   switch (m.t) {
     case 'err': setBusy(false); $('#err').textContent = m.msg; leaveNet(); break;
     case 'joined': {
-      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm || 'bomb'; me.id = m.you; me.team = m.team;
+      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm || 'bomb'; G.cond = m.cond || null; me.id = m.you; me.team = m.team;
       buildWorld(m.map); PCM.setFpTeam(me.team); for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0;
       enterGame(); break;
     }
     case 'r': {
-      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.map && m.map !== CURMAP) buildWorld(m.map);
+      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
       for (const [id, name, team, k, d, as, sc, hum, money, lvl, camo] of m.r) { const a = getActor(id, team); a.camo = camo || null; if (a.model && a.model.setCamo) a.model.setCamo(a.camo); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; a.lvl = lvl | 0; if (id === me.id && team !== me.team) { me.team = team; PCM.setFpTeam(team); } }
       $('#roomCode').textContent = G.code; $('#mapName').textContent = '· ' + MAPS[CURMAP].name + ' · ' + m.r.filter(x => x[7]).length + ' en línea';
       break;
@@ -702,7 +703,8 @@ function handleEvent(e) {
       break;
     }
     case 'demote': if (e.v === me.id) toast('Te apuñalaron: bajas al nivel ' + (e.l + 1)); else if (e.a === me.id) toast('Le quitaste un nivel a ' + nameOf(e.v)); break;
-    case 'mstart': $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); buildWorld(e.map); applyGfx(); G.mapId = e.map; } if (e.map) announce(MAPS[e.map].name, 'Nueva partida · al mejor de 5 rondas', 3); break;
+    case 'mstart': $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); buildWorld(e.map); applyGfx(); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación · ' : '') + 'al mejor de 5 rondas', 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
+    case 'votes': G.votes = e.v || {}; drawVotes(); break;
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
     case 'bdrop': if (sideOf(teamOf(e.v)) === sideOf(me.team) && sideOf(me.team) === 'atk') toast('La carga quedó en el suelo'); break;
@@ -758,6 +760,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyZ') { toggleWheel(); return; }
   if (e.code === 'KeyY') { openChat(); return; }
   if (e.code === 'KeyV') { doPing(); return; }
+  if (e.code === 'KeyF') { flashOn = !flashOn; sNoise(.03, .2, 3000); return; }
   if (e.code === 'Escape' && wheelOpen) { toggleWheel(false); return; }
   if (e.code === 'KeyB') { toggleBuy(true); return; }
   if (e.code === 'Escape') { if (!$('#buy').hidden) closeBuy(true); else if (lockFailed || isTouch) openPause(); return; }
@@ -1142,7 +1145,7 @@ function updateHUD(dt) {
   }
   drawPings(t);
   if (!$('#buy').hidden) { $('#buyMoney').textContent = '$' + me.money; $('#buyTime').textContent = G.phase === 'buy' ? 'Tiempo de compra: ' + Math.ceil(left) + ' s' : ''; if (!me.cb) closeBuy(); }
-  if (!$('#end').hidden) $('#endCount').textContent = (G.nextMap && MAPS[G.nextMap] ? 'Próximo mapa: ' + MAPS[G.nextMap].name + ' · ' : 'Nueva partida ') + 'en ' + Math.ceil(left) + ' s';
+  if (!$('#end').hidden) { const lead = voteLeader(); const nm = lead || G.nextMap; $('#endCount').textContent = (nm && MAPS[nm] ? 'Próximo mapa: ' + MAPS[nm].name + (lead ? ' (más votado)' : ' (rotación)') + ' · ' : 'Nueva partida ') + 'en ' + Math.ceil(left) + ' s'; }
 }
 function siteAt(x, z) { const S = WORLD.map.sites; for (const k in S) if (PC.inRect(S[k].r, x, z)) return k; return null; }
 function aimedEnemy() { if (!me.alive) return null; const o = [camera.position.x, camera.position.y, camera.position.z]; const d = aimDir(me.punchP, 0, 0); const r = traceShot(o, d, 120); return r.hit; }
@@ -1177,7 +1180,7 @@ function teamTable(tm) {
 }
 function showBoard(on) { if (G.state !== 'playing') return; if (on) { $('#boardT').innerHTML = teamTable(me.team) + teamTable(1 - me.team); $('#board').hidden = false; } else $('#board').hidden = true; }
 function showEnd(e) {
-  G.nextMap = e.next || null;
+  G.nextMap = e.next || null; G.votes = {}; G.myVote = null; drawVotes();
   if (e.gg) {
     const wa = actors[e.win]; const mine = e.win === me.id;
     $('#endTitle').textContent = mine ? '¡Ganaste con el cuchillo!' : (wa ? wa.name + ' ganó' : 'Fin de la escalada'); $('#endTitle').className = wa ? 't' + wa.team : '';
@@ -1240,9 +1243,10 @@ function enterGame() {
   $('#roomCode').textContent = G.code; me.ammo = {}; me.shots = me.hits = me.heads = me.kills = 0; refillAmmo(); drawSlots();
   if (net.mode === 'online') try { history.replaceState(null, '', '?sala=' + G.code); } catch (e) { }
   try { history.pushState({ pc: 1 }, '', location.href); } catch (e) { }
-  $('#app').classList.add('playing'); blurUI(); resetAim();
+  $('#app').classList.add('playing'); blurUI(); resetAim(); applyCond(G.cond); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 2500);
 }
 function leaveToMenu() {
+  applyCond(null);
   leaveNet(); G.state = 'menu'; $('#app').classList.remove('playing'); toastT = annT = 0; $('#toast').classList.remove('on'); $('#announce').classList.remove('on'); $('#feed').innerHTML = ''; $('#hud').hidden = true; $('#touch').hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#buy').hidden = true; $('#board').hidden = true; $('#menu').hidden = false;
   for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0; for (const el of tagEls.values()) el.remove(); tagEls.clear();
   stopKillcam(); closeChat(false); toggleWheel(false); for (const pg of pings) pg.el.remove(); pings.length = 0; $('#chatBox').innerHTML = ''; rec.length = 0; recShots.length = 0;
@@ -1314,6 +1318,7 @@ let acctTab = 'login';
 function drawAccount() {
   const box = $('#acctBox'); if (!box) return;
   if (location.protocol === 'file:') { box.hidden = true; return; }
+  setTimeout(() => { if (!$('#rankBtn')) box.insertAdjacentHTML('beforeend', '<button type="button" class="linkbtn" id="rankBtn">Ver el ranking de la temporada</button>'); $('#rankBtn').onclick = () => openRank(); }, 0);
   $('#pnameWrap').hidden = !!auth.me;
   if (auth.me) {
     const st = auth.me.stats || {};
@@ -1426,6 +1431,95 @@ function drawPings(t) {
   }
 }
 
+/* ================= VOTACIÓN DEL PRÓXIMO MAPA ================= */
+function voteLeader() { const v = G.votes || {}; let best = null, n = 0, tie = false; for (const id of PC.MAP_IDS) { const c = v[id] || 0; if (c > n) { best = id; n = c; tie = false; } else if (c === n && n > 0) tie = true; } return n > 0 && !tie ? best : null; }
+function drawVotes() {
+  const box = $('#voteBox'); if (!box) return; const v = G.votes || {};
+  const sw = { desert: 'linear-gradient(90deg,#d6c19d,#4c8fc8)', port: 'linear-gradient(90deg,#d09a70,#2f5f80)', rural: 'linear-gradient(90deg,#1f4f9c,#6a9a4a)' };
+  box.innerHTML = `<div class="lbl small">Vota el próximo mapa · gana el más votado; si nadie vota, sigue la rotación</div><div class="votes">${PC.MAP_IDS.map(id => { const M = MAPS[id]; const mine = G.myVote === id; return `<button type="button" class="vote" data-m="${id}" aria-pressed="${mine}"><span class="th" style="background:${sw[M.theme] || '#444'}"></span><span class="n">${M.name}</span><b>${v[id] || 0}</b></button>`; }).join('')}</div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.vote'); if (!b || G.state !== 'playing') return; G.myVote = b.dataset.m; sendMsg({ t: 'vote', map: b.dataset.m }); drawVotes(); sNoise(.05, .25, 1800); });
+
+/* ================= RANKING ================= */
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+let rankBy = 'xp';
+async function openRank(by) {
+  if (by) rankBy = by; $('#rank').hidden = false;
+  document.querySelectorAll('#rankTabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.by === rankBy));
+  $('#rankT').innerHTML = '<div class="small">Cargando…</div>';
+  const r = await apiCall('/api/ranking?by=' + rankBy);
+  if (r.error && !r.top) { $('#rankT').innerHTML = `<div class="small">${esc(r.error)}</div>`; return; }
+  const [y, mo] = (r.season || '').split('-').map(Number); const end = new Date(Date.UTC(y, mo, 1)); const days = Math.max(0, Math.ceil((end - Date.now()) / 864e5));
+  $('#rankSeason').textContent = 'Temporada de ' + (MESES[mo - 1] || '') + ' · quedan ' + days + ' días';
+  const col = { xp: 'Experiencia', kills: 'Bajas', wins: 'Victorias' }[rankBy];
+  const row = (x, cls) => `<tr class="${cls || ''}"><td>${x.pos}</td><td>${esc(x.name)}</td><td>${x.lvl}</td><td>${x[rankBy]}</td></tr>`;
+  let html = `<table><tr><th>#</th><th>Jugador</th><th>Nivel</th><th>${col}</th></tr>` + (r.top.length ? r.top.map(x => row(x, x.you ? 'me' : '')).join('') : `<tr><td colspan="4">Todavía nadie suma puntos esta temporada. ¡Juega una partida para estrenar el ranking!</td></tr>`);
+  if (r.me && !r.top.some(x => x.you)) html += `<tr class="sep"><td colspan="4"></td></tr>` + row(r.me, 'me');
+  html += '</table>';
+  if (!auth.me) html += '<div class="small" style="margin-top:8px">Crea una cuenta para aparecer en el ranking.</div>';
+  $('#rankT').innerHTML = html;
+}
+$('#rankTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) openRank(b.dataset.by); });
+$('#rankClose').onclick = () => { $('#rank').hidden = true; };
+$('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $('#rank').hidden = true; });
+
+/* ================= NOCHE Y CLIMA ================= */
+let condKey = '', envGroup = null, flashOn = true, weatherFx = null, weatherNode = null;
+const flashlight = new THREE.SpotLight(0xffeedd, 0, 42, .5, .8, 2); flashlight.position.set(.15, -.08, 0); flashlight.target.position.set(0, -.05, -1); camera.add(flashlight); camera.add(flashlight.target);
+const glowWarm = texSpot('rgba(255,196,120,1)', .25);
+function condLabel(c) { if (!c) return ''; if (c.night) return ' · de noche'; return { lluvia: ' · con lluvia', arena: ' · tormenta de arena', niebla: ' · con niebla' }[c.weather] || ''; }
+function stopWeatherSound() { if (weatherNode) { try { weatherNode.src.stop(); } catch (e) { } weatherNode = null; } }
+function weatherSound(kind) {
+  stopWeatherSound(); if (!AC) return; const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const f = AC.createBiquadFilter(); const g = AC.createGain();
+  if (kind === 'lluvia') { f.type = 'highpass'; f.frequency.value = 1400; g.gain.value = .07; } else { f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = .6; g.gain.value = .11; const l = AC.createOscillator(); l.frequency.value = .17; const lg = AC.createGain(); lg.gain.value = .06; l.connect(lg); lg.connect(g.gain); l.start(); }
+  src.connect(f); f.connect(g); g.connect(master); src.start(); weatherNode = { src };
+}
+function addNightLamps() {
+  const M = WORLD.map; const pts = []; for (const k in M.sites) pts.push(M.sites[k].c);
+  const avg = (l) => [l.reduce((a, p) => a + p[0], 0) / l.length, l.reduce((a, p) => a + p[1], 0) / l.length];
+  pts.push(avg(M.spawns.atk), avg(M.spawns.def), [(M.bounds[0] + M.bounds[2]) / 2, (M.bounds[1] + M.bounds[3]) / 2]);
+  const n = prefs.gfx === 'high' ? pts.length : 2;
+  for (const [x, z] of pts.slice(0, n)) {
+    const L = new THREE.PointLight(0xffc27a, 1.7, 24, 2); L.position.set(x, 4.6, z); envGroup.add(L);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowWarm, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.position.set(x, 4.6, z); sp.scale.set(1.6, 1.6, 1); envGroup.add(sp);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffe2b0 })); lamp.position.set(x, 4.6, z); envGroup.add(lamp);
+  }
+}
+function makeRain() {
+  const N = prefs.gfx === 'high' ? 1600 : 650; const pos = new Float32Array(N * 6); const g = new THREE.BufferGeometry();
+  for (let i = 0; i < N; i++) { const x = rand(-18, 18), y = rand(0, 16), z = rand(-18, 18); pos.set([x, y, z, x + .04, y + .55, z], i * 6); }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xb8c6d4, transparent: true, opacity: .45, depthWrite: false })); l.frustumCulled = false; envGroup.add(l);
+  return { kind: 'lluvia', obj: l, N };
+}
+function makeSand() {
+  const N = prefs.gfx === 'high' ? 1100 : 450; const pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) pos.set([rand(-18, 18), rand(0, 8), rand(-18, 18)], i * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xc9a06a, size: .13, transparent: true, opacity: .6, depthWrite: false })); p.frustumCulled = false; envGroup.add(p);
+  return { kind: 'arena', obj: p, N };
+}
+function updateWeather(dt) {
+  flashlight.intensity = G.night && me.alive && flashOn && G.state === 'playing' ? 3.2 : 0;
+  if (!weatherFx) return; const o = weatherFx.obj; o.position.set(Math.floor(camera.position.x / 4) * 4, 0, Math.floor(camera.position.z / 4) * 4);
+  const a = o.geometry.attributes.position.array;
+  if (weatherFx.kind === 'lluvia') { for (let i = 0; i < a.length; i += 6) { a[i + 1] -= 24 * dt; a[i + 4] -= 24 * dt; if (a[i + 1] < 0) { const x = rand(-18, 18), z = rand(-18, 18), y = rand(12, 16); a[i] = x; a[i + 1] = y; a[i + 2] = z; a[i + 3] = x + .04; a[i + 4] = y + .55; a[i + 5] = z; } } }
+  else { const t = nowS(); for (let i = 0; i < a.length; i += 3) { a[i] += (9 + Math.sin(t + i) * 2) * dt; a[i + 1] += Math.sin(t * 2 + i * .3) * dt * .6; if (a[i] > 18) { a[i] = -18; a[i + 1] = rand(0, 8); a[i + 2] = rand(-18, 18); } } }
+  o.geometry.attributes.position.needsUpdate = true;
+}
+function applyCond(cond) {
+  const c = cond || { night: false, weather: null }; if (!WORLD) return; const key = (c.night ? 'n' : 'd') + (c.weather || '') + '|' + CURMAP; if (key === condKey) return; condKey = key;
+  const T = THEMES[WORLD.map.theme];
+  skyU.top.value.set(...T.top); skyU.hor.value.set(...T.hor); scene.fog.color.setHex(T.fog); scene.fog.density = T.fogD; hemi.color.setHex(T.hs); hemi.groundColor.setHex(T.hg); hemi.intensity = T.hi; sun.color.setHex(T.sunC); sun.intensity = T.sunI;
+  if (envGroup) scene.remove(envGroup); envGroup = new THREE.Group(); scene.add(envGroup); weatherFx = null; stopWeatherSound();
+  let th = .93;
+  if (c.night) { skyU.top.value.set(.015, .025, .07); skyU.hor.value.set(.06, .075, .13); scene.fog.color.setHex(0x0b1120); scene.fog.density = .017; hemi.color.setHex(0x3a4a70); hemi.groundColor.setHex(0x0e0f14); hemi.intensity = .34; sun.color.setHex(0x9db4ff); sun.intensity = .3; th = .82; addNightLamps(); }
+  if (c.weather === 'lluvia') { skyU.top.value.set(.22, .25, .3); skyU.hor.value.set(.42, .45, .5); scene.fog.color.setHex(0x5a626c); scene.fog.density = .02; sun.intensity *= .45; hemi.intensity *= .85; weatherFx = makeRain(); weatherSound('lluvia'); }
+  if (c.weather === 'arena') { skyU.top.value.set(.55, .42, .28); skyU.hor.value.set(.78, .6, .4); scene.fog.color.setHex(0xa8824f); scene.fog.density = .03; sun.intensity *= .55; weatherFx = makeSand(); weatherSound('arena'); }
+  if (c.weather === 'niebla') { skyU.top.value.set(.6, .66, .72); skyU.hor.value.set(.8, .83, .86); scene.fog.color.setHex(0xc5ccd3); scene.fog.density = .034; sun.intensity *= .6; }
+  vmSun.intensity = c.night ? .3 : 1.1; vmHemi.intensity = c.night ? .45 : .8;
+  if (post.bloom) post.bloom.threshold = th; G.night = !!c.night;
+}
+
 /* ================= POSPROCESADO ================= */
 const post = { composer: null, grade: null, fxaa: null, vmPass: null, bloom: null, sat: 1.06 };
 const GradeShader = {
@@ -1486,6 +1580,7 @@ function frame(now) {
   requestAnimationFrame(frame); const dtReal = (now - last) / 1000; const dt = Math.min(.05, dtReal); last = now; if (dtReal > 0 && dtReal < .5) adaptRes(dtReal);
   if (G.state === 'playing' && WORLD) {
     if (kc && nowS() > kc.start + kc.len) stopKillcam();
+    updateWeather(dt);
     updateLocal(dt); updateArc(); sendInput(); updateRemotes(dt); updateFx(dt); animSmokes();
     // cámara
     if (me.alive) {

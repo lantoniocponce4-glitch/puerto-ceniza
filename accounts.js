@@ -8,6 +8,9 @@ const PC = require('./shared/core.js');
 
 const SESSION_DAYS = 60;
 const today = () => new Date().toISOString().slice(0, 10);
+const seasonId = () => new Date().toISOString().slice(0, 7);
+function freshSeason(st) { const id = seasonId(); if (!st.season || st.season.id !== id) st.season = { id, xp: 0, kills: 0, wins: 0, deaths: 0 }; return st.season; }
+const RANK_BY = { xp: 'xp', kills: 'kills', wins: 'wins' };
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 /* ---------- Claves ---------- */
@@ -39,6 +42,9 @@ class FileStore {
   async createSession(hash, userId, exp) { this.data.sessions[hash] = { userId, exp }; this.save(); }
   async getSession(hash) { const s = this.data.sessions[hash]; return s && s.exp > Date.now() ? s : null; }
   async deleteSession(hash) { delete this.data.sessions[hash]; this.save(); }
+  sorted(season, by) { return Object.values(this.data.users).filter(u => u.stats && u.stats.season && u.stats.season.id === season).sort((a, b) => ((b.stats.season[by] || 0) - (a.stats.season[by] || 0)) || (a.id - b.id)); }
+  async top(season, by, n) { return this.sorted(season, by).slice(0, n).map(u => ({ id: u.id, display: u.display, lvl: (u.profile || {}).lvl || 1, s: u.stats.season })); }
+  async rankOf(season, by, val, id) { const l = this.sorted(season, by); const i = l.findIndex(u => u.id === id); return i >= 0 ? i + 1 : l.filter(u => (u.stats.season[by] || 0) > val).length + 1; }
 }
 // Limpia errores típicos al pegar la dirección: comillas, prefijo DATABASE_URL= y parámetros que el cliente no soporta
 function cleanDbUrl(raw) {
@@ -61,6 +67,14 @@ class PgStore {
   async createSession(hash, userId, exp) { await this.pool.query('INSERT INTO pc_sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)', [hash, userId, exp]); await this.pool.query('UPDATE pc_users SET last_login=now() WHERE id=$1', [userId]); }
   async getSession(hash) { const r = await this.pool.query('SELECT user_id AS "userId", expires_at AS exp FROM pc_sessions WHERE token_hash=$1 AND expires_at > $2', [hash, Date.now()]); return r.rows[0] || null; }
   async deleteSession(hash) { await this.pool.query('DELETE FROM pc_sessions WHERE token_hash=$1', [hash]); }
+  async top(season, by, n) {
+    const r = await this.pool.query(`SELECT id, display, COALESCE((profile->>'lvl')::int,1) AS lvl, stats->'season' AS s FROM pc_users WHERE stats->'season'->>'id' = $1 ORDER BY COALESCE((stats->'season'->>$2)::int,0) DESC, id ASC LIMIT $3`, [season, by, n]);
+    return r.rows;
+  }
+  async rankOf(season, by, val, id) {
+    const r = await this.pool.query(`SELECT COUNT(*)::int AS n FROM pc_users WHERE stats->'season'->>'id' = $1 AND (COALESCE((stats->'season'->>$2)::int,0) > $3 OR (COALESCE((stats->'season'->>$2)::int,0) = $3 AND id < $4))`, [season, by, val, id]);
+    return r.rows[0].n + 1;
+  }
 }
 
 /* ---------- Servicio de cuentas ---------- */
@@ -113,14 +127,24 @@ class Accounts {
   setCamo(a, camo) { const c = PC.CAMOS.find(x => x.id === camo); if (camo === null || camo === '') { a.profile.camo = null; a.dirty = true; return true; } if (!c || a.profile.lvl < c.lvl) return false; a.profile.camo = c.id; a.dirty = true; return true; }
   // Aplica la experiencia de un evento de juego; devuelve lo que hay que avisarle al jugador
   award(a, gains) {
-    const p = freshDaily(a.profile); const msgs = []; let up = false, done = [];
+    const p = freshDaily(a.profile); const ss = freshSeason(a.stats); const msgs = []; let up = false, done = [];
     for (const g of gains) {
-      if (g.stat) a.stats[g.stat] = (a.stats[g.stat] || 0) + 1;
-      if (g.n) { p.xp += g.n; msgs.push('+' + g.n + ' · ' + g.why); }
-      for (const id of g.ch) for (const c of p.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += 500; done.push(c.id); } }
+      if (g.stat) { a.stats[g.stat] = (a.stats[g.stat] || 0) + 1; if (ss[g.stat] !== undefined) ss[g.stat]++; }
+      if (g.n) { p.xp += g.n; ss.xp += g.n; msgs.push('+' + g.n + ' · ' + g.why); }
+      for (const id of g.ch) for (const c of p.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += 500; ss.xp += 500; done.push(c.id); } }
     }
     while (p.xp >= PC.needXP(p.lvl)) { p.xp -= PC.needXP(p.lvl); p.lvl++; up = true; }
     a.dirty = true; return { msgs, up, done };
+  }
+  async ranking(byRaw, me) {
+    await this.ready; const by = RANK_BY[byRaw] || 'xp', season = seasonId();
+    if (!this.ok) return { season, by, top: [], me: null, error: 'La base de datos no está disponible.' };
+    await this.flush();
+    const rows = await this.store.top(season, by, 50);
+    const top = rows.map((r, i) => ({ pos: i + 1, name: r.display, lvl: r.lvl, xp: r.s.xp || 0, kills: r.s.kills || 0, wins: r.s.wins || 0, you: !!(me && r.id === me.id) }));
+    let mine = null;
+    if (me) { const ss = freshSeason(me.stats); const pos = await this.store.rankOf(season, by, ss[by] || 0, me.id); mine = { pos, name: me.display, lvl: me.profile.lvl, xp: ss.xp, kills: ss.kills, wins: ss.wins }; }
+    return { season, by, top, me: mine };
   }
   async flush() { for (const a of this.cache.values()) if (a.dirty) { a.dirty = false; try { await this.store.saveUser(a.id, a.profile, a.stats); } catch (e) { a.dirty = true; console.error('No se pudo guardar el perfil', a.username, e.message); } } }
 }
