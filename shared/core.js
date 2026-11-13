@@ -365,6 +365,8 @@
   }
 
   /* ================= SALA ================= */
+  const BOT_STYLE = ['rush', 'flank', 'steady'];
+  const BOT_RANGE = { knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
   const DIFF = {
     recluta: { react: .7, err: .07, turn: 4.5 },
     veterano: { react: .42, err: .045, turn: 7 },
@@ -909,7 +911,11 @@
     objective(b) {
       const side = this.side(b.team), B = this.bomb; b.mx = 0; b.mz = 0; b.walkSpeed = 4.6;
       if (this.mode === 'gg' || this.mode === 'tdm') {
-        if (b.lastKnown && this.now - b.lastKnownT < 4) { this.goTo(b, b.lastKnown.x, b.lastKnown.z, 'lk' + Math.round(b.lastKnownT)); return; }
+        if (b.lastKnown && this.now - b.lastKnownT < 4) {
+          let gx = b.lastKnown.x, gz = b.lastKnown.z;
+          if (BOT_STYLE[b.id % BOT_STYLE.length] === 'flank') { const dx = gx - b.pos.x, dz = gz - b.pos.z, L = Math.hypot(dx, dz) || 1, sd = b.id % 2 ? 1 : -1; const k = this.W.nearestWalk(this.W.cIdx(gx - dz / L * 6 * sd, gz + dx / L * 6 * sd)); if (k >= 0 && L > 8) { gx = this.W.GX0 + (k % this.W.GW) + .5; gz = this.W.GZ0 + ((k / this.W.GW) | 0) + .5; } }
+          this.goTo(b, gx, gz, 'lk' + Math.round(b.lastKnownT)); return;
+        }
         let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
         if (n) this.goTo(b, n.pos.x + rand(-4, 4), n.pos.z + rand(-4, 4), 'hunt' + n.id + Math.floor(this.now / 3)); else this.lookAround(b, b.yaw);
         return;
@@ -981,11 +987,32 @@
             b.mx = -Math.sin(b.yaw); b.mz = -Math.cos(b.yaw); sp = 5.4; b.crouch = false;
             if (dist < 1.7 && this.now - b.lastShot > .7 && Math.abs(dy) < .6) { b.lastShot = this.now; const heavy = Math.random() < .35; this.ev({ k: 'slash', s: b.id, hit: 1 }); this.damage(t, b, weaponDamage(w, dist, 'c', t, heavy), 'c', 'knife'); }
           } else {
-          // como en el género: dispara quieto o caminando lento (contra-strafe)
-          b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = rand(.35, 1.1); b.strafeDir = Math.random() < .45 ? 0 : (Math.random() < .5 ? -1 : 1); b.crouch = dist > 12 && Math.random() < .3; }
+          // combate con movimiento: distancia preferida según el arma, ciclos de moverse y frenar para disparar,
+          // personalidad (agresivo / flanqueador / firme) y retirada con poca vida o al recargar
           const rx = Math.cos(b.yaw), rz = -Math.sin(b.yaw);
           const shooting = b.seenT > b.react && Math.abs(dy) < .12;
-          if (!shooting || b.reloadT > 0) { b.mx = rx * b.strafeDir; b.mz = rz * b.strafeDir; sp = 4.2; }
+          const style = BOT_STYLE[b.id % BOT_STYLE.length];
+          const R = BOT_RANGE[b.cur] || [8, 24]; const rmin = R[0], rmax = R[1] * (style === 'rush' ? .7 : 1);
+          const far = dist > rmax, close = dist < rmin, hurt = b.hp < 35 || b.reloadT > 0;
+          b.cyc = (b.cyc || 0) - dt;
+          if (b.cyc <= 0) {
+            b.moving = !b.moving; b.strafeDir = Math.random() < .5 ? -1 : 1;
+            b.cyc = b.moving ? (far ? rand(.6, 1.2) : rand(.25, .6)) : (far ? rand(.25, .45) : rand(.35, .8));
+            b.crouch = !b.moving && !far && dist > 10 && Math.random() < .25;
+          }
+          if (b.moving || !shooting || hurt) {
+            const fx = dx / (dist || 1), fz = dz / (dist || 1); let mx = rx * b.strafeDir, mz = rz * b.strafeDir;
+            if (hurt) { mx -= fx * .9; mz -= fz * .9; }
+            else if (far) {
+              // acercarse por un camino real (sin dejar de apuntar)
+              const y0 = b.yaw, p0 = b.pitch; this.goTo(b, t.pos.x, t.pos.z, 'ch' + t.id + Math.floor(this.now / 1.5)); b.yaw = y0; b.pitch = p0;
+              mx = (b.mx || fx) + rx * b.strafeDir * .35; mz = (b.mz || fz) + rz * b.strafeDir * .35;
+            }
+            else if (close) { mx -= fx * .7; mz -= fz * .7; }
+            else if (style === 'rush') { mx += fx * .6; mz += fz * .6; }
+            else if (style === 'flank') { mx += rx * b.strafeDir * .5; mz += rz * b.strafeDir * .5; }
+            const L = Math.hypot(mx, mz) || 1; b.mx = mx / L; b.mz = mz / L; sp = far && !hurt ? 4.9 : 4.3; b.crouch = false;
+          }
           if (b.reloadT <= 0 && b.ammo <= 0) b.reloadT = w.reload;
           if (shooting && b.reloadT <= 0 && Math.hypot(b.vel.x, b.vel.z) < 1.6) this.botFire(b, t, dist, w);
           // granada ocasional a distancia media
