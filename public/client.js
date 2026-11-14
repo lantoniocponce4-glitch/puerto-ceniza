@@ -12,7 +12,11 @@ if (!window.THREE || !PC) { document.body.insertAdjacentHTML('beforeend', '<div 
 const { WEAPONS, NADES, MAPS, ROUND } = PC;
 const { clamp, lerp, rand, gauss, angDiff } = PC;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const isTouch = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+// Modo de control: una PC con pantalla táctil o lápiz sigue siendo PC si tiene mouse o panel táctil (puntero fino).
+// Se puede forzar desde el menú (prefs.input = 'pc' | 'touch').
+const INPUT_OVR = (() => { try { return JSON.parse(localStorage.getItem('pc2_prefs') || '{}').input || 'auto'; } catch (e) { return 'auto'; } })();
+const isTouch = INPUT_OVR === 'pc' ? false : INPUT_OVR === 'touch' ? true
+  : matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0 && !matchMedia('(any-pointer: fine)').matches);
 const nowS = () => performance.now() / 1000;
 const TEAMC = ['#5cc8e0', '#ef6a45'], TEAMN = ['Halcón', 'Cobra'];
 const SIDE_N = { atk: 'Terroristas', def: 'Antiterroristas' }, SIDE_L = { atk: 'terroristas', def: 'antiterroristas' };
@@ -1070,7 +1074,7 @@ canvas.addEventListener('mousedown', e => {
   if (wheelOpen) { toggleWheel(false); return; }
   if (e.button === 0) me.fireHeld = true; if (e.button === 2) { me.altHeld = true; onAlt(); }
 });
-addEventListener('mouseup', e => { if (isTouch) return; if (e.button === 0) me.fireHeld = false; if (e.button === 2) me.altHeld = false; });
+addEventListener('mouseup', e => { if (isTouch) { if (e.button === 0 && !firePtrs.size && !me.autoFiring) me.fireHeld = false; return; } if (e.button === 0) me.fireHeld = false; if (e.button === 2) me.altHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 function onAlt() { const w = WEAPONS[me.cur]; if (!me.alive || !w || w.melee) return; if (w.scope) { if (me.drawT <= 0 && me.reloadT <= 0) { me.scoped = !me.scoped; me.altScope = false; if (me.scoped) { sNoise(.06, .2, 2600, 0, 0, 3); sTone(1900, .05, .05, 'sine', 2400, .03); } else { sNoise(.05, .16, 1800, 0, 0, 3); } } } }
 function canAds() { const w = WEAPONS[me.cur]; return !!(w && !w.melee && !w.scope && vm.cur && vm.cur.ads); }
@@ -2002,6 +2006,8 @@ function drawGyroState() {
 if (prefs.mc.gyro !== 'off' && !gyroNeedsPerm) gyroOk = true;
 // iPhone olvida el permiso al recargar: se vuelve a pedir con el primer toque real en la pantalla
 addEventListener('touchend', () => { if (prefs.mc.gyro !== 'off' && !gyroOk && gyroNeedsPerm && !gyroAsked) enableGyro(true); }, { passive: true });
+function setInputMode(m) { prefs.input = m; savePrefs(); location.reload(); }
+if (!isTouch && navigator.maxTouchPoints > 0 && $('#tmodeRow')) { $('#tmodeRow').hidden = false; $('#tmodeBtn').onclick = () => setInputMode('touch'); }
 function drawMctl() {
   if (!isTouch) return; const m = prefs.mc;
   for (const box of document.querySelectorAll('.mctl')) {
@@ -2012,7 +2018,9 @@ function drawMctl() {
       <label>Sensibilidad del giroscopio <b>${m.gyroS.toFixed(2)}</b><input type="range" data-mc="gyroS" min="0.3" max="3" step="0.05" value="${m.gyroS}"></label>
       <label class="chk"><input type="checkbox" data-mc="gyroInv"${m.gyroInv ? ' checked' : ''}> Invertir giroscopio vertical</label>
       <div class="gyrow"><button type="button" class="btn small gybtn">Activar giroscopio</button><span class="gyst small"></span></div>
-      <label class="chk"><input type="checkbox" data-mc="autoFire"${m.autoFire ? ' checked' : ''}> Disparo automático al apuntar a un enemigo</label></div>`;
+      <label class="chk"><input type="checkbox" data-mc="autoFire"${m.autoFire ? ' checked' : ''}> Disparo automático al apuntar a un enemigo</label></div>
+      <div class="gyrow"><button type="button" class="btn small pcmode">Usar mouse y teclado (modo PC)</button><span class="small" style="color:var(--dim)">Si estás en una computadora con pantalla táctil</span></div>`;
+    box.querySelector('.pcmode').onclick = () => setInputMode('pc');
     box.querySelector('.gybtn').onclick = () => { if (prefs.mc.gyro === 'off') { prefs.mc.gyro = 'always'; savePrefs(); } gyroAsked = false; enableGyro().then(drawMctl); };
   }
   drawGyroState();

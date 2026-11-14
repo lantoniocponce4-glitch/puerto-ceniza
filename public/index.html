@@ -598,6 +598,7 @@ tr.dead td{opacity:.5}
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <div class="sec mctl" data-mctl="2" hidden></div>
+      <div class="sec" id="tmodeRow" hidden><button type="button" class="btn small" id="tmodeBtn">Usar controles táctiles</button></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       <div class="btns"><button class="go ghost" id="hudEdit2" type="button">Configurar HUD</button><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
     </div>
@@ -686,9 +687,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=48"></script>
-<script src="/models.js?v=48"></script>
-<script src="/client.js?v=48"></script>
+<script src="/core.js?v=49"></script>
+<script src="/models.js?v=49"></script>
+<script src="/client.js?v=49"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
