@@ -191,6 +191,7 @@ wss.on('connection', ws => {
     const nowMs = Date.now(); tok = Math.min(80, tok + (nowMs - tokT) * .06); tokT = nowMs; if (--tok < 0) { if (tok < -200) ws.terminate(); return; }
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m !== 'object') return;
+    if (m.t === 'pg') { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'pg', c: Number(m.c) || 0 })); return; }
     if (typeof m.t === 'string' && m.t.startsWith('sq_')) { if (!room) await sqMessage(ws, cid, m, async tk => (tk ? await ACC.fromToken(String(tk)) : null)); return; }
     if (m.t === 'join' && !room && !joining) {
       joining = true;
@@ -204,7 +205,7 @@ wss.on('connection', ws => {
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
       } else r = quickRoom(m.side, gm);
       if (r.humanCount >= PC.TEAM_SIZE * 2) return ws.send(JSON.stringify({ t: 'err', msg: `La sala está llena (${PC.TEAM_SIZE * 2} de ${PC.TEAM_SIZE * 2}). Prueba partida rápida o crea otra sala.` }));
-      const a = acct ? r.addHuman(cid, acct.display, m.side, { d: acct.profile.camo || null, w: acct.profile.camos || {} }, { card: acct.profile.card, title: acct.profile.title, tag: await ACC.clanTag(acct) }) : r.addHuman(cid, cleanName(m.name), m.side, null);
+      const a = acct ? r.addHuman(cid, acct.display, m.side, { d: acct.profile.camo || null, w: acct.profile.camos || {} }, { card: acct.profile.card, title: acct.profile.title, tag: await ACC.clanTag(acct), outfit: typeof m.outfit === 'string' ? m.outfit : null }) : r.addHuman(cid, cleanName(m.name), m.side, null, { outfit: typeof m.outfit === 'string' ? m.outfit : null });
       if (!a) {
         if (r.humanCount === 0) rooms.delete(r.code);
         const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';

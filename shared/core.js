@@ -21,9 +21,11 @@
   /* ================= ARMAS Y EQUIPO ================= */
   const WEAPONS = {
     knife: { id: 'knife', name: 'Cuchillo', slot: 3, price: 0, dmg: 40, melee: true, rpm: 140, speed: 5.4, kill: 1500, ap: .85, stand: 0, run: 0, crouch: 0, jump: 0, kick: 0, mag: 0, res: 0, reload: 0 },
+    p9s: { id: 'p9s', name: 'P-9S Sigilo', cls: 'Pistola silenciada', slot: 2, price: 200, side: 'def', sup: true, dmg: 34, ap: .5, rm: .88, rpm: 352, auto: false, mag: 12, res: 24, reload: 2.2, stand: .0055, run: .07, crouch: .004, jump: .16, kick: .02, speed: 5.2, kill: 300, snd: { sup: 1, cut: 1500, dec: .07, thump: 0, vol: .38 } },
     p9: { id: 'p9', name: 'P-9 Lince', cls: 'Pistola', slot: 2, price: 200, dmg: 30, ap: .5, rm: .85, rpm: 400, auto: false, mag: 13, res: 52, reload: 2.2, stand: .0065, run: .07, crouch: .0045, jump: .16, kick: .022, speed: 5.2, kill: 300, snd: { cut: 3600, dec: .14, thump: 140, vol: .7 } },
     r50: { id: 'r50', name: 'R-50 Toro', cls: 'Pistola pesada', slot: 2, price: 700, dmg: 58, ap: .93, rm: .81, rpm: 240, auto: false, mag: 7, res: 35, reload: 2.2, stand: .006, run: .13, crouch: .0045, jump: .22, kick: .075, speed: 5.0, kill: 300, snd: { cut: 2600, dec: .3, thump: 90, vol: 1.05 } },
     smg: { id: 'smg', name: 'SMG-9 Tábano', cls: 'Subfusil', slot: 1, price: 1250, dmg: 26, ap: .6, rm: .75, rpm: 860, auto: true, mag: 30, res: 120, reload: 2.1, stand: .008, run: .045, crouch: .006, jump: .15, kick: .0095, speed: 5.0, kill: 600, snd: { cut: 4200, dec: .14, thump: 150, vol: .72 } },
+    ars: { id: 'ars', name: 'AR-S Sordina', cls: 'Fusil silenciado', slot: 1, price: 2900, side: 'def', sup: true, dmg: 38, ap: .7, rm: .97, rpm: 600, auto: true, mag: 20, res: 80, reload: 3.0, stand: .003, run: .13, crouch: .0022, jump: .22, kick: .0128, speed: 4.6, kill: 300, snd: { sup: 1, cut: 1700, dec: .08, thump: 0, vol: .45 } },
     ar: { id: 'ar', name: 'AR-17 Saeta', cls: 'Fusil', slot: 1, price: 2700, dmg: 35, ap: .78, rm: .98, rpm: 600, auto: true, mag: 30, res: 90, reload: 2.5, stand: .0035, run: .13, crouch: .0026, jump: .22, kick: .016, speed: 4.6, kill: 300, snd: { cut: 3100, dec: .24, thump: 105, vol: .95 } },
     sr: { id: 'sr', name: 'SR-8 Garza', cls: 'Francotirador', slot: 1, price: 4750, dmg: 115, ap: .97, rm: .99, rpm: 41, auto: false, mag: 10, res: 30, reload: 3.6, stand: .06, scoped: .0006, run: .25, crouch: .05, jump: .32, kick: .06, speed: 4.0, kill: 100, scope: true, zoom: 18, snd: { cut: 2000, dec: .5, thump: 70, vol: 1.2 } },
     ap18: { id: 'ap18', name: 'AP-18 Colibrí', cls: 'Pistola automática', slot: 2, price: 500, dmg: 23, ap: .47, rm: .8, rpm: 900, auto: true, mag: 20, res: 80, reload: 2.2, stand: .009, run: .05, crouch: .007, jump: .15, kick: .011, speed: 5.1, kill: 300, snd: { cut: 3900, dec: .11, thump: 160, vol: .62 } },
@@ -158,6 +160,8 @@
   ];
   const ORDERS = { follow: 'Síganme', regroup: 'Reagrúpense', wait: 'Esperen aquí', holdA: 'Cubran el sitio A', holdB: 'Cubran el sitio B', push: 'Avancen', smoke: 'Tiren humo' };
   const TEAM_SIZE = 5; // 5 contra 5
+  // Atuendos de los soldados (cosméticos, se desbloquean por nivel; los ven todos)
+  const OUTFITS = [{ id: 'clasico', name: 'Clásico', lvl: 1 }, { id: 'noche', name: 'Nocturno', lvl: 3 }, { id: 'artico', name: 'Ártico', lvl: 6 }, { id: 'selva', name: 'Selva', lvl: 9 }, { id: 'pulso', name: 'Pulso · futurista', lvl: 15 }];
   // Rangos competitivos: 100 puntos por insignia; ganar suma 25, perder resta 20, empatar no cambia
   const RANKS = ['Recluta', 'Cabo', 'Sargento', 'Teniente', 'Capitán', 'Mayor', 'Coronel', 'General', 'Élite', 'Leyenda de Ceniza'];
   const rankOf = pts => Math.min(RANKS.length - 1, Math.floor(Math.max(0, pts || 0) / 100));
@@ -375,6 +379,114 @@
     steam: [[-15.8, -11.8], [10, -20], [4, 20], [20.2, 8.2], [-8, 24]], beacons: [[-.5, 5.2, -7.5], [13, 5.4, -30.5], [19, 7.3, 25], [9, 7.3, 26]],
     labels: []
   };
+  // Villa Salitre: pueblo costero con casas en las que se entra, pasadizo techado y sitio B dentro de una casa
+  MAPS.villa = {
+    id: 'villa', name: 'Villa Salitre', theme: 'desert', blurb: 'Pueblo costero: se entra a las casas, pasadizo techado hacia B (dentro de la casa grande) y plaza del pozo en A.',
+    bounds: [-42, -32, 42, 32], wallH: 4,
+    boxes: [
+      [6, -26.15, 11, -25.85, 3.2, 'bld'],
+      [11, -26.15, 13, -25.85, 1, 'bld'],
+      [11, -26.15, 13, -25.85, 1.3, 'bld', 1.9],
+      [13, -26.15, 18, -25.85, 3.2, 'bld'],
+      [6, -18.15, 9.2, -17.85, 3.2, 'bld'],
+      [9.2, -18.15, 10.8, -17.85, 1, 'bld'],
+      [9.2, -18.15, 10.8, -17.85, 1.3, 'bld', 1.9],
+      [10.8, -18.15, 18, -17.85, 3.2, 'bld'],
+      [5.85, -25.85, 6.15, -22.9, 3.2, 'bld'],
+      [5.85, -22.9, 6.15, -21.1, 0.9, 'bld', 2.3],
+      [5.85, -21.1, 6.15, -18.15, 3.2, 'bld'],
+      [17.85, -25.85, 18.15, -22.9, 3.2, 'bld'],
+      [17.85, -22.9, 18.15, -21.1, 0.9, 'bld', 2.3],
+      [17.85, -21.1, 18.15, -18.15, 3.2, 'bld'],
+      [5.8, -26.2, 18.2, -17.8, 0.3, 'roof', 3.2],
+      [9, -25.3, 10.2, -24.1, 1.1, 'crate'],
+      [14.5, -20, 15.7, -18.8, 1.1, 'crate'],
+      [26, -22, 28, -20, 1, 'stoneC'],
+      [21, -26, 22.2, -24.8, 1.1, 'crate'],
+      [31, -17, 33.4, -15.8, 1.1, 'crate'],
+      [22, -14.6, 27, -14, 1, 'stone'],
+      [33, -27, 34.2, -25.8, 1.1, 'crate'],
+      [28, -10.15, 29.6, -9.85, 3.2, 'bld2'],
+      [29.6, -10.15, 31.4, -9.85, 0.9, 'bld2', 2.3],
+      [31.4, -10.15, 33.2, -9.85, 3.2, 'bld2'],
+      [33.2, -10.15, 34.8, -9.85, 1, 'bld2'],
+      [33.2, -10.15, 34.8, -9.85, 1.3, 'bld2', 1.9],
+      [34.8, -10.15, 36, -9.85, 3.2, 'bld2'],
+      [28, -2.15, 36, -1.85, 3.2, 'bld2'],
+      [27.85, -9.85, 28.15, -9, 3.2, 'bld2'],
+      [27.85, -9, 28.15, -7.4, 1, 'bld2'],
+      [27.85, -9, 28.15, -7.4, 1.3, 'bld2', 1.9],
+      [27.85, -7.4, 28.15, -6.9, 3.2, 'bld2'],
+      [27.85, -6.9, 28.15, -5.1, 0.9, 'bld2', 2.3],
+      [27.85, -5.1, 28.15, -2.15, 3.2, 'bld2'],
+      [35.85, -9.85, 36.15, -2.15, 3.2, 'bld2'],
+      [27.8, -10.2, 36.2, -1.8, 0.3, 'roof', 3.2],
+      [-4, -10.15, 0, -9.85, 3.2, 'bld'],
+      [0, -10.15, 2, -9.85, 1, 'bld'],
+      [0, -10.15, 2, -9.85, 1.3, 'bld', 1.9],
+      [2, -10.15, 6, -9.85, 3.2, 'bld'],
+      [-4, -2.15, 0, -1.85, 3.2, 'bld'],
+      [0, -2.15, 2, -1.85, 1, 'bld'],
+      [0, -2.15, 2, -1.85, 1.3, 'bld', 1.9],
+      [2, -2.15, 6, -1.85, 3.2, 'bld'],
+      [-4.15, -9.85, -3.85, -6.9, 3.2, 'bld'],
+      [-4.15, -6.9, -3.85, -5.1, 0.9, 'bld', 2.3],
+      [-4.15, -5.1, -3.85, -2.15, 3.2, 'bld'],
+      [5.85, -9.85, 6.15, -6.9, 3.2, 'bld'],
+      [5.85, -6.9, 6.15, -5.1, 0.9, 'bld', 2.3],
+      [5.85, -5.1, 6.15, -2.15, 3.2, 'bld'],
+      [-4.2, -10.2, 6.2, -1.8, 0.3, 'roof', 3.2],
+      [-2.5, -9.2, -1.3, -8, 1.1, 'crate'],
+      [-10.35, 2, -10.05, 16, 2.8, 'bld2'],
+      [-6.55, 2, -6.25, 8.2, 2.8, 'bld2'],
+      [-6.55, 8.2, -6.25, 9.8, 0.5, 'bld2', 2.3],
+      [-6.55, 9.8, -6.25, 16, 2.8, 'bld2'],
+      [-10.4, 2, -6.2, 16, 0.3, 'roof', 2.8],
+      [-28, 9.85, -22.1, 10.15, 3.6, 'bld'],
+      [-22.1, 9.85, -19.9, 10.15, 1.3, 'bld', 2.3],
+      [-19.9, 9.85, -17.3, 10.15, 3.6, 'bld'],
+      [-17.3, 9.85, -15.7, 10.15, 1, 'bld'],
+      [-17.3, 9.85, -15.7, 10.15, 1.7, 'bld', 1.9],
+      [-15.7, 9.85, -14, 10.15, 3.6, 'bld'],
+      [-28, 23.85, -24.8, 24.15, 3.6, 'bld'],
+      [-24.8, 23.85, -23.2, 24.15, 1.3, 'bld', 2.3],
+      [-23.2, 23.85, -14, 24.15, 3.6, 'bld'],
+      [-28.15, 10.15, -27.85, 16, 3.6, 'bld'],
+      [-28.15, 16, -27.85, 18, 1, 'bld'],
+      [-28.15, 16, -27.85, 18, 1.7, 'bld', 1.9],
+      [-28.15, 18, -27.85, 23.85, 3.6, 'bld'],
+      [-14.15, 10.15, -13.85, 17.1, 3.6, 'bld'],
+      [-14.15, 17.1, -13.85, 18.9, 1.3, 'bld', 2.3],
+      [-14.15, 18.9, -13.85, 23.85, 3.6, 'bld'],
+      [-28.2, 9.8, -13.8, 24.2, 0.3, 'roof', 3.6],
+      [-24, 14, -22.8, 15.2, 1.1, 'crate'],
+      [-22.8, 14, -21.6, 15.2, 1.1, 'crate'],
+      [-18, 20, -16.8, 21.2, 1.1, 'crate'],
+      [-26.5, 20.5, -25.3, 21.7, 1.1, 'crate'],
+      [-20, 18, -19, 22, 1, 'wood'],
+      [-22, -4, -20.8, -2.8, 1.1, 'crate'],
+      [-14, -18, -11.6, -16.8, 1, 'barrier'],
+      [8, 4, 10.4, 5.2, 1, 'barrier'],
+      [14, 10, 15.2, 11.2, 1.1, 'crate'],
+      [2, 16, 3.2, 17.2, 1.1, 'crate'],
+      [-30, -24, -24, -20, 3.2, 'bld2'],
+      [-34, 14, -31, 26, 3.2, 'bld2'],
+      [20, 16, 26, 26, 3.6, 'bld'],
+      [-6, 22, 0, 28, 3.2, 'bld2'],
+      [14, -30, 24, -28.6, 3.2, 'bld2'],
+      [-16, -28, -12, -24, 2.6, 'cont:blue'],
+      [30, 12, 34, 18, 2.6, 'cont:red']
+    ],
+    spawns: { atk: [[-38, -10], [-38, -5], [-38, 0], [-38, 5], [-36, -2]], def: [[38, -10], [38, -5], [38, 0], [38, 5], [36, 2]] },
+    buy: { atk: [-42, -32, -33, 32], def: [33, -32, 42, 32] },
+    sites: { A: { r: [20, -27, 35, -14], c: [24, -20] }, B: { r: [-27, 11, -15, 23], c: [-20, 17] } },
+    routes: {
+      A: [[[-36, -12], [-20, -22], [4, -22], [12, -22], [20, -22], [24, -20]], [[-36, 0], [-24, 0], [-12, -6], [-6, -6], [1, -6], [8, -6], [16, -10], [23, -17]]],
+      B: [[[-36, 6], [-24, 6], [-21, 8], [-21, 12], [-20, 16]], [[-36, 0], [-12, 0], [-8.3, 1], [-8.3, 9], [-8.3, 15], [-11, 18], [-13, 18], [-18, 18]]]
+    },
+    holds: { A: [[30, -20, Math.PI * .5], [24, -15.5, Math.PI], [33.5, -24, Math.PI * .6]], B: [[-16, 12.5, Math.PI * .75], [-26, 17.5, Math.PI * .25], [-16, 22.5, Math.PI * .5]] },
+    labels: []
+  };
   // Polígono de tiro: solo para el modo práctica 'range'; no entra en rotación ni votación
   MAPS.poligono = {
     id: 'poligono', name: 'Polígono de tiro', theme: 'port', hidden: true, blurb: 'Práctica de puntería.',
@@ -390,7 +502,7 @@
     routes: { A: [[[0, 2], [-12, -42]]], B: [[[0, 2], [12, -42]]] }, holds: { A: [[-12.5, -42.5, 0]], B: [[12.5, -42.5, 0]] }, labels: []
   };
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
-  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia' };
+  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
   function pickCond(mapId) { const r = Math.random(); if (r < .3) return { night: false, weather: null }; if (r < .55) return { night: false, weather: null, dusk: true }; if (r < .77) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
 
@@ -714,12 +826,20 @@
       let p = a.tdmGun || (a.human ? 'ar' : TDM.guns[(Math.random() * TDM.guns.length) | 0]); if (!this.allowed(p)) { const ok = TDM.guns.filter(g => this.allowed(g)); p = ok.length ? ok[(Math.random() * ok.length) | 0] : null; }
       const sec = this.allowed('p9') ? 'p9' : null; a.inv = { p, s: sec, n: { he: 1, fl: 1, sm: 0, in: 0, de: 0 } }; a.cur = p || sec || 'knife'; a.ammo = WEAPONS[a.cur].mag || 0; a.reloadT = 0; a.armor = 100; a.helmet = true; a.kit = false; a.money = 0; a.pdirty = true;
     }
-    spawnTDM(a) {
-      let best = null, bs = -1e9;
-      for (const p of this.ggPoints()) { let md = 60, mf = 60; for (const t of this.actors) { if (!t.alive || t === a) continue; const d = Math.hypot(t.pos.x - p[0], t.pos.z - p[1]); if (t.team !== a.team) md = Math.min(md, d); else mf = Math.min(mf, d); }
-        const sc = Math.min(md, 32) - Math.max(0, Math.min(mf, 30) - 12) * .25 + Math.random() * 8; if (sc > bs) { bs = sc; best = p; } }
-      this.equipTDM(a); this.spawn(a, best);
+    sideOfPoint(p, a) {
+      const S = this.M.spawns, av = l => [l.reduce((s, q) => s + q[0], 0) / l.length, l.reduce((s, q) => s + q[1], 0) / l.length], A = av(S.atk), D = av(S.def);
+      const ax = [A[0] - D[0], A[1] - D[1]], L = Math.hypot(ax[0], ax[1]) || 1, mid = [(A[0] + D[0]) / 2, (A[1] + D[1]) / 2];
+      const pr = ((p[0] - mid[0]) * ax[0] + (p[1] - mid[1]) * ax[1]) / (L * L / 2); return this.side(a.team) === 'atk' ? pr : -pr;
     }
+    safeSpawn(a) {
+      let best = null, bs = -1e9;
+      for (const p of this.ggPoints()) {
+        const own = this.sideOfPoint(p, a); let md = 80, mf = 80, seen = 0;
+        for (const t of this.actors) { if (!t.alive || t === a) continue; const d = Math.hypot(t.pos.x - p[0], t.pos.z - p[1]); if (t.team !== a.team) { md = Math.min(md, d); if (d < 45 && this.W.visible(eyeOf(t), [p[0], 1.5, p[1]], this.smokes)) seen++; } else mf = Math.min(mf, d); }
+        const sc = Math.min(md, 40) + clamp(own, -1, 1) * 22 - seen * 45 - (md < 14 ? 40 : 0) - Math.max(0, Math.min(mf, 30) - 14) * .2 + Math.random() * 6; if (sc > bs) { bs = sc; best = p; } }
+      return best;
+    }
+    spawnTDM(a) { this.equipTDM(a); this.spawn(a, this.safeSpawn(a)); }
     killTDM(v, att, head, wid) {
       v.streak = 0;
       v.respawnAt = this.now + TDM.respawn; v.pdirty = true; this.rosterDirty = true;
@@ -759,7 +879,8 @@
       }
       return (this._gp = pts);
     }
-    spawnGG(a) {
+    spawnGG(a) { this.equipGG(a); this.spawn(a, this.safeSpawn(a)); }
+    spawnGGOld(a) {
       let best = null, bs = -1e9;
       for (const p of this.ggPoints()) { let md = 60; for (const t of this.actors) if (t.alive && t !== a && t.team !== a.team) md = Math.min(md, Math.hypot(t.pos.x - p[0], t.pos.z - p[1])); const sc = Math.min(md, 30) + Math.random() * 12; if (sc > bs) { bs = sc; best = p; } }
       this.equipGG(a); this.spawn(a, best);
@@ -770,10 +891,11 @@
     }
     // Las armas (principal y secundaria) se conservan entre rondas, cambio de lado y partidas nuevas, aunque mueras
     allowed(wid) { const w = WEAPONS[wid]; return !!w && !w.melee && ARMS_OK[this.rules.arms](w); }
-    rememberGuns(a) { if (a.inv && (a.inv.p || (a.inv.s && a.inv.s !== 'p9'))) a.keep = { p: a.inv.p || null, s: a.inv.s || 'p9' }; }
+    basePistol(a) { return this.side(a.team) === 'def' && this.allowed('p9s') ? 'p9s' : 'p9'; }
+    rememberGuns(a) { if (a.inv && (a.inv.p || (a.inv.s && a.inv.s !== 'p9' && a.inv.s !== 'p9s'))) a.keep = { p: a.inv.p || null, s: a.inv.s || this.basePistol(a) }; }
     resetLoadout(a, full) {
       if (a.alive) this.rememberGuns(a); const k = a.keep;
-      a.inv = { p: k && this.allowed(k.p) ? k.p : null, s: k && this.allowed(k.s) ? k.s : this.allowed('p9') ? 'p9' : null, n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = a.inv.p || a.inv.s || 'knife'; a.kit = false;
+      a.inv = { p: k && this.allowed(k.p) ? k.p : null, s: k && this.allowed(k.s) && (!WEAPONS[k.s] || !WEAPONS[k.s].side || WEAPONS[k.s].side === this.side(a.team)) && k.s !== 'p9' && k.s !== 'p9s' ? k.s : this.allowed('p9') ? this.basePistol(a) : null, n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = a.inv.p || a.inv.s || 'knife'; a.kit = false;
       if (full) { a.armor = 0; a.helmet = false; }
       a.pdirty = true;
     }
@@ -791,7 +913,8 @@
       for (const a of this.actors) {
         a.order = null; a.rk = 0;
         if (!a.alive) this.resetLoadout(a, true);
-        if (!a.inv.s && !a.inv.p && this.allowed('p9')) a.inv.s = 'p9';
+        if (!a.inv.s && !a.inv.p && this.allowed('p9')) a.inv.s = this.basePistol(a);
+        if ((a.inv.s === 'p9' || a.inv.s === 'p9s') && this.mode === 'bomb' || this.mode === 'elim') { if (a.inv.s === 'p9' || a.inv.s === 'p9s') a.inv.s = this.basePistol(a); }
         a.cur = a.inv.p || a.inv.s || 'knife';
         this.spawn(a);
         a.snap = { inv: JSON.parse(JSON.stringify(a.inv)), armor: a.armor, helmet: a.helmet, kit: a.kit, money: a.money, cur: a.cur };
@@ -854,6 +977,7 @@
       if (!a && !forced) { team = 1 - team; a = this.actors.find(x => x.team === team && !x.human); }
       if (!a) { this.lastErr = 'full'; return null; }
       a.clanTag = look && typeof look.tag === 'string' && /^[A-Z0-9]{2,4}$/.test(look.tag) ? look.tag : null;
+      a.outfit = look && OUTFITS.some(o => o.id === look.outfit) ? look.outfit : null;
       a.card = look && CARDS.some(c => c.id === look.card) ? look.card : null; a.title = look && TITLES.some(c => c.id === look.title) ? look.title : null;
       a.human = cid; a.streak = 0; a.ms = null; if (this.phase === 'buy' || !a.alive) { a.keep = null; } a.joinedAt = this.now; a.joinedRound = this.round; a.mvT = undefined; a.mvB = 3; a.mags = {}; a.name = name; a.kills = a.deaths = a.assists = a.score = 0; a.target = null; a.path = null; a.act = false; a.camo = cleanCamo(camo);
       if (this.mode === 'gg') { a.lvl = 0; this.equipGG(a); }
@@ -883,7 +1007,7 @@
       const side = this.side(a.team);
       if (typeof item !== 'string') return false;
       const w = has(WEAPONS, item) ? WEAPONS[item] : null;
-      if (w && !this.allowed(item)) return false;
+      if (w && !this.allowed(item)) return false; if (w && w.side && w.side !== side) return false;
       if (w && w.price && !w.melee) {
         if (a.money < w.price) return false;
         const slot = w.slot === 1 ? 'p' : 's';
@@ -979,7 +1103,7 @@
         if (mg[wid] <= 0) { if (this.now - a.lastShot > w.reload * .8 && rs[wid] > 0) refill(); else return; if (mg[wid] <= 0) return; }
         mg[wid]--;
       }
-      a.lastShot = this.now; a.cur = wid; if (!w.melee) a.firedAt = this.now;
+      a.lastShot = this.now; a.cur = wid; if (!w.melee && !w.sup) a.firedAt = this.now;
       let o = [num(m.o[0]), num(m.o[1]), num(m.o[2])]; const eye = eyeOf(a);
       // el origen que manda el cliente debe estar cerca del ojo y sin pared de por medio
       if (Math.hypot(o[0] - eye[0], o[1] - eye[1], o[2] - eye[2]) > 1.5 || !this.W.visible(eye, o)) o = eye;
@@ -1050,7 +1174,7 @@
       for (const [id, dm] of v.damagers) { if (att && id !== att.id && dm >= 40) { const a = this.actors[id]; a.assists++; a.score += 1; ast.push(id); } }
       // soltar arma principal (o secundaria) y la carga
       this.rememberGuns(v);
-      const gun = v.inv.p || (v.inv.s && v.inv.s !== 'p9' ? v.inv.s : null);
+      const gun = v.inv.p || (v.inv.s && v.inv.s !== 'p9' && v.inv.s !== 'p9s' ? v.inv.s : null);
       if (gun) this.dropWeapon(v, gun);
       if (this.bomb.st === 'carried' && this.bomb.by === v.id) this.dropBomb(v);
       this.ev({ k: 'kill', a: att ? att.id : -1, v: v.id, h: head ? 1 : 0, w: wid, ast, dist: att ? Math.round(d2(att.pos, v.pos)) : 0, wb: this._wb ? 1 : 0 });
@@ -1250,9 +1374,9 @@
         else if (b.money >= 1700 + 650 && r < .15) buy('tr7');
         else if (!eco && b.money >= 1100 + 650 && r < .25) buy('es12');
       }
-      if (!b.inv.p && b.inv.s === 'p9' && b.money >= 500 && Math.random() < .25) buy(Math.random() < .5 ? 'ap18' : 'b3');
+      if (!b.inv.p && (b.inv.s === 'p9' || b.inv.s === 'p9s') && b.money >= 500 && Math.random() < .25) buy(Math.random() < .5 ? 'ap18' : 'b3');
       if (b.helmet && b.armor >= 100) { } else if (b.money >= 1000 && b.inv.p) buy('helm'); else if (b.money >= 650 && (b.inv.p || this.round === 1 || this.round === this.R.half + 1)) buy('kevlar');
-      if (!b.inv.p && b.inv.s === 'p9' && b.money >= 700 && Math.random() < .35) buy('r50');
+      if (!b.inv.p && (b.inv.s === 'p9' || b.inv.s === 'p9s') && b.money >= 700 && Math.random() < .35) buy('r50');
       if (side === 'def' && b.money >= 400 && b.inv.p) buy('kit');
       if (b.money >= 300 && b.inv.p && Math.random() < .6) buy('he');
       if (b.money >= 300 && b.inv.p && Math.random() < .5) buy('sm');
@@ -1452,7 +1576,7 @@
       if (this.now - b.lastShot < iv) return;
       if (b.burst <= 0) { if (b.burstPause > this.now) return; b.burst = w.burst ? w.burst : w.auto ? (rand(dist > 20 ? 2 : 4, dist > 20 ? 5 : 10) | 0) : 1; b.sprayI = 0; }
       b.burst--; if (b.burst <= 0) b.burstPause = this.now + (w.burst ? w.gap + rand(.1, .4) : w.auto ? rand(.2, .45) : rand(.3, .8));
-      b.lastShot = this.now; b.ammo--; b.firedAt = this.now; b.sprayI = (b.sprayI || 0) + 1;
+      b.lastShot = this.now; b.ammo--; if (!w.sup) b.firedAt = this.now; b.sprayI = (b.sprayI || 0) + 1;
       const e = eyeOf(b); const tsp = Math.hypot(t.vel.x, t.vel.z);
       let err = (b.errMul || 1) * this.D.err * (b.seenT < b.react + .5 ? 1.6 : 1) * (1 + tsp * .07) * (b.crouch ? .85 : 1) + (w.scope ? .002 : w.stand) + Math.min(b.sprayI, 10) * w.kick * .12;
       const head = Math.random() < (w.scope ? .1 : .22); const aimY = t.pos.y + (head ? t.h - .17 : t.h * .62);
@@ -1543,8 +1667,8 @@
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
     }
     privateState(a) { return { t: 'p', tm: this.actors.filter(o => o !== a && o.team === a.team && o.connected !== false).map(o => [o.id, o.money | 0, o.inv.p || '', o.alive ? 1 : 0]), stk: a.streak | 0, lvl: a.lvl | 0, m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
-    roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
+    roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '', a.outfit || '']) }; }
   }
 
-  return { RANKS, rankOf, TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { OUTFITS, RANKS, rankOf, TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

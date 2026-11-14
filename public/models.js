@@ -259,7 +259,11 @@ function pistolDef(len, mag, comp) {
     return { P, muzzle: len + (comp ? .03 : .008), boreY: .046, grip: [-.015, -.045], fore: [-.02, -.06], cls: 'pistol', sight: [len - .0125, .0705], adsZ: -.26 };
   };
 }
-DEF.p9 = pistolDef(.15); DEF.r50 = pistolDef(.2); DEF.ap18 = pistolDef(.155, true, true);
+DEF.p9 = pistolDef(.15);
+// silenciador: tubo con anillos de sujeción, alarga el cañón
+function withSuppressor(base, len, r, y) { return function () { const d = base(); const x0 = d.muzzle - .004; d.P.push(['park', cyl(r, r, x0, x0 + len, y, 0, 18)]); d.P.push(['metal', cyl(r * 1.06, r * 1.06, x0 + .006, x0 + .016, y, 0, 18)]); d.P.push(['metal', cyl(r * 1.06, r * 1.06, x0 + len - .012, x0 + len - .002, y, 0, 18)]); d.P.push(['rubber', cyl(r * .45, r * .45, x0 + len - .001, x0 + len + .002, y, 0, 12)]); d.muzzle = x0 + len; return d; }; }
+DEF.p9s = withSuppressor(pistolDef(.15), .13, .0135, .046);
+DEF.ars = withSuppressor(DEF.ar, .19, .018, .045); DEF.r50 = pistolDef(.2); DEF.ap18 = pistolDef(.155, true, true);
 DEF.b3 = pistolDef(.17, false, true);
 const A = () => { const P = []; return [P, (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g])]; };
 // K-11 Zorro: subfusil compacto con cargador largo y culata plegable
@@ -366,6 +370,30 @@ const LOOK = [
 ];
 const TEAMC = [0x5cc8e0, 0xef6a45];
 const SCARF = [0x4a4f3a, 0x262626, 0x8a7350, 0x6b3a2e].map(c => S({ map: TXCLOTH, color: c, roughness: .95 }));
+// Atuendos: paleta de camuflaje y colores de equipo por variante (el diseño del camuflaje sigue el estilo de cada bando)
+const OUTFIT_DEF = {
+  noche: { cols: ['#22272d', '#15181c', '#2e343b', '#1b1f24'], base: '#1d2126', vest: 0x15181c, helm: 0x23272c, pad: 0x101215, pack: 0x1a1d21 },
+  artico: { cols: ['#d8dde2', '#aab3bb', '#eef1f3', '#8d969e'], base: '#c9d0d6', vest: 0x9aa3ab, helm: 0xc9d0d6, pad: 0x7d868e, pack: 0xaab3bb },
+  selva: { cols: ['#3f5a2e', '#2a3b1f', '#5d7a3e', '#1f2a17'], base: '#344a27', vest: 0x34432a, helm: 0x4a5a36, pad: 0x27311f, pack: 0x3a4a2c },
+  pulso: { cols: ['#1a1d24', '#0f1116', '#262b35', '#13161c'], base: '#16191f', vest: 0x111318, helm: 0x1a1d24, pad: 0x0d0f12, pack: 0x14171c, glow: true }
+};
+function texCamoV(team, cols, base) {
+  const [c, x] = cnv(256, 256); x.fillStyle = base; x.fillRect(0, 0, 256, 256);
+  if (team === 0) { for (let i = 0; i < 520; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; let px = (Math.random() * 64 | 0) * 4, py = (Math.random() * 64 | 0) * 4; const n = 2 + (Math.random() * 6 | 0); for (let k = 0; k < n; k++) { x.fillRect(px, py, 4, 4); px += (Math.random() < .5 ? 4 : 0); py += (Math.random() < .5 ? 4 : 0); } } }
+  else for (let i = 0; i < 70; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; x.save(); x.translate(rand(0, 256), rand(0, 256)); x.rotate(rand(0, 3)); x.beginPath(); x.ellipse(0, 0, rand(10, 30), rand(5, 14), 0, 0, 7); x.fill(); x.restore(); }
+  speck(x, 256, 256, 5000, .1); for (let i = 0; i < 256; i += 2) { x.fillStyle = 'rgba(0,0,0,.04)'; x.fillRect(0, i, 256, 1); }
+  return mk(c, 2);
+}
+const OUTMATS = {}, OUTCAMO = {};
+function outfitCamo(team, o) { const k = team + o; if (!OUTCAMO[k]) { const D = OUTFIT_DEF[o]; OUTCAMO[k] = texCamoV(team, D.cols, D.base); } return OUTCAMO[k]; }
+function teamMatsFor(team, o) {
+  if (!o || !OUTFIT_DEF[o]) return teamMats[team]; const k = team + o; if (OUTMATS[k]) return OUTMATS[k];
+  const D = OUTFIT_DEF[o], B = teamMats[team], C = Object.assign({}, B);
+  C.camo = withN(S({ map: outfitCamo(team, o), roughness: .92 }), NWEAVE, .28);
+  for (const [key, col] of [['vest', D.vest], ['helm', D.helm], ['pad', D.pad], ['pack', D.pack]]) { C[key] = B[key].clone(); C[key].color.setHex(col); }
+  if (D.glow) { C.tag = B.tag.clone(); C.tag.emissiveIntensity = 1.6; C.glow = true; }
+  return (OUTMATS[k] = C);
+}
 const teamMats = [0, 1].map(t => {
   const L = LOOK[t];
   const o = {
@@ -434,7 +462,7 @@ function mergeChildren(grp, skip) {
 const POSE_OV = { descanso: { pos: [.14, .3, -.2], rot: [.85, .15, .25] }, hombro: { pos: [.17, .64, .02], rot: [-1.15, .05, .12] }, alerta: { pos: [.06, .44, -.32], rot: [.22, 0, 0] } };
 const HANDPOS = { rifle: [.1, .47, -.2], pistol: [.03, .47, -.44], knife: [.2, .3, -.27], nade: [.2, .34, -.25] };
 function buildSoldier(team, idx, opt = {}) {
-  const C = teamMats[team], skin = skinMat(team, idx);
+  const C = teamMatsFor(team, opt.outfit), skin = skinMat(team, idx);
   const g = new T.Group(), body = new T.Group(); g.add(body);
   const add = (p, geo, mat, x = 0, y = 0, z = 0) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
   const hips = new T.Group(); hips.position.y = .95; body.add(hips);
@@ -464,6 +492,7 @@ function buildSoldier(team, idx, opt = {}) {
   for (const sx of [-1, 1]) { const t = add(upper, rbox(.012, .06, .07, .004), C.tag, sx * .262, .4, 0); t.rotation.z = sx * .25; }
   for (const sx of [-1, 1]) add(hips, rbox(.07, .08, .05, .014), C.vest, sx * .13, .02, -.07);
   add(hips, rbox(.1, .07, .05, .014), C.pack, 0, .02, .13);
+  if (C.glow) { for (const sx of [-1, 1]) add(upper, rbox(.012, .2, .008, .003), C.tag, sx * .15, .3, -.146); add(upper, rbox(.24, .01, .008, .003), C.tag, 0, .18, -.146); add(upper, rbox(.2, .01, .008, .003), C.tag, 0, .46, .146); }
   add(upper, rbox(.055, .13, .045, .012), C.black, .2, .34, .06); add(upper, cylY(.004, .003, .22, 6), C.black, .21, .5, .07);
   add(upper, cylY(.052, .058, .12, 12), skin, 0, .58, 0);
   const head = new T.Group(); head.position.set(0, .71, 0); upper.add(head);
@@ -571,7 +600,7 @@ function mkHand(k, left, watch) {
   if (watch) { const w = new T.Mesh(rbox(.036 * k, .04 * k, .014 * k, .005 * k), fpMats.watch); w.position.set(0, -.085 * k, .046 * k); const f = new T.Mesh(new T.PlaneGeometry(.026 * k, .028 * k), fpMats.face); f.position.set(0, -.085 * k, .0535 * k); h.add(w, f); }
   return h;
 }
-function setFpTeam(t) { fpMats.sleeve.map = CAMO[t]; fpMats.sleeve.needsUpdate = true; fpMats.glove.color.setHex(LOOK[t].glove); fpMats.tag.color.setHex(TEAMC[t]); fpMats.tag.emissive.setHex(TEAMC[t]); fpMats.sleeve.color.setHex(t ? 0xb0a898 : 0x8f969e); }
+function setFpTeam(t, o) { fpMats.sleeve.map = o && OUTFIT_DEF[o] ? outfitCamo(t, o) : CAMO[t]; fpMats.sleeve.needsUpdate = true; fpMats.glove.color.setHex(LOOK[t].glove); fpMats.tag.color.setHex(TEAMC[t]); fpMats.tag.emissive.setHex(TEAMC[t]); fpMats.sleeve.color.setHex(t ? 0xb0a898 : 0x8f969e); }
 function fpArms(gun, pos, s) {
   const info = gun.userData.info; if (info.cls === 'nade' && false) return;
   const add = (geo, mat) => { const m = new T.Mesh(geo, mat); gun.add(m); return m; };

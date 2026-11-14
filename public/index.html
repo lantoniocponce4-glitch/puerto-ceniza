@@ -482,6 +482,47 @@ tr.dead td{opacity:.5}
 .rvTime{position:relative;width:100%}.rvTime input{width:100%;accent-color:var(--amber)}
 #rvTicks{position:absolute;left:0;right:0;top:-4px;height:8px;pointer-events:none}#rvTicks i{position:absolute;width:3px;height:10px;margin-left:-1px;background:var(--amber)}#rvTicks i.t0{background:var(--t0)}#rvTicks i.t1{background:var(--t1)}
 .rkb{flex:none}
+
+#perf{position:absolute;left:50%;transform:translateX(-50%);top:calc(66px + env(safe-area-inset-top,0px));font-family:var(--f-mono);font-size:11px;color:var(--dim);background:rgba(10,12,14,.55);padding:3px 8px;border-radius:2px;pointer-events:none}
+#perf b{font-weight:700;color:var(--sand)}#perf b.ok{color:var(--ok)}#perf b.mid{color:var(--amber)}#perf b.low{color:var(--bad)}
+#pause .chk{display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0}
+
+/* ===== Capa «Interfaz táctica holográfica»: esquinas biseladas, bordes con brillo y lectura de juego ===== */
+:root{--cut:9px;--hud-glow:rgba(92,225,255,.35);--edge:rgba(233,220,192,.28);--chamfer:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+.box,#topbar,#vitals,#ammoBox,.kf,#money,.mapc,.px,.outf,#perf,.buybox,.tbr,#markSel span,.rvBar select{clip-path:var(--chamfer)}
+.box{background:linear-gradient(160deg,rgba(24,30,38,.97),rgba(11,14,18,.97));border:0;box-shadow:inset 0 0 0 1px var(--edge),inset 0 1px 0 0 rgba(255,255,255,.08),0 20px 60px rgba(0,0,0,.55);position:relative}
+.box::before{content:"";position:absolute;left:var(--cut);right:30%;top:0;height:2px;background:linear-gradient(90deg,var(--amber),transparent)}
+#topbar,#vitals,#ammoBox,#money,.kf{border:0;background:linear-gradient(180deg,rgba(18,23,29,.78),rgba(10,13,16,.7));box-shadow:inset 0 0 0 1px var(--edge),inset 0 -2px 0 0 rgba(92,225,255,.12);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#vitals .vit b,#ammoN{text-shadow:0 0 14px rgba(255,240,210,.25)}
+.go{background:linear-gradient(180deg,#ffc95a,#e9a12b);clip-path:var(--chamfer);box-shadow:0 0 0 0 rgba(242,179,61,0);transition:filter .15s,transform .15s}
+.go:hover{filter:brightness(1.08) drop-shadow(0 0 10px rgba(242,179,61,.45));transform:translateY(-1px)}
+.go:active{transform:translateY(1px)}
+.go:focus-visible{outline:none;box-shadow:inset 0 0 0 2px #fff}
+.go.ghost{background:linear-gradient(180deg,rgba(40,48,58,.85),rgba(22,27,33,.85));color:var(--sand);box-shadow:inset 0 0 0 1px var(--edge)}
+.go.ghost:hover{box-shadow:inset 0 0 0 1px var(--amber);filter:none}
+.seg{clip-path:var(--chamfer);box-shadow:inset 0 0 0 1px var(--edge)}
+.seg button[aria-pressed="true"]{background:linear-gradient(180deg,#f4e7c8,#d9c49a);box-shadow:inset 0 -2px 0 var(--amber)}
+.mapc{border:0;box-shadow:inset 0 0 0 1px var(--edge);transition:transform .15s,box-shadow .15s}
+.mapc:hover{transform:translateY(-2px);box-shadow:inset 0 0 0 1px var(--amber)}
+.mapc[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--amber),0 0 24px rgba(242,179,61,.25)}
+#menu h1{background:linear-gradient(180deg,#fff7e6 0%,#e9dcc0 55%,#b8a581 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 18px rgba(242,179,61,.18))}
+#menu h1 em{-webkit-text-fill-color:transparent;-webkit-text-stroke:1.5px var(--amber)}
+#menu .eyebrow::before{content:"";display:inline-block;width:22px;height:2px;background:var(--amber);vertical-align:middle;margin-right:10px;box-shadow:0 0 8px var(--amber)}
+#menu::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);mix-blend-mode:overlay}
+#menu::before{content:"";position:fixed;left:0;right:0;height:120px;top:-120px;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(92,225,255,.05),transparent);animation:sweep 9s linear infinite}
+@keyframes sweep{to{transform:translateY(calc(100vh + 240px))}}
+.lbl{letter-spacing:.14em}
+#topbar #timer{text-shadow:0 0 16px rgba(255,255,255,.18)}
+.kf.me{box-shadow:inset 0 0 0 1px var(--amber),0 0 14px rgba(242,179,61,.25)}
+.outfits{display:flex;gap:8px;flex-wrap:wrap}
+.outf{all:unset;cursor:pointer;display:grid;grid-template-columns:28px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:7px 12px 7px 8px;min-width:120px;background:linear-gradient(180deg,rgba(30,36,44,.9),rgba(18,22,27,.9));box-shadow:inset 0 0 0 1px var(--edge)}
+.outf i{grid-row:1/3;width:28px;height:28px;clip-path:var(--chamfer);background:linear-gradient(135deg,#5b6773,#2f363f)}
+.outf.o-noche i{background:linear-gradient(135deg,#2e343b,#101215)}.outf.o-artico i{background:linear-gradient(135deg,#eef1f3,#8d969e)}.outf.o-selva i{background:linear-gradient(135deg,#5d7a3e,#1f2a17)}
+.outf.o-pulso i{background:linear-gradient(135deg,#16191f,#0d0f12);box-shadow:inset 0 0 0 2px #5ce1ff,0 0 10px #5ce1ff}
+.outf span{font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px}.outf small{font-size:11px;color:var(--dim)}
+.outf[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--amber)}.outf[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.outf:focus-visible{box-shadow:inset 0 0 0 2px #fff}
+@media (prefers-reduced-motion:reduce){#menu::before{animation:none;display:none}.go,.mapc{transition:none}}
 </style>
 </head>
 <body>
@@ -508,6 +549,7 @@ tr.dead td{opacity:.5}
     <canvas id="sprayPad" width="220" height="260" hidden aria-label="Práctica de spray"></canvas>
     <div id="xh"><i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i></div>
     <div id="adsDot" aria-hidden="true"></div>
+    <div id="perf" hidden aria-live="off"></div>
     <div id="hit"><i></i><i></i><i></i><i></i></div>
     <div id="dmgdirs"></div>
     <div id="reloadBar"><s id="rbar"></s></div>
@@ -666,6 +708,7 @@ tr.dead td{opacity:.5}
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <div class="sec mctl" data-mctl="2" hidden></div>
+      <div class="sec"><label class="chk"><input type="checkbox" id="perfChk"> Mostrar FPS y ping</label><label class="chk"><input type="checkbox" id="voiceChk"> Órdenes por voz con T (usa el micrófono; en algunos audífonos baja la calidad del sonido)</label></div>
       <div class="sec" id="tpRow" hidden><div class="lbl small">Competitivo</div><button type="button" class="go ghost sm" id="tpBtn">Pedir pausa táctica (30 s)</button><span class="small"> · 2 por equipo; empieza con la próxima compra</span></div>
       <div class="sec" id="tmodeRow" hidden><button type="button" class="btn small" id="tmodeBtn">Usar controles táctiles</button></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
@@ -775,9 +818,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=57"></script>
-<script src="/models.js?v=57"></script>
-<script src="/client.js?v=57"></script>
+<script src="/core.js?v=59"></script>
+<script src="/models.js?v=59"></script>
+<script src="/client.js?v=59"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
