@@ -1204,9 +1204,9 @@ function updateLocal(dt) {
   let fw = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) - joy.vy; let st = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + joy.vx;
   const L = Math.hypot(fw, st); if (L > 1) { fw /= L; st /= L; }
   const crouchIn = !!(keys.KeyC || me.crouchToggle);
-  // deslizarse: agacharse mientras corres
+  // sin deslizamiento: agacharse corriendo solo agacha (mecánica clásica de shooter táctico)
   const spd0 = Math.hypot(me.vel.x, me.vel.z);
-  if (crouchIn && !me.crouchPrev && me.grounded && spd0 > 4 && !me.walkHeld && !frozen && !(me.slideT > 0)) { me.slideT = .8; me.slideDir = [me.vel.x / spd0, me.vel.z / spd0]; sNoise(.5, .22, 700, 0, 0, .7); sNoise(.25, .12, 2400, .05, 0, 1); }
+  if (false && crouchIn && !me.crouchPrev && me.grounded && spd0 > 4 && !me.walkHeld && !frozen && !(me.slideT > 0)) { me.slideT = .8; me.slideDir = [me.vel.x / spd0, me.vel.z / spd0]; sNoise(.5, .22, 700, 0, 0, .7); sNoise(.25, .12, 2400, .05, 0, 1); }
   me.crouchPrev = crouchIn; me.crouch = crouchIn || me.slideT > 0;
   // asomarse: Q / E (o los botones táctiles), sin atravesar paredes
   const leanWant = clamp((keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0) + (me.touchLean || 0), -1, 1);
