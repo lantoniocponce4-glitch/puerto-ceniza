@@ -473,6 +473,7 @@
       const d = [p[0] - o[0], p[1] - o[1], p[2] - o[2]]; const L = Math.hypot(d[0], d[1], d[2]) || 1e-6; d[0] /= L; d[1] /= L; d[2] /= L;
       for (const b of this.colliders) { const r = rayBox(o, d, b, L); if (r && r.t < L - .08) return false; }
       if (smokes) for (const s of smokes) {
+        if (s.holeUntil) continue;
         const sx = s.x - o[0], sy = s.y - o[1], sz = s.z - o[2]; const t = clamp(sx * d[0] + sy * d[1] + sz * d[2], 0, L);
         const cx = o[0] + d[0] * t - s.x, cy = o[1] + d[1] * t - s.y, cz = o[2] + d[2] * t - s.z;
         if (cx * cx + cy * cy * 1.6 + cz * cz < s.r * s.r) return false;
@@ -1076,7 +1077,7 @@
       const k = String(m.k || ''); if (!has(NADES, k) || !a.alive || a.inv.n[k] <= 0 || this.phase === 'buy' || this.phase === 'over') return;
       if (!Array.isArray(m.d)) return;
       const d = [num(m.d[0]), num(m.d[1]), num(m.d[2], -1)]; const L = Math.hypot(d[0], d[1], d[2]) || 1;
-      const sp = m.lob ? 7.5 : 15; const eye = eyeOf(a);
+      const sp = m.mid ? 11 : m.lob ? 7.5 : 15; const eye = eyeOf(a);
       a.inv.n[k]--; a.pdirty = true; if (a.cur === k && a.inv.n[k] <= 0) a.cur = a.inv.p || a.inv.s || 'knife';
       this.spawnNade(a, k, eye, [d[0] / L * sp + a.vel.x * .6, d[1] / L * sp + 2.2, d[2] / L * sp + a.vel.z * .6]);
     }
@@ -1105,7 +1106,7 @@
         if (!gone) out.push(g);
       }
       this.nades = out;
-      this.smokes = this.smokes.filter(s => s.until > this.now);
+      this.smokes = this.smokes.filter(s => s.until > this.now); for (const s of this.smokes) if (s.holeUntil && s.holeUntil <= this.now) s.holeUntil = 0;
       this.stepFires(dt); this.stepDecoys(dt);
     }
     /* --- fuego de la incendiaria: daño por zona, el humo lo apaga --- */
@@ -1138,6 +1139,8 @@
       const p = g.p; const owner = this.actors[g.by];
       if (g.k === 'he') {
         this.ev({ k: 'boomhe', p: [r2(p.x), r2(p.y), r2(p.z)] });
+        // la explosión abre un hueco momentáneo en el humo cercano
+        for (const s of this.smokes) if (Math.hypot(s.x - p.x, s.z - p.z) < s.r + 1.2) { s.holeUntil = this.now + 2.2; this.ev({ k: 'smhole', id: s.id }); }
         for (const b of this.W.breakables) if (!b.gone) { const cx = clamp(p.x, b.minX, b.maxX), cy = clamp(p.y, b.minY, b.maxY), cz = clamp(p.z, b.minZ, b.maxZ); const dd = Math.hypot(p.x - cx, p.y - cy, p.z - cz); if (dd < 3.6) this.dmgBox(b, 260 * (1 - dd / 3.6) + 40); }
         for (const a of this.actors) {
           if (!a.alive) continue; const dist = Math.hypot(a.pos.x - p.x, a.pos.y + 1 - p.y, a.pos.z - p.z); if (dist > 7.5) continue;
@@ -1521,7 +1524,7 @@
       for (const [cid, id] of this.clients) { const a = this.actors[id]; if (a.pdirty || this.tickN % 10 === 0) { a.pdirty = false; this.onSend(cid, this.privateState(a)); } }
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
     }
-    privateState(a) { return { t: 'p', stk: a.streak | 0, lvl: a.lvl | 0, m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
+    privateState(a) { return { t: 'p', tm: this.actors.filter(o => o !== a && o.team === a.team && o.connected !== false).map(o => [o.id, o.money | 0, o.inv.p || '', o.alive ? 1 : 0]), stk: a.streak | 0, lvl: a.lvl | 0, m: a.money, ar: Math.round(a.armor), hm: a.helmet ? 1 : 0, kit: a.kit ? 1 : 0, inv: a.inv, cur: a.cur, cb: this.canBuy(a) ? 1 : 0 }; }
     roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
   }
 

@@ -662,6 +662,7 @@ function buildDust(on) {
 }
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
+  { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
   roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); }
   if (ambNode) { ambT -= dt; if (ambT <= 0) { ambT = rand(4, 11); ambOneShot(); } } else if (AC && WORLD && G.state === 'playing' && bus.amb) startAmbience();
@@ -721,7 +722,7 @@ function updateSmokes(list) {
   const seen = new Set(); for (const [id, x, z, left] of list) { seen.add(id); if (!smokes.has(id)) makeSmoke(id, x, 0, z, left); else smokes.get(id).until = nowS() + left; }
   for (const [id, s] of smokes) if (!seen.has(id) && nowS() > s.born + 1) { scene.remove(s.g); smokes.delete(id); }
 }
-function animSmokes() { const t = nowS(); for (const s of smokes.values()) { const grow = clamp((t - s.born) / 1.2, 0, 1), fade = clamp((s.until - t) / 2.5, 0, 1); s.mat.opacity = Math.min(grow, fade) * .96; s.g.scale.setScalar(.4 + .6 * grow); s.g.rotation.y += .0015; } }
+function animSmokes() { const t = nowS(); for (const s of smokes.values()) { const grow = clamp((t - s.born) / 1.2, 0, 1), fade = clamp((s.until - t) / 2.5, 0, 1); const hk = s.hole ? clamp(Math.min((s.hole - t) / .3, 1 - (s.hole - t - 1.9) / .3), 0, 1) : 0; s.mat.opacity = Math.min(grow, fade) * .96 * (1 - hk * .85); s.g.scale.setScalar(.4 + .6 * grow); s.g.rotation.y += .0015; } }
 
 /* ================= SOLDADOS ================= */
 const TEAMLOOK = [{ uni: 0x4b5966, vest: 0x2c363f, band: 0x5cc8e0, skin: [0xc9a07e, 0x8d6248, 0xb88a68, 0x6e4a34] }, { uni: 0x8a7550, vest: 0x4d4130, band: 0xef6a45, skin: [0xd2ab8a, 0x9b7052, 0x7f5a40, 0xc49572] }];
@@ -886,7 +887,7 @@ function onMsg(m) {
       break;
     }
     case 'fix': if (m.p) { me.pos = { x: m.p[0], y: m.p[1], z: m.p[2] }; me.vel = { x: 0, y: 0, z: 0 }; } break;
-    case 'p': {
+    case 'p': { if (m.tm) { G.tm = m.tm; if (!$('#buy').hidden) drawTeamBuy(); }
       const prevInv = JSON.stringify(me.inv); me.streak = m.stk | 0;
       me.lvl = m.lvl | 0; me.money = m.m; me.armor = m.ar; me.helmet = !!m.hm; me.kit = !!m.kit; me.inv = m.inv; me.cb = !!m.cb; me.inv = JSON.parse(JSON.stringify(m.inv));
       if (me.inv.p) ensureAmmo(me.inv.p); if (me.inv.s) ensureAmmo(me.inv.s);
@@ -974,6 +975,7 @@ function handleEvent(e) {
     case 'fire': makeFire(e.id, e.p[0], e.p[1], e.p[2], e.r || 2.6, e.d || 7); break;
     case 'fireout': if (fires.has(e.id)) killFire(e.id, true); else if (e.p) { burst({ x: e.p[0], y: .4, z: e.p[2] }, [0, 1, 0], [.8, .8, .8], 2, 10); } break;
     case 'dshot': decoyShots(e); break;
+    case 'smhole': { const sm = smokes.get(e.id); if (sm) sm.hole = nowS() + 2.2; break; }
     case 'smoke': makeSmoke(e.id, e.p[0], e.p[1], e.p[2], e.d); { const p = posAudio(e.p[0], e.p[2]); sNoise(1.8, .25 * clamp(1 - p.d / 40, .05, 1), 900, 0, p.pan, .5); } break;
     case 'throw': { const a = actors[e.s]; if (a && e.s !== me.id && sideOf(a.team) === sideOf(me.team)) { const msg = { he: 'Granada', fl: 'Cegadora', sm: 'Humo', in: 'Incendiaria', de: 'Señuelo' }[e.g]; toast(nameOf(e.s) + ': ¡' + msg + ' va!'); } break; }
     case 'bounce': { const p = posAudio(e.p[0], e.p[2]); if (p.d < 25) sTone(2400 + rand(-300, 300), .04, .12 * (1 - p.d / 25), 'triangle'); break; }
@@ -1019,7 +1021,7 @@ function handleEvent(e) {
       break;
     }
     case 'demote': if (e.v === me.id) toast('Te apuñalaron: bajas al nivel ' + (e.l + 1)); else if (e.a === me.id) toast('Le quitaste un nivel a ' + nameOf(e.v)); break;
-    case 'mstart': G.hlBest = null; $('#hlSave').hidden = true; $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de ' + ((G.rules && G.rules.rounds) || 5) + ' rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
+    case 'mstart': me.spr = [0, 0, 0, 0]; G.hlBest = null; $('#hlSave').hidden = true; $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de ' + ((G.rules && G.rules.rounds) || 5) + ' rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
     case 'votes': G.votes = e.v || {}; drawVotes(); break;
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
@@ -1096,6 +1098,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit3') setCur('knife');
   if (e.code === 'Digit4') cycleNade();
   if (e.code === 'KeyX') { if (slotList().includes(me.lastCur)) setCur(me.lastCur); }
+  if (e.code === 'KeyL' && NADES[me.cur] && me.alive) { toggleLineup(); return; }
   if (e.code === 'KeyG') sendMsg({ t: 'drop', bomb: me.cur === 'knife' ? 1 : 0 });
   if (!me.alive && (e.code === 'Space' || e.code === 'KeyD' || e.code === 'KeyA')) me.specIdx++;
 });
@@ -1175,9 +1178,10 @@ tapBtn($('#bChat'), () => openChat());
 
 /* ================= JUGADOR LOCAL ================= */
 let shake = 0, flashT = 0, bombBeepT = 0;
+const RPAT = {}; function patOf(w) { if (RPAT[w.id]) return RPAT[w.id]; let h = 5; for (const c of w.id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return (RPAT[w.id] = { dir: h % 2 ? 1 : -1, f: .38 + (h % 5) * .07, ph: (h % 7) * .45, first: 5 + (h % 4) }); }
 function pattern(w, i) {
   if (!w.auto) return { p: w.kick * Math.min(i, 4) * .55, y: 0 };
-  const up = w.kick * 9 * (1 - Math.exp(-i / 4.5)); const side = i < 7 ? i * .12 * w.kick : Math.sin((i - 7) * .5) * w.kick * 3.4;
+  const P = patOf(w); const up = w.kick * 9 * (1 - Math.exp(-i / 4.5)); const side = i < P.first ? P.dir * i * .12 * w.kick : P.dir * (P.first * .12 * w.kick + Math.sin((i - P.first) * P.f + P.ph) * w.kick * 3.4 - Math.sin(P.ph) * w.kick * 3.4);
   return { p: up, y: side };
 }
 function frozenAds() { return !me.alive || !$('#buy').hidden; }
@@ -1251,8 +1255,8 @@ function updateLocal(dt) {
   me.punchP = lerp(me.punchP, pat.p * .5, 1 - Math.exp(-dt * 20)); me.punchY = lerp(me.punchY, pat.y * .5, 1 - Math.exp(-dt * 20));
   if (!canAct()) { if (!me.fireHeld) me.trigLock = false; return; }
   if (NADES[me.cur]) {
-    if ((me.fireHeld || me.altHeld) && me.drawT <= 0) me.nadeArm = me.fireHeld ? 'far' : 'lob';
-    else if (me.nadeArm && !me.fireHeld && !me.altHeld) throwNade(me.nadeArm === 'lob');
+    if ((me.fireHeld || me.altHeld) && me.drawT <= 0) me.nadeArm = me.nadeArm === 'mid' || (me.fireHeld && me.altHeld) ? 'mid' : me.fireHeld ? 'far' : 'lob';
+    else if (me.nadeArm && !me.fireHeld && !me.altHeld) throwNade(me.nadeArm);
     return;
   }
   if (w.melee) { if ((me.fireHeld || me.altHeld) && T - me.lastShot >= (me.altHeld ? 1.0 : .42) && me.drawT <= 0) knife(me.altHeld); return; }
@@ -1269,6 +1273,38 @@ function updateLocal(dt) {
   }
   if (!me.fireHeld) me.trigLock = false;
 }
+const SPR = { y0: 0, p0: 0, raw: [], act: [], t: 0 };
+function sprayRec(i, pat) {
+  if (i === 0) { SPR.y0 = me.yaw; SPR.p0 = me.pitch; SPR.raw = []; SPR.act = []; SPR.w = me.cur; }
+  SPR.raw.push([pat.y, pat.p]); SPR.act.push([me.yaw - SPR.y0 + pat.y, me.pitch - SPR.p0 + pat.p]); SPR.t = nowS(); drawSprayPad();
+}
+function drawSprayPad() {
+  const c = $('#sprayPad'); if (!c) return; c.hidden = !RG.on; if (!RG.on) return; const x = c.getContext('2d'), W = c.width, H = c.height, s = 900, cx = W / 2, cy = H * .82;
+  x.clearRect(0, 0, W, H); x.fillStyle = 'rgba(12,15,18,.78)'; x.fillRect(0, 0, W, H); x.strokeStyle = 'rgba(255,255,255,.12)'; x.beginPath(); x.moveTo(cx, 8); x.lineTo(cx, H - 8); x.moveTo(8, cy); x.lineTo(W - 8, cy); x.stroke();
+  const pt = (p, col, r) => { x.fillStyle = col; x.beginPath(); x.arc(cx - p[0] * s, cy - p[1] * s, r, 0, 7); x.fill(); };
+  for (const p of SPR.raw) pt(p, 'rgba(200,200,200,.35)', 2.5); SPR.act.forEach((p, i) => pt(p, i < 3 ? '#9fd88a' : '#f2b33d', 3));
+  x.strokeStyle = '#ff4d3a'; x.lineWidth = 2; x.beginPath(); x.arc(cx, cy, 7, 0, 7); x.stroke();
+  const dev = SPR.act.length ? SPR.act.reduce((a, p) => a + Math.hypot(p[0], p[1]), 0) / SPR.act.length * 1000 : 0;
+  x.fillStyle = '#e9dcc0'; x.font = '600 12px system-ui'; x.fillText('Práctica de spray' + (SPR.w && WEAPONS[SPR.w] ? ' · ' + WEAPONS[SPR.w].name : ''), 10, 18);
+  x.font = '11px system-ui'; x.fillStyle = '#a29a88'; x.fillText('Gris: patrón sin compensar', 10, 34); x.fillText('Color: tus balas (verde, las 3 primeras)', 10, 48); x.fillText(SPR.act.length ? `Desvío medio: ${dev.toFixed(0)} · ${SPR.act.length} balas` : 'Mantén el clic con un fusil o subfusil', 10, H - 10);
+}
+// Lineups: posiciones guardadas en este navegador por mapa y tipo de granada
+const LU = { g: null, marks: [] };
+function lineups() { const all = prefs.lineups || (prefs.lineups = {}); return all[CURMAP] || (all[CURMAP] = []); }
+function toggleLineup() {
+  const L = lineups(), near = L.findIndex(l => l.k === me.cur && Math.hypot(l.x - me.pos.x, l.z - me.pos.z) < .6);
+  if (near >= 0) { L.splice(near, 1); toast('Lineup borrado'); }
+  else { if (L.length >= 30) L.shift(); L.push({ k: me.cur, x: +me.pos.x.toFixed(2), z: +me.pos.z.toFixed(2), y: +me.pos.y.toFixed(2), yaw: +me.yaw.toFixed(4), pitch: +me.pitch.toFixed(4), m: me.nadeArm || 'far' }); toast('Lineup guardado: párate en el círculo y apunta al rombo'); }
+  savePrefs(); LU.key = '';
+}
+function updateLineups() {
+  const key = CURMAP + '|' + me.cur + '|' + (prefs.lineups && prefs.lineups[CURMAP] ? prefs.lineups[CURMAP].length : 0);
+  if (LU.key !== key) { LU.key = key; if (LU.g) scene.remove(LU.g); LU.g = new THREE.Group(); scene.add(LU.g); LU.marks = [];
+    for (const l of lineups().filter(l => l.k === me.cur)) { const ring = new THREE.Mesh(new THREE.RingGeometry(.28, .36, 24), new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: .85, side: THREE.DoubleSide, depthTest: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(l.x, l.y + .03, l.z); ring.renderOrder = 6; LU.g.add(ring);
+      const dir = [-Math.sin(l.yaw) * Math.cos(l.pitch), Math.sin(l.pitch), -Math.cos(l.yaw) * Math.cos(l.pitch)], eye = l.y + 1.62; const tg = new THREE.Mesh(new THREE.OctahedronGeometry(.09), new THREE.MeshBasicMaterial({ color: 0x9fd8ff, depthTest: false })); tg.position.set(l.x + dir[0] * 6, eye + dir[1] * 6, l.z + dir[2] * 6); tg.renderOrder = 6; LU.g.add(tg); LU.marks.push({ l, ring, tg }); } }
+  if (LU.g) LU.g.visible = !!(me.alive && NADES[me.cur]);
+  for (const M of LU.marks) { const on = Math.hypot(M.l.x - me.pos.x, M.l.z - me.pos.z) < .35; M.ring.material.color.setHex(on ? 0x8fd694 : 0x9fd8ff); M.tg.visible = on; M.tg.rotation.y += .05; }
+}
 function aimDir(extraP, extraY, inacc) {
   const ang = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * inacc;
   const py = me.pitch + extraP + Math.sin(ang) * r, yy = me.yaw + extraY + Math.cos(ang) * r;
@@ -1280,7 +1316,7 @@ function traceShot(o, d, maxT) {
   return { wt, hit, t, zone };
 }
 function shoot(w, am) {
-  am.mag--; me.lastShot = nowS(); me.shots++; lifeShot(me.pos.x, me.pos.z);
+  am.mag--; me.lastShot = nowS(); me.shots++; lifeShot(me.pos.x, me.pos.z); const sprIdx = me.sprayI;
   const pat = pattern(w, me.sprayI); me.sprayI++;
   const o = [camera.position.x, camera.position.y, camera.position.z]; const mw = vmMuzzleWorld();
   const n = w.pellets || 1; const pel = []; let main = null; let anyRange = false;
@@ -1296,7 +1332,7 @@ function shoot(w, am) {
     else if (r.wt.n && r.wt.stop && r.wt.stop.bid !== undefined) { burst(end, r.wt.n, BRK_COL[r.wt.stop.mat] || [.62, .55, .45], 2.2, 6); }
     else if (r.wt.n) impactFx(end, r.wt.n, r.wt.stop, w.pellets ? .4 : 1);
     const rec = { d: d.map(v => +v.toFixed(4)), tt: +r.t.toFixed(2), hit: r.hit ? r.hit.id : null, z: r.zone, n: r.wt.n };
-    pel.push(rec); if (!main) main = rec;
+    pel.push(rec); if (!main) { main = rec; const sp = me.spr || (me.spr = [0, 0, 0, 0]), first = sprIdx < 3; sp[first ? 1 : 3]++; if (r.hit) sp[first ? 0 : 2]++; if (RG.on && w.auto) sprayRec(sprIdx, pat); }
   }
   if (RG.chal) { RG.shots++; if (anyRange) RG.hits++; }
   const msg = Object.assign({ t: 'shot', w: me.cur, o: o.map(v => +v.toFixed(3)) }, main); if (w.pellets) msg.pel = pel;
@@ -1314,9 +1350,9 @@ function knife(heavy) {
   if (r.hit) { sNoise(.08, .4, 600); sendMsg({ t: 'shot', w: 'knife', o, d, tt: +r.t.toFixed(2), hit: r.hit.id, z: 'c', alt: heavy ? 1 : 0 }); }
   else { if (r.wt.n && r.t < 2.2) { const p = new THREE.Vector3(o[0] + d[0] * r.t, o[1] + d[1] * r.t, o[2] + d[2] * r.t); burst(p, r.wt.n, [.62, .55, .45], 1.5, 4); sNoise(.05, .3, 2500); } sendMsg({ t: 'shot', w: 'knife', o, d, tt: 2.2, hit: null, alt: heavy ? 1 : 0 }); }
 }
-function throwNade(lob) {
+function throwNade(mode) {
   const k = me.cur; me.nadeArm = false; vm.throwT = 1; const d = aimDir(0, 0, 0);
-  sendMsg({ t: 'nade', k, d, lob: lob ? 1 : 0 }); sNoise(.15, .25, 900);
+  sendMsg({ t: 'nade', k, d, lob: mode === 'lob' ? 1 : 0, mid: mode === 'mid' ? 1 : 0 }); sNoise(.15, .25, 900);
   if (me.inv.n[k] <= 1) setTimeout(() => setCur(me.inv.p || me.inv.s || 'knife'), 250);
 }
 function vmMuzzleWorld() {
@@ -1336,9 +1372,10 @@ const arcLine = new THREE.Line(arcGeo, new THREE.LineDashedMaterial({ color: 0xf
 const arcDots = new THREE.Points(arcGeo, new THREE.PointsMaterial({ color: 0xffd27a, size: .09, transparent: true, opacity: .95, depthTest: false })); arcDots.frustumCulled = false; arcDots.renderOrder = 5; arcLine.add(arcDots);
 const arcRing = new THREE.Mesh(new THREE.RingGeometry(.32, .42, 28), new THREE.MeshBasicMaterial({ color: 0xf2b33d, transparent: true, opacity: .9, side: THREE.DoubleSide, depthTest: false })); arcRing.rotation.x = -Math.PI / 2; arcRing.visible = false; arcRing.renderOrder = 6; scene.add(arcRing);
 function updateArc() {
+  if (WORLD) updateLineups();
   const k = me.cur; const show = me.alive && NADES[k] && me.nadeArm && WORLD;
   arcLine.visible = arcRing.visible = !!show; if (!show) return;
-  const lob = me.nadeArm === 'lob'; const d = aimDir(0, 0, 0); const sp = lob ? 7.5 : 15;
+  const d = aimDir(0, 0, 0); const sp = me.nadeArm === 'mid' ? 11 : me.nadeArm === 'lob' ? 7.5 : 15;
   let p = { x: camera.position.x, y: camera.position.y - .1, z: camera.position.z }; const v = { x: d[0] * sp + me.vel.x * .6, y: d[1] * sp + 2.2, z: d[2] * sp + me.vel.z * .6 };
   const C = WORLD.colliders; const inside = (x, y, z) => C.some(b => x > b.minX - .06 && x < b.maxX + .06 && y > b.minY - .06 && y < b.maxY + .06 && z > b.minZ - .06 && z < b.maxZ + .06);
   const arr = arcGeo.attributes.position.array; let n = 0; const h = .05 / 3; let t = 0;
@@ -1548,7 +1585,17 @@ const BUY = [
 const GEARN = { kevlar: ['Chaleco', 650], helm: ['Chaleco + casco', 1000], kit: ['Kit de desactivación', 400] };
 function priceOf(i) { if (WEAPONS[i]) return WEAPONS[i].price; if (NADES[i]) return NADES[i].price; if (i === 'helm' && me.armor >= 100) return 350; return GEARN[i][1]; }
 function owned(i) { if (WEAPONS[i]) return me.inv.p === i || me.inv.s === i; if (NADES[i]) return me.inv.n[i] >= NADES[i].max; if (i === 'kevlar') return me.armor >= 100; if (i === 'helm') return me.helmet && me.armor >= 100; if (i === 'kit') return me.kit; return false; }
+function drawTeamBuy() {
+  const el = $('#teamBuy'); if (!el) return; const tm = (G.tm || []).filter(r => actors[r[0]]);
+  if (!tm.length) { el.innerHTML = ''; return; }
+  const st = m => m >= 4500 ? ['Compra completa', 'ok'] : m >= 2500 ? ['Compra parcial', 'mid'] : ['Ahorra', 'low'];
+  el.innerHTML = `<div class="lbl small">Tu equipo</div>` + tm.map(([id, m, p, al]) => { const s = st(m); return `<div class="tbr${al ? '' : ' dead'}"><b>${esc(actors[id].name)}</b><span class="mono">$${m.toLocaleString('es')}</span><span class="tbs ${s[1]}">${p && WEAPONS[p] ? esc(WEAPONS[p].name) : s[0]}</span></div>`; }).join('') +
+    `<div class="sqrow"><button type="button" class="go ghost sm" id="askGun">Pedir un arma</button><button type="button" class="go ghost sm" id="dropGun">Soltar mi arma principal</button></div>`;
+  $('#askGun').onclick = () => { sendMsg({ t: 'chat', m: `Necesito un arma: tengo $${me.money || 0}` }); toast('Pediste un arma a tu equipo'); };
+  $('#dropGun').onclick = () => { if (me.inv && me.inv.p) { if (me.cur !== me.inv.p) setCur(me.inv.p); setTimeout(() => sendMsg({ t: 'drop', bomb: 0 }), 60); toast('Soltaste tu arma: tu compañero la recoge pasando por encima'); } else toast('No tienes arma principal'); };
+}
 function drawBuy() {
+  drawTeamBuy();
   $('#bcols').innerHTML = BUY.map(([title, items]) => `<div class="bcol"><div class="lbl">${title}</div>${items.map(i => {
     if (i === 'kit' && sideOf(me.team) !== 'def') return '';
     const name = WEAPONS[i] ? WEAPONS[i].name : NADES[i] ? NADES[i].name : GEARN[i][0]; const p = priceOf(i); const own = owned(i); const ban = WEAPONS[i] && G.rules && G.rules.arms !== 'all' && !({ pistolas: w => w.slot === 2, franco: w => w.slot === 2 || !!w.scope, escopetas: w => w.slot === 2 || !!w.pellets, cuchillo: () => false }[G.rules.arms] || (() => true))(WEAPONS[i]); const dis = own || ban || p > me.money;
@@ -1576,7 +1623,8 @@ function drawEndMore(e) {
   if (a && r) { const cd = PC.CARDS.find(c => c.id === a.card), tl = PC.TITLES.find(t => t.id === a.title); mv.style.cssText = cd ? cardCss(cd) : ''; mv.innerHTML = `<span class="lbl small">MVP DE LA PARTIDA${e.mvp === me.id ? ' · ¡ERES TÚ!' : ''}</span><b>${a.clanTag ? '[' + esc(a.clanTag) + '] ' : ''}${esc(a.name)}</b><span>${tl ? esc(tl.name) + ' · ' : ''}${r[2]} bajas · ${r[1]} de daño · ${r[4]} a la cabeza</span>`; }
   const m = row(me.id); if (!m) return; const acc = m[5] ? Math.round(m[6] / m[5] * 100) : 0, hp = m[2] ? Math.round(m[4] / m[2] * 100) : 0;
   const wk = (e.wk && e.wk[me.id]) || {}; const ws = Object.entries(wk).filter(([w, v]) => WEAPONS[w] && (v[0] || v[2])).sort((x, y) => y[1][2] - x[1][2] || y[1][0] - x[1][0]).slice(0, 4);
-  mi.innerHTML = `<div class="lbl small">Tu partida · ${m[1]} de daño · ${acc}% de precisión · ${hp}% a la cabeza</div>` + (ws.length ? `<table><tr><th>Arma</th><th>Disparos</th><th>Precisión</th><th>Bajas</th></tr>${ws.map(([w, v]) => `<tr><td>${esc(WEAPONS[w].name)}</td><td>${v[0]}</td><td>${v[0] ? Math.round(v[1] / v[0] * 100) : 0}%</td><td>${v[2]}</td></tr>`).join('')}</table>` : '');
+  const sp = me.spr || [0, 0, 0, 0], pf = sp[1] ? Math.round(sp[0] / sp[1] * 100) : null, pr = sp[3] ? Math.round(sp[2] / sp[3] * 100) : null;
+  mi.innerHTML = `<div class="lbl small">Tu partida · ${m[1]} de daño · ${acc}% de precisión · ${hp}% a la cabeza</div>` + (pf !== null || pr !== null ? `<div class="small sprst">Primeras 3 balas: <b>${pf === null ? '—' : pf + '%'}</b> · Ráfagas largas: <b>${pr === null ? '—' : pr + '%'}</b>${pf !== null && pr !== null && pf - pr > 25 ? ' · practica el control de spray en el campo de tiro' : ''}</div>` : '') + (ws.length ? `<table><tr><th>Arma</th><th>Disparos</th><th>Precisión</th><th>Bajas</th></tr>${ws.map(([w, v]) => `<tr><td>${esc(WEAPONS[w].name)}</td><td>${v[0]}</td><td>${v[0] ? Math.round(v[1] / v[0] * 100) : 0}%</td><td>${v[2]}</td></tr>`).join('')}</table>` : '');
 }
 function showEnd(e) {
   drawEndMore(e);

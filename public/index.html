@@ -458,6 +458,13 @@ tr.dead td{opacity:.5}
 @media (max-width:640px){.passLook2{grid-template-columns:1fr}}
 
 @media (min-width:900px) and (min-aspect-ratio:6/5){#pass{justify-content:flex-start;background:linear-gradient(90deg,rgba(9,11,13,.92) 0,rgba(9,11,13,.85) 58%,rgba(9,11,13,.05) 78%)}#pass .passBox{width:min(760px,58vw);margin-left:2vw}}
+
+#sprayPad{position:absolute;right:calc(12px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);border:1px solid var(--line);border-radius:3px;pointer-events:none}
+.teamBuy{display:grid;gap:4px;margin:8px 0}
+.tbr{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;font-size:13px;padding:4px 8px;background:rgba(255,255,255,.04);border-radius:2px}
+.tbr.dead{opacity:.45}.tbr .mono{font-family:var(--f-mono);color:var(--money)}
+.tbs{font-size:11px;padding:1px 6px;border-radius:2px;border:1px solid var(--line)}.tbs.ok{color:var(--ok)}.tbs.mid{color:var(--amber)}.tbs.low{color:var(--dim)}
+.sprst{margin:4px 0 6px}
 </style>
 </head>
 <body>
@@ -480,6 +487,7 @@ tr.dead td{opacity:.5}
     <canvas id="radar" width="340" height="340"></canvas>
     <div id="zoneTag" class="lbl"></div>
     <div id="feed"></div>
+    <canvas id="sprayPad" width="220" height="260" hidden aria-label="Práctica de spray"></canvas>
     <div id="xh"><i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i></div>
     <div id="adsDot" aria-hidden="true"></div>
     <div id="hit"><i></i><i></i><i></i><i></i></div>
@@ -627,6 +635,7 @@ tr.dead td{opacity:.5}
     <div class="buybox">
       <div class="buyhead"><h2>Comprar</h2><span id="buyTime"></span><span id="buyMoney">$0</span></div>
       <div class="bcols" id="bcols"></div>
+      <div id="teamBuy" class="teamBuy"></div>
       <div class="small">Las armas nuevas reemplazan a la del mismo tipo, que queda en el suelo. <kbd class="mono">B</kbd> o <kbd class="mono">Esc</kbd> para cerrar.</div>
     </div>
   </div>
@@ -732,9 +741,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=54"></script>
-<script src="/models.js?v=54"></script>
-<script src="/client.js?v=54"></script>
+<script src="/core.js?v=55"></script>
+<script src="/models.js?v=55"></script>
+<script src="/client.js?v=55"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
