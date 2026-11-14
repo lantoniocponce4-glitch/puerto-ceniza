@@ -1,0 +1,22 @@
+name: Pruebas del juego
+
+on:
+  push:
+    paths: ['shared/**', 'public/**', 'server.js', 'tools/**', 'package.json', '.github/workflows/test.yml']
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Sintaxis
+        run: for f in shared/core.js server.js accounts.js public/client.js public/models.js; do node --check "$f"; done
+      - name: Mapas (spawns, rutas de bots y líneas de visión)
+        run: npm run test:maps
+      - name: Partidas simuladas con bots
+        run: npm run test:bots

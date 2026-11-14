@@ -1,0 +1,18 @@
+<!doctype html><html><body style="margin:0;background:#111"><canvas id=c></canvas>
+<script src="../shared/core.js"></script>
+<script>
+function draw(id){const M=PC.MAPS[id];const W=new PC.World(id);const S=12;const [x0,z0,x1,z1]=M.bounds;const c=document.getElementById('c');c.width=(x1-x0)*S+40;c.height=(z1-z0)*S+60;const g=c.getContext('2d');
+g.fillStyle='#222';g.fillRect(0,0,c.width,c.height);const X=x=>(x-x0)*S+20,Z=z=>(z-z0)*S+40;
+// walk grid
+for(let j=0;j<W.GH;j++)for(let i=0;i<W.GW;i++){if(!W.walk[j*W.GW+i]){g.fillStyle='#3a2020';g.fillRect(X(x0+i),Z(z0+j),S,S);}}
+for(const k in M.sites){const r=M.sites[k].r;g.fillStyle='rgba(255,200,0,.18)';g.fillRect(X(r[0]),Z(r[1]),(r[2]-r[0])*S,(r[3]-r[1])*S);g.fillStyle='#fc0';g.font='bold 28px sans-serif';g.fillText(k,X(M.sites[k].c[0])-8,Z(M.sites[k].c[1])+10);}
+for(const sd in M.buy){const r=M.buy[sd];g.strokeStyle=sd=='atk'?'#f55':'#59f';g.setLineDash([4,4]);g.strokeRect(X(r[0]),Z(r[1]),(r[2]-r[0])*S,(r[3]-r[1])*S);g.setLineDash([]);}
+for(const b of W.colliders){if(b.mat==='perim')continue;const h=b.maxY-b.minY;const over=b.minY>=1.5;g.fillStyle=over?'rgba(120,160,255,.25)':h>=2.5?'#8a8a8a':h>=1.5?'#7a9a6a':'#c9a34a';g.fillRect(X(b.minX),Z(b.minZ),(b.maxX-b.minX)*S,(b.maxZ-b.minZ)*S);g.strokeStyle='#000';g.strokeRect(X(b.minX),Z(b.minZ),(b.maxX-b.minX)*S,(b.maxZ-b.minZ)*S);if((b.maxX-b.minX)*S>30&&(b.maxZ-b.minZ)*S>14){g.fillStyle='#000';g.font='10px sans-serif';g.fillText(h.toFixed(1)+(b.minY?'@'+b.minY:''),X(b.minX)+2,Z(b.minZ)+11);}}
+const col={A:'#ff0',B:'#0ff'};for(const k in M.routes)for(const r of M.routes[k]){g.strokeStyle=col[k];g.lineWidth=2;g.beginPath();r.forEach((p,i)=>i?g.lineTo(X(p[0]),Z(p[1])):g.moveTo(X(p[0]),Z(p[1])));g.stroke();g.lineWidth=1;}
+for(const k in M.holds)for(const h of M.holds[k]){g.fillStyle='#5af';g.beginPath();g.arc(X(h[0]),Z(h[1]),5,0,7);g.fill();g.strokeStyle='#5af';g.beginPath();g.moveTo(X(h[0]),Z(h[1]));g.lineTo(X(h[0]-Math.sin(h[2])*3),Z(h[1]-Math.cos(h[2])*3));g.stroke();}
+for(const sd in M.spawns)for(const p of M.spawns[sd]){g.fillStyle=sd=='atk'?'#f44':'#48f';g.fillRect(X(p[0])-4,Z(p[1])-4,8,8);}
+g.fillStyle='#fff';g.font='bold 18px sans-serif';g.fillText(M.name+' ('+id+')  grid 5m',10,22);
+g.strokeStyle='rgba(255,255,255,.08)';for(let x=Math.ceil(x0/5)*5;x<=x1;x+=5){g.beginPath();g.moveTo(X(x),Z(z0));g.lineTo(X(x),Z(z1));g.stroke();g.fillStyle='#777';g.font='9px sans-serif';g.fillText(x,X(x)+1,Z(z1)+10);}for(let z=Math.ceil(z0/5)*5;z<=z1;z+=5){g.beginPath();g.moveTo(X(x0),Z(z));g.lineTo(X(x1),Z(z));g.stroke();g.fillText(z,2,Z(z)+3);}
+}
+draw(new URLSearchParams(location.search).get('m'));
+</script></body></html>
