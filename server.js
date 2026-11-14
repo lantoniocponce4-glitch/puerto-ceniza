@@ -133,7 +133,7 @@ function sqRoomFor(n, mode) {
   let best = null, bestSide = null;
   for (const r of rooms.values()) {
     if (!r.isPublic || r.mode !== mode || r.phase === 'over' || r.humanCount + n > 8) continue;
-    for (const side of mode === 'waves' ? ['def'] : ['atk', 'def']) if (4 - r.sideHumans(side) >= n && (!best || r.humanCount > best.humanCount)) { best = r; bestSide = side; }
+    for (const side of mode === 'waves' ? ['def'] : ['atk', 'def']) if (PC.TEAM_SIZE - r.sideHumans(side) >= n && (!best || r.humanCount > best.humanCount)) { best = r; bestSide = side; }
   }
   if (best) return [best, bestSide];
   const r = createRoom(true, 'veterano', null, mode); return [r, mode === 'waves' ? 'def' : Math.random() < .5 ? 'atk' : 'def'];
@@ -149,7 +149,7 @@ async function sqMessage(ws, cid, m, getAcct) {
     const sq = squads.get(String(m.code || '').toUpperCase().trim());
     if (!sq) return sqSend(ws, { t: 'sq_err', msg: 'No existe una escuadra con ese código. Revisa las 5 letras.' });
     if (sq.members.has(cid)) return sqBroadcast(sq);
-    if (sq.members.size >= 4) return sqSend(ws, { t: 'sq_err', msg: 'La escuadra ya tiene 4 integrantes.' });
+    if (sq.members.size >= PC.TEAM_SIZE) return sqSend(ws, { t: 'sq_err', msg: 'La escuadra ya tiene ' + PC.TEAM_SIZE + ' integrantes.' });
     sqLeave(cid); sq.members.set(cid, member); sqBroadcast(sq); return;
   }
   const sq = findMine(); if (!sq) return;
@@ -168,9 +168,9 @@ async function sqMessage(ws, cid, m, getAcct) {
 function quickRoom(side, mode) {
   let best = null;
   for (const r of rooms.values()) {
-    if (!r.isPublic || r.humanCount >= 8 || r.mode !== mode) continue;
-    if ((side === 'atk' || side === 'def') && r.sideHumans(side) >= 4) continue;
-    if (mode === 'waves' && r.sideHumans('def') >= 4) continue;
+    if (!r.isPublic || r.humanCount >= PC.TEAM_SIZE * 2 || r.mode !== mode) continue;
+    if ((side === 'atk' || side === 'def') && r.sideHumans(side) >= PC.TEAM_SIZE) continue;
+    if (mode === 'waves' && r.sideHumans('def') >= PC.TEAM_SIZE) continue;
     if (!best || r.humanCount > best.humanCount) best = r;
   }
   return best || createRoom(true, 'veterano', null, mode);

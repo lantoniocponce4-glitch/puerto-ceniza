@@ -146,7 +146,7 @@
     { id: 'primera', name: 'Primera sangre', desc: 'La primera baja de una ronda', xp: 75, c: '#e05a3a' },
     { id: 'doble', name: 'Doble baja', desc: 'Dos bajas en menos de 5 segundos', xp: 100, c: '#f2b33d' },
     { id: 'triple', name: 'Triple baja', desc: 'Tres bajas en menos de 7 segundos', xp: 250, c: '#f28c3d' },
-    { id: 'as', name: 'As', desc: 'Eliminar a los 4 rivales en una ronda', xp: 500, c: '#ffd75a' },
+    { id: 'as', name: 'As', desc: 'Eliminar a los 5 rivales en una ronda', xp: 500, c: '#ffd75a' },
     { id: 'cabezas', name: 'Puntería', desc: '5 bajas a la cabeza en una partida', xp: 150, c: '#5cc8e0' },
     { id: 'cuchillo', name: 'Filo', desc: 'Una baja con cuchillo', xp: 100, c: '#c9c3b6' },
     { id: 'lejos', name: 'Ojo de halcón', desc: 'Una baja a más de 50 metros', xp: 150, c: '#7fc28a' },
@@ -157,7 +157,8 @@
     { id: 'veterano', name: 'Veterano', desc: 'Jugar 50 partidas', xp: 500, c: '#8a9a6a', prog: 'matches', n: 50 }
   ];
   const ORDERS = { follow: 'Síganme', regroup: 'Reagrúpense', wait: 'Esperen aquí', holdA: 'Cubran el sitio A', holdB: 'Cubran el sitio B', push: 'Avancen', smoke: 'Tiren humo' };
-  const BOT_NAMES = [['Vega', 'Ríos', 'Tano', 'Brea'], ['Krell', 'Mazur', 'Osei', 'Duarte']];
+  const TEAM_SIZE = 5; // 5 contra 5
+  const BOT_NAMES = [['Vega', 'Ríos', 'Tano', 'Brea', 'Soto'], ['Krell', 'Mazur', 'Osei', 'Duarte', 'Varga']];
   const TEAMS = [{ name: 'Halcón' }, { name: 'Cobra' }];
 
   /* ================= MAPAS ================= */
@@ -566,7 +567,7 @@
       this.rules = cleanRules(opts.rules); this.R = Object.assign({}, ROUND, { total: this.rules.rounds, half: Math.floor(this.rules.rounds / 2), win: Math.floor(this.rules.rounds / 2) + 1, live: this.rules.time });
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
       this.actors = []; this.events = []; this.now = 0; this.tickN = 0; this.teamRadio = [0, 0]; this.cond = { night: false, weather: null }; this.votes = new Map();
-      for (let t = 0; t < 2; t++) for (let i = 0; i < 4; i++) this.actors.push(this.makeActor(t, i));
+      for (let t = 0; t < 2; t++) for (let i = 0; i < TEAM_SIZE; i++) this.actors.push(this.makeActor(t, i));
       this.newMatch();
     }
     makeActor(team, slot) {
@@ -609,7 +610,7 @@
       att.rk = (att.rk || 0) + 1; const n = (att.kt || []).length;
       if (!this.fb && (this.mode === 'bomb' || this.mode === 'elim')) { this.fb = true; this.medal(att, 'primera'); }
       if (n === 2) this.medal(att, 'doble'); if (n === 3) this.medal(att, 'triple');
-      if (att.rk === 4 && (this.mode === 'bomb' || this.mode === 'elim')) this.medal(att, 'as');
+      if (att.rk === TEAM_SIZE && (this.mode === 'bomb' || this.mode === 'elim')) this.medal(att, 'as');
       if (e.h && m.h === 5) this.medal(att, 'cabezas'); if (e.w === 'knife') this.medal(att, 'cuchillo'); if (e.dist >= 50 && e.w !== 'knife') this.medal(att, 'lejos');
     }
     hlDefuse(e) { const B = this.bomb; const left = B.explodeAt - this.now; if (left < 3) this.hlOffer(e.v, 900 + (3 - left) * 200, 'Desactivó la carga con ' + left.toFixed(1) + ' s de sobra', 3); }
@@ -837,12 +838,12 @@
       const okC = id => typeof id === 'string' && CAMOS.some(c => c.id === id);
       const cleanCamo = c => { if (okC(c)) return c; if (!c || typeof c !== 'object') return null; const w = {}; if (c.w && typeof c.w === 'object') for (const k of Object.keys(c.w).slice(0, 40)) if (has(WEAPONS, k) && (c.w[k] === 'none' || okC(c.w[k]))) w[k] = c.w[k]; const d = okC(c.d) ? c.d : null; return d || Object.keys(w).length ? { d, w } : null; };
       this.lastErr = '';
-      if (this.clients.size >= 8) { this.lastErr = 'full'; return null; }
+      if (this.clients.size >= TEAM_SIZE * 2) { this.lastErr = 'full'; return null; }
       const hum = [0, 0]; for (const a of this.actors) if (a.human) hum[a.team]++;
       let team = hum[0] <= hum[1] ? 0 : 1;
       if (this.mode === 'waves') pref = 'def';
       const forced = pref === 'atk' || pref === 'def';
-      if (forced) { team = this.teamOfSide(pref); if (hum[team] >= 4) { this.lastErr = 'side'; return null; } }
+      if (forced) { team = this.teamOfSide(pref); if (hum[team] >= TEAM_SIZE) { this.lastErr = 'side'; return null; } }
       let a = this.actors.find(x => x.team === team && !x.human && !x.alive) || this.actors.find(x => x.team === team && !x.human);
       if (!a && !forced) { team = 1 - team; a = this.actors.find(x => x.team === team && !x.human); }
       if (!a) { this.lastErr = 'full'; return null; }
@@ -1528,5 +1529,5 @@
     roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
   }
 
-  return { CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

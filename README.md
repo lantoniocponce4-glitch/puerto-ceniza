@@ -1,6 +1,6 @@
 # Puerto Ceniza
 
-Shooter táctico por rondas, 4 contra 4, en el navegador. Los atacantes plantan la carga en el sitio A o B; los defensores lo impiden o la desactivan. Hasta 8 personas por sala; los cupos vacíos los ocupan bots.
+Shooter táctico por rondas, 5 contra 5, en el navegador. Los atacantes plantan la carga en el sitio A o B; los defensores lo impiden o la desactivan. Hasta 10 personas por sala; los cupos vacíos los ocupan bots.
 
 - Mapas originales: **Alcazaba** (pueblo de adobe) y **Muelle 9** (terminal portuaria).
 - Economía y menú de compra, armas que se sueltan al morir, granadas HE, cegadoras y de humo.
