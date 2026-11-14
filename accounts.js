@@ -28,7 +28,7 @@ function cleanDisplay(u) { return String(u || '').replace(/[\p{Cf}\p{Cc}\u3164\u
 /* ---------- Perfil ---------- */
 function newProfile() { return { xp: 0, lvl: 1, camo: null, day: today(), ch: PC.dailyFor(today()) }; }
 function newStats() { return { kills: 0, deaths: 0, wins: 0, matches: 0 }; }
-function freshDaily(p) { const d = today(); if (p.day !== d || !Array.isArray(p.ch) || p.ch.length !== 3) { p.day = d; p.ch = PC.dailyFor(d); } return p; }
+function freshDaily(p) { const d = today(); if (p.day !== d || !Array.isArray(p.ch) || p.ch.length !== 3) { p.day = d; p.ch = PC.dailyFor(d); } const w = PC.weekId(); if (p.wk !== w || !Array.isArray(p.wch) || p.wch.length !== 3) { p.wk = w; p.wch = PC.weeklyFor(w); } return p; }
 
 /* ---------- Almacenamiento ---------- */
 class FileStore {
@@ -177,6 +177,7 @@ class Accounts {
       if (g.medal) { const md = p.medals || (p.medals = {}); if (!md[g.medal]) medals.push(g.medal); md[g.medal] = (md[g.medal] || 0) + 1; }
       if (g.n) { p.xp += g.n; ss.xp += g.n; msgs.push('+' + g.n + ' · ' + g.why); }
       for (const id of g.ch) for (const c of p.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += 500; ss.xp += 500; done.push(c.id); } }
+      for (const id of g.ch) for (const c of p.wch || []) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += PC.WEEKLY_XP; ss.xp += PC.WEEKLY_XP; done.push('w:' + c.id); } }
     }
     while (p.xp >= PC.needXP(p.lvl)) { p.xp -= PC.needXP(p.lvl); p.lvl++; up = true; }
     // pase de temporada: premios de los escalones alcanzados

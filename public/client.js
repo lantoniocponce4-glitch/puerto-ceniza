@@ -94,7 +94,8 @@ const THEMES = {
   rural: { top: [.12, .36, .84], hor: [.68, .8, .95], fog: 0xb6c8de, fogD: .0042, sun: [.32, .86, .38], sunC: 0xfff4e2, sunI: 1.4, hs: 0xbad4f4, hg: 0x6c7448, hi: .55, sat: 1.12 },
   city: { top: [.30, .40, .56], hor: [.70, .74, .80], fog: 0x8d97a6, fogD: .0075, sun: [.55, .55, -.45], sunC: 0xffe6c4, sunI: 1.3, hs: 0xa8bcd8, hg: 0x4a4e56, hi: .7, sat: 1.0 },
   snow: { top: [.34, .52, .78], hor: [.86, .9, .95], fog: 0xd8e2ec, fogD: .0065, sun: [-.5, .42, .5], sunC: 0xfff0dc, sunI: 1.25, hs: 0xd4e4f8, hg: 0x8a96a8, hi: .78, sat: .96 },
-  port: { top: [.24, .32, .46], hor: [.84, .62, .45], fog: 0xd09a70, fogD: .0095, sun: [-.78, .28, .34], sunC: 0xffc690, sunI: 1.9, hs: 0xb8cce2, hg: 0x7a5c40, hi: .88 }
+  port: { top: [.24, .32, .46], hor: [.84, .62, .45], fog: 0xd09a70, fogD: .0095, sun: [-.78, .28, .34], sunC: 0xffc690, sunI: 1.9, hs: 0xb8cce2, hg: 0x7a5c40, hi: .88 },
+  refinery: { top: [.2, .2, .36], hor: [1.0, .56, .32], fog: 0xb4795a, fogD: .0088, sun: [.82, .2, -.3], sunC: 0xffa25e, sunI: 1.85, hs: 0xffc6a0, hg: 0x4a3628, hi: .82, sat: 1.1 }
 };
 
 /* ---------- Texturas procedurales ---------- */
@@ -628,7 +629,7 @@ function muzzlePuff(p) { const q = puffs[puI++ % puffs.length]; q.s.position.cop
 // impactos según el material de la superficie
 const SURF_OF = { metal: 'metal', metalP: 'metal', tank: 'metal', dumpster: 'metal', ware: 'metal', ware2: 'metal', wareDark: 'metal', kiosk: 'metal', pole: 'metal', stationH: 'metal', roofP: 'metal', roof: 'metal', barrier: 'metal',
   crate: 'wood', wood: 'wood', bench: 'wood', plank: 'wood', planter: 'wood', glassC: 'glass', snowpile: 'snow', tarp: 'soft' };
-const GROUND_COL = { snow: [.9, .92, .96], desert: [.78, .64, .44], rural: [.4, .33, .22], city: [.5, .5, .49], port: [.48, .47, .45] };
+const GROUND_COL = { refinery: [.42, .39, .36], snow: [.9, .92, .96], desert: [.78, .64, .44], rural: [.4, .33, .22], city: [.5, .5, .49], port: [.48, .47, .45] };
 function surfOf(stop) { if (!stop) { const th = MAPS[CURMAP] && MAPS[CURMAP].theme; return th === 'snow' ? 'snow' : 'ground'; } return SURF_OF[stop.mat] || 'stone'; }
 // busca la caja en la que cayó un impacto remoto (solo llega el punto y la normal)
 function stopAt(p, n) { if (!WORLD || !WORLD.colliders) return null; const x = p.x - n[0] * .03, y = p.y - n[1] * .03, z = p.z - n[2] * .03; for (const b of WORLD.colliders) if (x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY && z >= b.minZ && z <= b.maxZ) return b; return null; }
@@ -662,6 +663,8 @@ function buildDust(on) {
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
   updateLife(dt);
+  roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); }
+  if (ambNode) { ambT -= dt; if (ambT <= 0) { ambT = rand(4, 11); ambOneShot(); } } else if (AC && WORLD && G.state === 'playing' && bus.amb) startAmbience();
   for (const t of fx.tracers) if (t.life > 0) { t.life -= dt; t.l.material.opacity = Math.max(0, t.life / .05) * .8; if (t.life <= 0) t.l.visible = false; }
   for (let k = 0; k < PN; k++) if (pLife[k] > 0) { pLife[k] -= dt; pVel[k * 3 + 1] -= 9 * dt; pPos[k * 3] += pVel[k * 3] * dt; pPos[k * 3 + 1] += pVel[k * 3 + 1] * dt; pPos[k * 3 + 2] += pVel[k * 3 + 2] * dt; if (pLife[k] <= 0 || pPos[k * 3 + 1] < 0) { pPos[k * 3 + 1] = -999; pLife[k] = 0; } }
   pGeo.attributes.position.needsUpdate = true;
@@ -764,10 +767,10 @@ function initAudio() {
 }
 function panNode(pan) { if (AC.createStereoPanner) { const p = AC.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); return p; } return AC.createGain(); }
 function posAudio(x, z) { const dx = x - camera.position.x, dz = z - camera.position.z; const d = Math.hypot(dx, dz); const rel = angDiff(camYaw, Math.atan2(-dx, -dz)); return { d, pan: -Math.sin(rel) * .85 }; }
-const ECHO = { city: .3, port: .26, desert: .2, snow: .17, rural: .12 };
+const ECHO = { city: .3, port: .26, refinery: .32, desert: .2, snow: .17, rural: .12 };
 function sShot(s, dist, pan, occ) {
   if (!AC || !s) return; const t = AC.currentTime; const far = clamp(dist / 90, 0, 1); const vol = s.vol * (dist < 1 ? 1 : clamp(1.5 / (1 + dist * .08), .04, 1)) * (occ ? .62 : 1);
-  const ek = WORLD ? ECHO[WORLD.map.theme] || .15 : .15; if (ek > 0 && (dist < 1 || dist > 14)) { const e = AC.createBufferSource(); e.buffer = noiseBuf; const ef = AC.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = occ ? 420 : 900; const eg = AC.createGain(); const d0 = t + .08 + Math.min(dist, 80) * .003; eg.gain.setValueAtTime(.0001, t); eg.gain.linearRampToValueAtTime(vol * ek, d0); eg.gain.exponentialRampToValueAtTime(.001, d0 + .5 + ek); const ep = panNode(-pan * .5); e.connect(ef); ef.connect(eg); eg.connect(ep); ep.connect(OUT()); e.start(t, Math.random() * 1.2, 1.3); }
+  const ek = (WORLD ? ECHO[WORLD.map.theme] || .15 : .15) * (roofedNow ? .55 : 1.25), tail = roofedNow ? .12 : .75; if (ek > 0 && (dist < 1 || dist > 14)) { const e = AC.createBufferSource(); e.buffer = noiseBuf; const ef = AC.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = occ ? 420 : 900; const eg = AC.createGain(); const d0 = t + .08 + Math.min(dist, 80) * .003; eg.gain.setValueAtTime(.0001, t); eg.gain.linearRampToValueAtTime(vol * ek, d0); eg.gain.exponentialRampToValueAtTime(.001, d0 + tail + ek); const ep = panNode(-pan * .5); e.connect(ef); ef.connect(eg); eg.connect(ep); ep.connect(OUT()); e.start(t, Math.random() * .6, 2); }
   const src = AC.createBufferSource(); src.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(s.cut * (1 - far * .75) * (occ ? .3 : 1), t); f.frequency.exponentialRampToValueAtTime(260, t + s.dec);
   const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + s.dec * (1 + far)); const p = panNode(pan);
   src.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); src.start(t, Math.random() * 1.5, s.dec * 2 + .1);
@@ -777,7 +780,26 @@ function killSound(head) { sNoise(.09, .45, 160, 0, 0, .8); sTone(620, .09, .16,
 function sTone(freq, dur, vol, type = 'sine', slide, delay = 0) { if (!AC) return; const t = AC.currentTime + delay; const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(OUT()); o.start(t); o.stop(t + dur + .02); }
 function sNoise(dur, vol, freq, delay = 0, pan = 0, q = 1.2) { if (!AC) return; const t = AC.currentTime + delay; const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); const p = panNode(pan); s.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); s.start(t, Math.random(), dur + .05); }
 function sBoom(dist, big) { if (!AC) return; const t = AC.currentTime; const vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1); const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(big ? 1600 : 2200, t); f.frequency.exponentialRampToValueAtTime(80, t + (big ? 2 : 1)); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + (big ? 2.4 : 1.2)); s.connect(f); f.connect(g); g.connect(OUT()); s.start(t, 0, 2.5); const o = AC.createOscillator(); o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(25, t + .6); const og = AC.createGain(); og.gain.setValueAtTime(vol * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .8); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9); }
-const sStep = (v, pan) => sNoise(.06, v, 420 + Math.random() * 260, 0, pan || 0, 1.6);
+function surfAtFeet(x, z, y) {
+  if (!WORLD) return 'stone'; let best = null; for (const b of WORLD.colliders) if (b.mat !== 'perim' && x > b.minX - .05 && x < b.maxX + .05 && z > b.minZ - .05 && z < b.maxZ + .05 && Math.abs(b.maxY - y) < .2) { best = b; break; }
+  if (best) { const k = SURF_OF[best.mat]; return k === 'metal' || best.mat === 'metalP' ? 'metal' : k === 'wood' ? 'wood' : k === 'snow' ? 'snow' : 'stone'; }
+  const th = WORLD.map.theme; if (G.cond && G.cond.weather === 'lluvia') return 'water'; return th === 'snow' ? 'snow' : th === 'desert' ? 'sand' : th === 'rural' ? 'dirt' : 'stone';
+}
+// pasos distintos por superficie: metal resuena, madera golpea, nieve cruje, agua salpica, tierra y arena suenan suaves
+function sStep(v, pan, surf) {
+  pan = pan || 0;
+  switch (surf) {
+    case 'metal': sNoise(.05, v * 1.1, 2600 + Math.random() * 600, 0, pan, 3); sTone(rand(380, 520), .09, v * .35, 'triangle'); break;
+    case 'wood': sNoise(.07, v * 1.1, 260 + Math.random() * 80, 0, pan, 2); sTone(rand(150, 190), .06, v * .3, 'sine'); break;
+    case 'snow': sNoise(.13, v * .9, 1100 + Math.random() * 400, 0, pan, .7); sNoise(.06, v * .5, 3200, .04, pan, 1); break;
+    case 'water': sNoise(.12, v * .9, 1900 + Math.random() * 500, 0, pan, .8); sNoise(.08, v * .6, 700, .03, pan, 1.2); break;
+    case 'sand': case 'dirt': sNoise(.09, v * .8, 520 + Math.random() * 200, 0, pan, .9); break;
+    default: sNoise(.06, v, 420 + Math.random() * 260, 0, pan, 1.6);
+  }
+}
+// ¿bajo techo? (eco corto y seco) o al aire libre (cola larga)
+function roofed(x, y, z) { if (!WORLD) return false; for (const b of WORLD.colliders) if (b.mat !== 'perim' && b.minY > y + .3 && b.minY < y + 7 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true; return false; }
+let roofedNow = false, roofedT = 0;
 const sReload = (w) => { sNoise(.06, .35, 2200, 0); sNoise(.05, .3, 1500, w.reload * .45); sNoise(.07, .4, 2600, w.reload * .85); };
 
 /* ================= ESTADO ================= */
@@ -806,7 +828,7 @@ vmScene.add(vm.group);
 const VMPOS = { rifle: [.15, -.18, -.44], pistol: [.12, -.14, -.38], knife: [.18, -.19, -.42], nade: [.2, -.21, -.48] }, VMS = .78;
 function buildVM(id) {
   const g = PCM.buildGun(id, { shadow: false, camo: PCM.camoFor(mySkin(), id) }); const info = g.userData.info; const pos = VMPOS[info.cls] || VMPOS.rifle;
-  PCM.fpArms(g, pos, VMS);
+  PCM.fpArms(g, pos, VMS); PCM.addCharm(g, myCharm());
   const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.flash, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); flash.scale.set(.24, .24, .24); flash.visible = false; g.userData.muzzle.add(flash);
   const light = new THREE.PointLight(0xffb060, 0, 4); g.userData.muzzle.add(light);
   g.visible = false; g.scale.setScalar(VMS); vm.group.add(g);
@@ -880,7 +902,7 @@ function onMsg(m) {
       if (m.msgs && m.msgs.length) xpPop(m.msgs.join('  '));
       if (m.up) { const unl = PC.CAMOS.filter(c => c.lvl > prevLvl && c.lvl <= prof.lvl).pop(); announce('Subiste a nivel ' + prof.lvl, unl ? 'Desbloqueaste el camuflaje ' + unl.name + '. Elígelo en el menú principal.' : 'Sigue sumando experiencia', 3.2, 'var(--amber)'); sTone(660, .12, .2, 'triangle'); sTone(880, .12, .2, 'triangle', 0, .1); sTone(1180, .22, .2, 'triangle', 0, .2); }
       for (const r of m.pass || []) setTimeout(() => { announce('Pase · escalón ' + r.t, 'Ganaste ' + passRewardName(r), 3, 'var(--amber)'); sTone(784, .12, .14, 'triangle'); sTone(1175, .25, .14, 'triangle', 0, .12); }, 600);
-      for (const id of m.done || []) { const c = prof.ch.find(x => x.id === id); if (c) toast('Desafío diario completado: ' + chText(c) + ' · +500'); }
+      for (const id of m.done || []) { if (id.startsWith('w:')) { const c = (prof.wch || []).find(x => x.id === id.slice(2)); if (c) toast('Reto semanal completado: ' + wkText(c) + ' · +' + PC.WEEKLY_XP); continue; } const c = prof.ch.find(x => x.id === id); if (c) toast('Desafío diario completado: ' + chText(c) + ' · +500'); }
       break;
     }
   }
@@ -1210,7 +1232,7 @@ function updateLocal(dt) {
   me.landT = Math.max(0, (me.landT || 0) - dt * 3);
   const lat = me.vel.x * Math.cos(me.yaw) - me.vel.z * Math.sin(me.yaw); me.roll = lerp(me.roll || 0, -lat * .006, 1 - Math.exp(-dt * 8));
   const spd = Math.hypot(me.vel.x, me.vel.z);
-  if (me.grounded && spd > 1 && !me.walkHeld && !me.crouch) { me.stepT -= dt * spd; if (me.stepT <= 0) { me.stepT = 2.3; sStep(.12); } }
+  if (me.grounded && spd > 1 && !me.walkHeld && !me.crouch) { me.stepT -= dt * spd; if (me.stepT <= 0) { me.stepT = 2.3; sStep(.12, 0, surfAtFeet(me.pos.x, me.pos.z, me.pos.y)); } }
   vm.bobT += dt * spd * 1.3;
   // acción (plantar / desactivar)
   if ($('#bAct').hidden) $('#bAct').classList.remove('on');
@@ -1360,7 +1382,7 @@ function updateRemotes(dt) {
     setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
     a.flashT = (a.flashT || 0) - dt; m.flash.visible = a.flashT > 0;
     // pasos audibles
-    if (spd > 2.8 && !(a.flags & 2) && cr < .3 && Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) < .1) { a.stepT -= dt * spd; if (a.stepT <= 0) { a.stepT = 2.3; const p = posAudio(a.pos.x, a.pos.z); if (p.d < 28) sStep(.22 * (1 - p.d / 28) * (a.team === me.team ? .6 : 1), p.pan); } }
+    if (spd > 2.8 && !(a.flags & 2) && cr < .3 && Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) < .1) { a.stepT -= dt * spd; if (a.stepT <= 0) { a.stepT = 2.3; const p = posAudio(a.pos.x, a.pos.z); if (p.d < 28) sStep(.22 * (1 - p.d / 28) * (a.team === me.team ? .6 : 1), p.pan, surfAtFeet(a.pos.x, a.pos.z, a.pos.y)); } }
   }
   for (const m of nadeMeshes.values()) { const t = m.userData.t; if (t) { m.position.x = lerp(m.position.x, t[0], .35); m.position.y = lerp(m.position.y, t[1], .35); m.position.z = lerp(m.position.z, t[2], .35); m.rotation.x += dt * 8; } }
   // carga
@@ -1583,7 +1605,7 @@ function showEnd(e) {
 }
 
 /* ---------- Menú ---------- */
-const MAPSW = { desert: 'linear-gradient(90deg,#d6c19d,#4c8fc8)', port: 'linear-gradient(90deg,#d09a70,#2f5f80)', rural: 'linear-gradient(90deg,#1f4f9c,#6a9a4a)', city: 'linear-gradient(90deg,#2a3440,#3fe0f0 70%,#d9a22e)', snow: 'linear-gradient(90deg,#e9eef4,#8c2f24 75%,#2b4f7a)' };
+const MAPSW = { refinery: 'linear-gradient(90deg,#3a2a4a,#e07a3a 60%,#ffb35a)', desert: 'linear-gradient(90deg,#d6c19d,#4c8fc8)', port: 'linear-gradient(90deg,#d09a70,#2f5f80)', rural: 'linear-gradient(90deg,#1f4f9c,#6a9a4a)', city: 'linear-gradient(90deg,#2a3440,#3fe0f0 70%,#d9a22e)', snow: 'linear-gradient(90deg,#e9eef4,#8c2f24 75%,#2b4f7a)' };
 function drawMaps() {
   $('#maps').innerHTML = PC.MAP_IDS.map(id => { const M = MAPS[id]; const c = MAPSW[M.theme] || '#444'; return `<button type="button" class="mapc" data-m="${id}" aria-pressed="${id === prefs.map}"><span class="th" style="background:${c}"></span><span class="n">${M.name}</span><span class="d">${M.blurb}</span></button>`; }).join('');
 }
@@ -1704,7 +1726,7 @@ function leaveToMenu() {
   rangeStop();
   G.reveal = G.drone = 0; me.streak = 0;
   applyCond(null); clearDecals(); flashT = shake = 0; for (const d of dmgDirs) d.el.remove(); dmgDirs.length = 0; me.crouchToggle = false; $('#bCrouch').classList.remove('on'); lockFails = 0; lockFailed = false; if (meModel) { scene.remove(meModel.g); meModel = null; }
-  leaveNet(); G.state = 'menu'; $('#app').classList.remove('playing'); toastT = annT = 0; $('#toast').classList.remove('on'); $('#announce').classList.remove('on'); $('#feed').innerHTML = ''; $('#hud').hidden = true; $('#touch').hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#buy').hidden = true; $('#board').hidden = true; $('#menu').hidden = false;
+  leaveNet(); stopAmbience(); G.state = 'menu'; $('#app').classList.remove('playing'); toastT = annT = 0; $('#toast').classList.remove('on'); $('#announce').classList.remove('on'); $('#feed').innerHTML = ''; $('#hud').hidden = true; $('#touch').hidden = true; $('#pause').hidden = true; $('#end').hidden = true; $('#buy').hidden = true; $('#board').hidden = true; $('#menu').hidden = false;
   for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0; for (const el of tagEls.values()) el.remove(); tagEls.clear();
   stopKillcam(); closeChat(false); toggleWheel(false); for (const pg of pings) pg.el.remove(); pings.length = 0; $('#chatBox').innerHTML = ''; rec.length = 0; recShots.length = 0;
   for (const [id, s] of smokes) { scene.remove(s.g); } smokes.clear(); updateDrops([]); updateNades([]); bombMesh.visible = false; me.alive = false; releaseLock();
@@ -1732,32 +1754,36 @@ function ensureDaily() {
   prof.day = d; prof.ch = pick.map(c => ({ id: c.id, n: c.n, p: 0, done: false })); saveProf();
 }
 function chText(c) { const d = CH_POOL.find(x => x.id === c.id); return d ? d.txt.replace('{n}', c.n) : ''; }
+function wkText(c) { const d = PC.WK_POOL.find(x => x.id === c.id); return d ? d.txt.replace('{n}', c.n) : ''; }
+function ensureWeekly() { const w = PC.weekId(); if (prof.wk === w && prof.wch && prof.wch.length === 3) return; prof.wk = w; prof.wch = PC.weeklyFor(w); saveProf(); }
 function addXP(n, why) {
   prof.xp += n; let up = false;
   while (prof.xp >= needXP(prof.lvl)) { prof.xp -= needXP(prof.lvl); prof.lvl++; up = true; const unl = PC.CAMOS.find(c => c.lvl === prof.lvl); announce('Subiste a nivel ' + prof.lvl, unl ? 'Desbloqueaste el camuflaje ' + unl.name + '. Elígelo en el menú principal.' : 'Sigue sumando experiencia', 3.2, 'var(--amber)'); }
   if (up) { sTone(660, .12, .2, 'triangle'); sTone(880, .12, .2, 'triangle', 0, .1); sTone(1180, .22, .2, 'triangle', 0, .2); }
   saveProf(); xpPop('+' + n + ' · ' + why);
 }
-function progress(id, amt = 1) { ensureDaily(); for (const c of prof.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + amt); if (c.p >= c.n) { c.done = true; toast('Desafío diario completado: ' + chText(c)); saveProf(); addXP(500, 'desafío diario'); } } saveProf(); }
+function progress(id, amt = 1) { ensureWeekly(); for (const c of prof.wch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + amt); if (c.p >= c.n) { c.done = true; toast('Reto semanal completado: ' + wkText(c) + ' · +' + PC.WEEKLY_XP); saveProf(); addXP(PC.WEEKLY_XP, 'reto semanal'); } }
+  ensureDaily(); for (const c of prof.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + amt); if (c.p >= c.n) { c.done = true; toast('Desafío diario completado: ' + chText(c)); saveProf(); addXP(500, 'desafío diario'); } } saveProf(); }
 function xpPop(s) { const el = $('#xpPop'); el.textContent = s; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
 function progressEvent(e) {
   if (me.id < 0 || G.state !== 'playing' || auth.me) return;
   switch (e.k) {
-    case 'kill': if (e.a === me.id && e.v !== me.id && teamOf(e.v) !== me.team) { addXP(100 + (e.h ? 50 : 0), e.h ? 'baja a la cabeza' : 'baja'); progress('kills'); if (e.h) progress('heads'); if (e.w === 'knife') progress('knife'); if (e.w === 'he') progress('nade'); if (e.w === 'es12') progress('shotgun'); if (e.w === 'sr' || e.w === 'tr7') progress('sniper'); } else if (e.ast && e.ast.includes(me.id)) addXP(40, 'asistencia'); break;
+    case 'kill': if (e.a === me.id && e.v !== me.id && teamOf(e.v) !== me.team) { addXP(100 + (e.h ? 50 : 0), e.h ? 'baja a la cabeza' : 'baja'); progress('kills'); if (e.h) progress('heads'); if (e.w === 'knife') progress('knife'); if (e.w === 'he') progress('nade'); if (e.w === 'es12') progress('shotgun'); if (e.wb) progress('wb'); if (e.dist >= 35) progress('far'); if (e.w === 'sr' || e.w === 'tr7') progress('sniper'); } else if (e.ast && e.ast.includes(me.id)) addXP(40, 'asistencia'); break;
     case 'plant': if (e.v === me.id) { addXP(150, 'carga plantada'); progress('plant'); } break;
     case 'defused': if (e.v === me.id) { addXP(200, 'carga desactivada'); progress('defuse'); } break;
     case 'rend': if (e.w === me.team) { addXP(100, 'ronda ganada'); progress('rounds'); } break;
-    case 'mend': if (e.gg ? e.win === me.id : e.w === me.team) { addXP(500, 'partida ganada'); if (e.gg) progress('ggwin'); } break;
+    case 'mend': if (e.gg ? e.win === me.id : e.w === me.team) { addXP(500, 'partida ganada'); progress('win'); if (e.gg) progress('ggwin'); } progress('match'); break;
     case 'lvl': if (e.v === me.id) addXP(40, 'nivel de arma'); break;
   }
 }
 function drawProfile() {
-  if (!auth.me) ensureDaily(); drawAccount(); const need = needXP(prof.lvl);
+  if (!auth.me) { ensureDaily(); ensureWeekly(); } drawAccount(); const need = needXP(prof.lvl);
   const camos = [{ id: null, name: 'Sin camuflaje', lvl: 1 }].concat(PC.CAMOS);
   $('#profBox').innerHTML = `<div class="prof"><div class="lvl"><b>${prof.lvl}</b><span>nivel</span></div><div class="xpw"><div class="small">${prof.xp} / ${need} de experiencia</div><div class="xpbar"><s style="width:${Math.min(100, prof.xp / need * 100)}%"></s></div></div></div>
   <div class="invHead"><span class="lbl small">Camuflaje general (todas las armas)</span><span class="sqrow" style="margin:0"><button type="button" class="go ghost sm" id="passOpen">Pase de temporada</button><button type="button" class="go ghost sm" id="invOpen">Inventario de skins</button></span></div><div class="camos">${camos.map(c => { const lock = c.id ? camoLocked(c) : false; const sel = (prof.camo || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${sel}" ${lock ? 'aria-disabled="true"' : ''} title="${c.name}${lock ? ' · ' + camoLockTxt(c) : ''}"><span class="sw" style="${c.id ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span class="cn">${lock ? 'Nv ' + c.lvl : c.name}</span></button>`; }).join('')}</div>
   <div class="lbl small">Medallas · ${Object.keys(prof.medals || {}).length} de ${PC.MEDALS.length}</div><div class="medals">${PC.MEDALS.map(m => { const n = (prof.medals || {})[m.id] || 0; const ini = m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); return `<div class="medal${n ? '' : ' off'}" title="${esc(m.name + ': ' + m.desc)}"><i style="background:${m.c}">${ini}</i><b>${esc(m.name)}</b>${n ? `<small>×${n}</small>` : `<span>${esc(m.desc)}</span>`}</div>`; }).join('')}</div>
-  <div class="lbl small">Desafíos de hoy</div><div class="daily">${prof.ch.map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${chText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>`;
+  <div class="lbl small">Desafíos de hoy</div><div class="daily">${prof.ch.map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${chText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>
+  <div class="lbl small">Retos de la semana · +${PC.WEEKLY_XP} cada uno</div><div class="daily">${(prof.wch || []).map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${wkText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>`;
 }
 $('#profBox').addEventListener('click', async e => {
   const b = e.target.closest('.camo'); if (!b || b.getAttribute('aria-disabled') === 'true') return; const c = b.dataset.c || null;
@@ -2212,7 +2238,21 @@ function drawPass() {
   $('#passPreview').style.cssText = cd ? cardCss(cd) : ''; $('#passPrevName').textContent = auth.me ? auth.me.name : cleanName(prefs.name); $('#passPrevTitle').textContent = tl ? tl.name : '';
   setTimeout(() => { const n = $('#passTrack .pt.now') || $('#passTrack .pt.got:last-of-type'); if (n) n.scrollIntoView({ block: 'nearest', inline: 'center' }); }, 0);
 }
-function openPass() { $('#pass').hidden = false; drawPass(); }
+function extrasOwned() { const tier = auth.me ? PC.passTier(seasonXP()) : 0, ex = prefs.extras || (prefs.extras = []); let ch = false; for (const r of PC.PASS.extra) { const k = r.k + ':' + r.id; if (r.t <= tier && !ex.includes(k)) { ex.push(k); ch = true; } } if (ch) savePrefs(); return ex; }
+function drawExtras() {
+  const own = extrasOwned(), tier = auth.me ? PC.passTier(seasonXP()) : 0;
+  $('#passExtra').innerHTML = PC.PASS.extra.map(r => { const got = own.includes(r.k + ':' + r.id), nm = (r.k === 'charm' ? PC.CHARMS : PC.POSES).find(x => x.id === r.id).name;
+    return `<div class="px${got ? ' got' : ''}${r.t === tier + 1 ? ' now' : ''}"><b>${r.t}</b><span class="pxi ${r.k}">${r.k === 'charm' ? '◆' : '♟'}</span><small>${r.k === 'charm' ? 'Dije' : 'Pose'}: ${esc(nm)}</small></div>`; }).join('');
+  const charms = PC.CHARMS.filter(c => own.includes('charm:' + c.id)), poses = PC.POSES.filter(p => p.id === 'listo' || own.includes('pose:' + p.id));
+  $('#passCharms').innerHTML = `<button type="button" class="ptl" data-charm="" aria-pressed="${!prefs.charm}">Sin dije</button>` + charms.map(c => `<button type="button" class="ptl" data-charm="${c.id}" aria-pressed="${prefs.charm === c.id}">${esc(c.name)}</button>`).join('') + (charms.length ? '' : '<span class="small">Gana tu primer dije en el escalón 2.</span>');
+  $('#passPoses').innerHTML = poses.map(p => `<button type="button" class="ptl" data-pose="${p.id}" aria-pressed="${(prefs.pose || 'listo') === p.id}">${esc(p.name)}</button>`).join('');
+}
+function openPass() { $('#pass').hidden = false; drawPass(); drawExtras(); }
+document.addEventListener('click', e => {
+  const b = e.target.closest('#passCharms .ptl, #passPoses .ptl'); if (!b) return;
+  if (b.dataset.charm !== undefined) { prefs.charm = b.dataset.charm || null; rebuildVMs(); } else prefs.pose = b.dataset.pose || 'listo';
+  savePrefs(); SHOW.key = ''; drawExtras(); toast('Listo: míralo en la vitrina del menú');
+});
 document.addEventListener('click', async e => {
   if (e.target.id === 'passOpen') { openPass(); return; }
   if ($('#pass').hidden) return;
@@ -2229,12 +2269,14 @@ addEventListener('keydown', e => { if (!$('#pass').hidden && e.key === 'Escape')
 // Vitrina del menú: tu soldado con tu arma y camuflaje, con luz de estudio, a la derecha del menú
 const SHOW = { m: null, key: '', g: null, t: 0 };
 function showcaseOn() { return G.state === 'menu' && !$('#menu').hidden && innerWidth >= 900 && innerWidth / innerHeight > 1.2 && $('#inv').hidden; }
+function showPose() { const ex = prefs.extras || []; return prefs.pose && prefs.pose !== 'listo' && ex.includes('pose:' + prefs.pose) ? prefs.pose : null; }
+function myCharm() { const ex = prefs.extras || []; return prefs.charm && ex.includes('charm:' + prefs.charm) ? prefs.charm : null; }
 function updateShowcase(dt) {
   const on = showcaseOn(); if (!on) { if (SHOW.g) SHOW.g.visible = false; return false; }
-  const team = prefs.side === 'atk' ? 1 : 0, gun = 'ar', key = team + '|' + gun + '|' + (prof.camo || '');
+  const team = prefs.side === 'atk' ? 1 : 0, gun = 'ar', key = team + '|' + gun + '|' + (prof.camo || '') + '|' + showPose() + '|' + myCharm();
   if (key !== SHOW.key) {
     SHOW.key = key; if (SHOW.g) vmScene.remove(SHOW.g); const g = new THREE.Group(); SHOW.g = g; vmScene.add(g);
-    const m = PCM.buildSoldier(team, 1, { flashMat, camo: prof.camo || null }); m.setGun(gun); m.setHelmet(true); m.animate(0, 0, 0, -.05); SHOW.m = m; g.add(m.g);
+    const m = PCM.buildSoldier(team, 1, { flashMat, camo: prof.camo || null }); if (showPose()) m.poseOv = showPose(); m.setGun(gun); m.setHelmet(true); m.animate(0, 0, 0, -.05); SHOW.m = m; g.add(m.g); { const hg = m.hand.children.find(o => o.userData && o.userData.info); if (hg) PCM.addCharm(hg, myCharm()); }
     const rim = new THREE.DirectionalLight(team ? 0xffb27a : 0x9fd8ff, 1.3); rim.position.set(-2, 2.5, -3); g.add(rim); const key2 = new THREE.DirectionalLight(0xfff3e2, .9); key2.position.set(2, 3, 3); g.add(key2);
     const disc = new THREE.Mesh(new THREE.CircleGeometry(.62, 40), new THREE.MeshBasicMaterial({ map: TX.hole, transparent: true, opacity: .55, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = .01; g.add(disc);
     const ring = new THREE.Mesh(new THREE.RingGeometry(.66, .69, 64), new THREE.MeshBasicMaterial({ color: team ? 0xef6a45 : 0x5cc8e0, transparent: true, opacity: .7, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = .012; g.add(ring);
@@ -2402,6 +2444,33 @@ const flashlight = new THREE.SpotLight(0xffeedd, 0, 42, .5, .8, 2); flashlight.p
 const glowWarm = texSpot('rgba(255,196,120,1)', .25);
 function condLabel(c) { if (!c) return ''; if (c.night) return ' · de noche'; if (c.dusk) return ' · al atardecer'; return { lluvia: ' · con lluvia', arena: ' · tormenta de arena', niebla: ' · con niebla', nieve: ' · nevando' }[c.weather] || ''; }
 function stopWeatherSound() { if (!weatherNode) return; try { weatherNode.src.stop(); if (weatherNode.lfo) weatherNode.lfo.stop(); } catch (e) { } try { weatherNode.g.disconnect(); } catch (e) { } weatherNode = null; }
+// Ambiente de cada mapa: un fondo continuo y sonidos sueltos al azar (todo sintetizado)
+let ambNode = null, ambT = 0;
+function stopAmbience() { if (!ambNode) return; try { for (const n of ambNode.src) n.stop(); } catch (e) { } ambNode = null; }
+function startAmbience() {
+  stopAmbience(); if (!AC || !WORLD || !bus.amb) return; const th = WORLD.map.theme, src = [];
+  const bed = (type, freq, q, vol, lfoF, lfoD) => { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.value = vol;
+    if (lfoF) { const l = AC.createOscillator(); l.frequency.value = lfoF; const lg = AC.createGain(); lg.gain.value = vol * lfoD; l.connect(lg); lg.connect(g.gain); l.start(); src.push(l); } s.connect(f); f.connect(g); g.connect(bus.amb); s.start(0, Math.random() * 1.5); src.push(s); };
+  const hum = (freq, vol) => { const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 240; const g = AC.createGain(); g.gain.value = vol; o.connect(f); f.connect(g); g.connect(bus.amb); o.start(); src.push(o); };
+  if (th === 'port') { bed('lowpass', 180, .7, .05, .08, .6); bed('bandpass', 500, .5, .012, .13, .8); }
+  else if (th === 'snow') { bed('bandpass', 420, .8, .045, .11, .9); }
+  else if (th === 'rural') { bed('lowpass', 300, .5, .012, .05, .5); }
+  else if (th === 'city') { bed('lowpass', 160, .6, .055, .03, .5); }
+  else if (th === 'desert') { bed('bandpass', 650, .6, .03, .09, .9); }
+  else if (th === 'refinery') { hum(55, .016); hum(110.5, .008); bed('lowpass', 140, .7, .04, .06, .4); }
+  ambNode = { src, th }; ambT = rand(2, 5);
+}
+function ambOneShot() {
+  if (!AC || !ambNode || !bus.amb) return; const th = ambNode.th, pan = rand(-.8, .8), out = (g) => { const p = panNode(pan); g.connect(p); p.connect(bus.amb); };
+  const chirp = (f0, f1, dur, vol, delay = 0, type = 'sine') => { const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur * .2); g.gain.exponentialRampToValueAtTime(.0001, t + dur); o.connect(g); out(g); o.start(t); o.stop(t + dur + .05); };
+  const clank = (f, vol, delay = 0) => { const t = AC.currentTime + delay; for (const m of [1, 2.76, 5.4]) { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.value = f * m; g.gain.setValueAtTime(vol / m, t); g.gain.exponentialRampToValueAtTime(.0001, t + 1.4 / m); o.connect(g); out(g); o.start(t); o.stop(t + 1.5); } };
+  if (th === 'port') { if (Math.random() < .6) { for (let i = 0; i < 3; i++) chirp(rand(1500, 1900), rand(900, 1200), .28, .025, i * .32, 'triangle'); } else clank(rand(90, 140), .03); }
+  else if (th === 'snow') { if (Math.random() < .5) chirp(rand(70, 110), rand(50, 70), 1.6, .025, 0, 'sawtooth'); else clank(rand(200, 300), .012); }
+  else if (th === 'rural') { if (Math.random() < .5) { const n = 3 + (Math.random() * 4 | 0); for (let i = 0; i < n; i++) chirp(rand(2800, 4200), rand(2000, 3200), .09, .018, i * .12); } else { for (let i = 0; i < 14; i++) chirp(4600, 4500, .04, .01, i * .05, 'square'); } }
+  else if (th === 'city') { if (Math.random() < .4) { chirp(440, 430, .35, .015, 0, 'square'); chirp(554, 540, .35, .012, 0, 'square'); } else sNoise(2.2, .04, 300, 0, pan, .6); }
+  else if (th === 'desert') { if (Math.random() < .5) chirp(rand(1700, 2100), rand(1300, 1500), .5, .015); else sNoise(1.8, .035, 900, 0, pan, .5); }
+  else if (th === 'refinery') { if (Math.random() < .55) clank(rand(60, 100), .035); else chirp(rand(160, 220), rand(120, 150), 1.2, .02, 0, 'sawtooth'); }
+}
 function weatherSound(kind) {
   stopWeatherSound(); if (!AC) return; let lfo = null; const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const f = AC.createBiquadFilter(); const g = AC.createGain();
   if (kind === 'lluvia') { f.type = 'highpass'; f.frequency.value = 1400; g.gain.value = .07; } else { f.type = 'bandpass'; f.frequency.value = 520; f.Q.value = .6; g.gain.value = .11; lfo = AC.createOscillator(); const l = lfo; l.frequency.value = .17; const lg = AC.createGain(); lg.gain.value = .06; l.connect(lg); lg.connect(g.gain); l.start(); }
@@ -2464,18 +2533,23 @@ function applyCond(cond) {
   if (post.bloom) post.bloom.threshold = th; G.night = !!c.night;
   skyU.night.value = c.night ? 1 : 0; skyU.cloud.value = c.dusk ? .55 : { lluvia: .82, niebla: .66, nieve: .76, arena: .5 }[c.weather] || .33;
   setEnv(!c.night && !c.weather); if (prefs.gfx !== 'low') hemi.intensity *= .55;
-  buildLife(c);
+  buildLife(c); if (G.state === 'playing') startAmbience();
   const wet = c.weather === 'lluvia'; if (G.groundMat) { G.groundMat.roughness = wet ? .2 : G.groundBase.r; G.groundMat.metalness = wet ? .3 : G.groundBase.m; G.groundMat.envMapIntensity = wet ? 1.8 : .4; }
 }
 
 /* ================= VIDA DEL MAPA ================= */
 // viento con hojas o papeles, banderas que ondean, charcos con lluvia, huellas en la nieve, pájaros que huyen de los disparos y luces que parpadean de noche
-const LIFE = { g: null, deb: null, flags: [], birds: [], lamps: [], steps: null, si: 0, last: {}, wind: [1, 0], t: 0 };
+const LIFE = { g: null, deb: null, flags: [], birds: [], lamps: [], steps: null, si: 0, last: {}, wind: [1, 0], t: 0, steam: [], beacons: [] };
 function freeSpot(x, z, r) { for (const b of WORLD.colliders) if (b.mat !== 'perim' && x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r && b.minY < 2) return false; return true; }
 function buildLife(c) {
   if (LIFE.g) { scene.remove(LIFE.g); LIFE.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); }); }
-  LIFE.g = new THREE.Group(); scene.add(LIFE.g); LIFE.flags = []; LIFE.birds = []; LIFE.lamps = []; LIFE.deb = null; LIFE.steps = null; LIFE.last = {};
-  if (prefs.gfx === 'low' || !WORLD) return; const M = WORLD.map, th = M.theme, [x0, z0, x1, z1] = M.bounds; const wa = Math.random() * 6.28; LIFE.wind = [Math.cos(wa), Math.sin(wa)];
+  LIFE.g = new THREE.Group(); scene.add(LIFE.g); LIFE.flags = []; LIFE.birds = []; LIFE.lamps = []; LIFE.deb = null; LIFE.steps = null; LIFE.last = {}; LIFE.steam = []; LIFE.beacons = [];
+  if (!WORLD) return;
+  // vapor de tuberías (tapa la vista a ratos) y balizas rojas giratorias: también en gráficos bajos, porque afectan el juego
+  for (const [x, z] of WORLD.map.steam || []) { const puffs = []; for (let i = 0; i < 7; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.smoke, color: 0xe8e4de, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; LIFE.g.add(sp); puffs.push({ sp, life: 0 }); } LIFE.steam.push({ x, z, puffs, t: rand(0, 6), on: false, i: 0 }); }
+  for (const [x, y, z] of WORLD.map.beacons || []) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.glow, color: 0xff3020, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })); sp.position.set(x, y, z); sp.scale.setScalar(1.6); LIFE.g.add(sp);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(.12, .14, .22, 10), new THREE.MeshBasicMaterial({ color: 0xff3a24 })); cap.position.set(x, y - .05, z); LIFE.g.add(cap); const b = { sp, cap, ph: Math.random() * 6 }; if (!LIFE.beacons.length && prefs.gfx !== 'low') { b.pl = new THREE.PointLight(0xff3020, 0, 14); b.pl.position.set(x, y - .3, z); LIFE.g.add(b.pl); } LIFE.beacons.push(b); }
+  if (prefs.gfx === 'low') return; const M = WORLD.map, th = M.theme, [x0, z0, x1, z1] = M.bounds; const wa = Math.random() * 6.28; LIFE.wind = [Math.cos(wa), Math.sin(wa)];
   const rx = () => rand(x0 + 2, x1 - 2), rz = () => rand(z0 + 2, z1 - 2);
   // hojas, papeles o arena arrastrados por el viento
   if (c.weather !== 'nieve' && th !== 'snow') {
@@ -2522,6 +2596,10 @@ function lifeShot(x, z) { for (const b of LIFE.birds) if (b.st === 0 && Math.hyp
 const _lm = new THREE.Matrix4(), _lq = new THREE.Quaternion(), _le = new THREE.Euler(), _lp = new THREE.Vector3(), _ls = new THREE.Vector3(1, 1, 1);
 function updateLife(dt) {
   if (!LIFE.g) return; LIFE.t += dt; const t = LIFE.t, [wx, wz] = LIFE.wind, gust = .6 + Math.max(0, Math.sin(t * .35)) * 1.4;
+  for (const S of LIFE.steam) { S.t -= dt; if (S.t <= 0) { S.on = !S.on; S.t = S.on ? rand(2.5, 4.5) : rand(4, 9); if (S.on && AC && G.state === 'playing') { const pa = posAudio(S.x, S.z); if (pa.d < 30) sNoise(S.t, .16 * (1 - pa.d / 30), 3800, 0, pa.pan, .4); } }
+    if (S.on && Math.random() < dt * 9) { const q = S.puffs[S.i++ % S.puffs.length]; q.life = 2.4; q.sp.visible = true; q.sp.position.set(S.x + rand(-.2, .2), .6, S.z + rand(-.2, .2)); q.sp.material.rotation = Math.random() * 6; }
+    for (const q of S.puffs) if (q.life > 0) { q.life -= dt; const k = 1 - q.life / 2.4; q.sp.position.y += dt * (1.6 - k); q.sp.position.x += wx * dt * .6; q.sp.position.z += wz * dt * .6; q.sp.scale.setScalar(.8 + k * 4.2); q.sp.material.opacity = Math.sin(Math.min(1, k * 3) * Math.PI / 2) * (1 - k) * .75; if (q.life <= 0) q.sp.visible = false; } }
+  for (const b of LIFE.beacons) { const a = t * 3.2 + b.ph, k = Math.pow(Math.max(0, Math.cos(a)), 6); b.sp.material.opacity = .25 + k * .95; b.sp.scale.setScalar(1.2 + k * 2.2); if (b.pl) b.pl.intensity = k * 2.4; }
   if (LIFE.deb) { const { im, P } = LIFE.deb, cx = camera.position.x, cz = camera.position.z;
     for (let i = 0; i < P.length; i++) { const q = P[i]; q.x += (wx * gust * q.s + Math.sin(t * 2 + q.ph) * .3) * dt; q.z += (wz * gust * q.s + Math.cos(t * 1.7 + q.ph) * .3) * dt;
       const lift = gust > 1.4 ? .9 : 0; q.vy += (lift * q.s - 1.2) * dt; q.y = Math.max(.02, Math.min(1.6, q.y + q.vy * dt)); if (q.y <= .02) q.vy = 0; q.r += dt * gust * 3 * q.s;
@@ -2643,7 +2721,7 @@ function frame(now) {
     camera.position.set(cx + Math.cos(menuT) * 34, 16, cz + Math.sin(menuT) * 26); camera.lookAt(cx, 1.5, cz); if (camera.fov !== 60) { camera.fov = 60; camera.updateProjectionMatrix(); }
     animSmokes();
   }
-  sky.position.copy(camera.position);
+  sky.position.copy(camera.position); PCM.tickCamo(now * .001);
   const shOn = G.state !== 'playing' ? updateShowcase(dt) : (SHOW.g && (SHOW.g.visible = false), false); if (shOn) vm.group.visible = false;
   const showVm = (G.state === 'playing' && vm.group.visible) || shOn;
   if (INV.open) renderInv(now);
@@ -2697,6 +2775,7 @@ function updateVM(dt) {
   vm.swX = lerp(vm.swX || 0, 0, 1 - Math.exp(-dt * 8)); vm.swY = lerp(vm.swY || 0, 0, 1 - Math.exp(-dt * 8)); me.recoilJolt = Math.max(0, (me.recoilJolt || 0) - dt * 6);
   const land = Math.sin((me.landT || 0) * Math.PI) * .03;
   g.g.position.set(px + ox + (bx + vm.swing * -.08 - vm.swX * .02) * calm, py + oy + (-by - reloadK * .09 - (isKnife ? 0 : draw * .25) + (me.nadeArm ? .05 : 0) + vm.swY * .015 - land) * calm, pz + oz + vm.kick * (.035 - ak * .02) - vm.throwT * .15 + (me.recoilJolt || 0) * .02 * calm);
+  { const ch = g.g.userData.charm; if (ch) { const tt = nowS(); ch.rotation.z = clamp(-vm.swX * 1.4 + Math.sin(tt * 2.6) * .08 * (1 + spd * .3) - (me.roll || 0) * 2, -1, 1); ch.rotation.x = clamp(vm.kick * 1.2 + reloadK * .8 + Math.sin(tt * 3.1 + 1) * .06 * (1 + spd * .3), -1, 1); } }
   g.g.rotation.set(rx + (vm.kick * .05 + vm.swY * .05) * calm + reloadK * .55 + (isKnife ? 0 : draw * -.6) + vm.swing * -.6, ry + vm.swing * 1.2 + vm.swX * .08 * calm, rz + reloadK * -.35 + vm.swing * .3 + (vm.swX * .05 - (me.roll || 0) * 1.5) * calm);
   vm.flashT = (vm.flashT || 0) - dt; g.flash.visible = vm.flashT > 0; g.flash.material.rotation = Math.random() * 6; g.light.intensity = vm.flashT > 0 ? 3 : 0;
 }

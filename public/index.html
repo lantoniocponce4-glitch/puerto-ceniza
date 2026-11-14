@@ -449,6 +449,15 @@ tr.dead td{opacity:.5}
 .kf .hs{display:inline-flex}.kf .ki{width:14px;height:14px;color:var(--amber)}
 .kf .wb .ki{color:#9fd8ff;width:16px}
 @media (prefers-reduced-motion:reduce){.bar.low u{animation:none}.bar u{transition:none}}
+
+.passExtra{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px}
+.px{flex:none;min-width:118px;border:1px solid var(--line);border-radius:3px;padding:6px 8px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center;opacity:.55}
+.px b{font-family:var(--f-mono);font-size:11px;color:var(--dim)}.px small{grid-column:1/-1;font-size:11px;color:var(--sand)}
+.px .pxi{font-size:16px;color:var(--amber)}.px.got{opacity:1;border-color:rgba(242,179,61,.5)}.px.now{opacity:1;box-shadow:0 0 0 2px var(--amber) inset}
+.passLook2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:6px 0 8px}
+@media (max-width:640px){.passLook2{grid-template-columns:1fr}}
+
+@media (min-width:900px) and (min-aspect-ratio:6/5){#pass{justify-content:flex-start;background:linear-gradient(90deg,rgba(9,11,13,.92) 0,rgba(9,11,13,.85) 58%,rgba(9,11,13,.05) 78%)}#pass .passBox{width:min(760px,58vw);margin-left:2vw}}
 </style>
 </head>
 <body>
@@ -665,11 +674,14 @@ tr.dead td{opacity:.5}
       <div class="xpbar passbar"><s id="passBar"></s></div>
       <div class="small" id="passNext"></div>
       <div id="passTrack" class="passTrack"></div>
+      <div class="lbl small">Extras del pase · dijes y poses</div>
+      <div id="passExtra" class="passExtra"></div>
+      <div class="passLook2"><div><div class="lbl small">Dije en tu arma</div><div id="passCharms" class="passPick"></div></div><div><div class="lbl small">Pose en la vitrina del menú</div><div id="passPoses" class="passPick"></div></div></div>
       <div class="passLook">
         <div><div class="lbl small">Así te ven al eliminarlos</div><div id="passPreview" class="cardPrev"><b id="passPrevName">—</b><span id="passPrevTitle"></span></div></div>
         <div><div class="lbl small">Tarjeta de presentación</div><div id="passCards" class="passPick"></div><div class="lbl small" style="margin-top:8px">Título</div><div id="passTitles" class="passPick"></div></div>
       </div>
-      <div class="small">Sube de escalón con la experiencia de temporada (bajas, rondas, victorias y desafíos). Los premios ganados son tuyos para siempre; el avance se reinicia cada mes.</div>
+      <div class="small">Sube de escalón con la experiencia de temporada (bajas, rondas, victorias, desafíos diarios y retos semanales). Los acabados del pase son animados: brillan y se mueven. Los premios ganados son tuyos para siempre; el avance se reinicia cada mes.</div>
     </div>
   </div>
 
@@ -720,9 +732,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=52"></script>
-<script src="/models.js?v=52"></script>
-<script src="/client.js?v=52"></script>
+<script src="/core.js?v=53"></script>
+<script src="/models.js?v=53"></script>
+<script src="/client.js?v=53"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>

@@ -93,6 +93,18 @@
     ['card', 'medianoche'], ['camo', 'magma'], ['title', 'demoledor'], ['card', 'tormenta'], ['title', 'fantasma'], ['card', 'oxido'], ['camo', 'obsidiana'], ['title', 'escudo'], ['card', 'boreal'], ['title', 'veterano'],
     ['card', 'ceniza'], ['title', 'cazador'], ['card', 'rayo'], ['title', 'sinpiedad'], ['card', 'corona'], ['title', 'comandante'], ['card', 'prisma'], ['title', 'as'], ['title', 'leyenda'], ['camo', 'prisma']
   ].map(([k, id], i) => ({ t: i + 1, k, id })) };
+  // Extras del pase (no reemplazan premios ya ganados): dijes que cuelgan del arma y poses para la vitrina del menú
+  const CHARMS = [{ id: 'bala', name: 'Bala de latón' }, { id: 'dado', name: 'Dado' }, { id: 'ancla', name: 'Ancla' }, { id: 'estrella', name: 'Estrella' }, { id: 'insignia', name: 'Insignia de Ceniza' }];
+  const POSES = [{ id: 'listo', name: 'Listo para el combate' }, { id: 'descanso', name: 'Arma en descanso' }, { id: 'hombro', name: 'Al hombro' }, { id: 'alerta', name: 'Alerta' }];
+  PASS.extra = [[2, 'charm', 'bala'], [5, 'pose', 'descanso'], [8, 'charm', 'dado'], [11, 'pose', 'hombro'], [14, 'charm', 'ancla'], [18, 'pose', 'alerta'], [22, 'charm', 'estrella'], [26, 'charm', 'insignia']].map(([t, k, id]) => ({ t, k, id }));
+  const ANIM_CAMOS = ['neon', 'hielo', 'magma', 'obsidiana', 'prisma', 'aurora'];
+  // Retos semanales personales: más largos que los diarios y con más experiencia
+  const WK_POOL = [
+    { id: 'wb', txt: 'Consigue {n} bajas a través de una pared', n: 5 }, { id: 'far', txt: 'Consigue {n} bajas a más de 35 metros', n: 8 }, { id: 'heads', txt: 'Consigue {n} bajas a la cabeza', n: 25 },
+    { id: 'kills', txt: 'Consigue {n} bajas', n: 80 }, { id: 'win', txt: 'Gana {n} partidas', n: 5 }, { id: 'match', txt: 'Juega {n} partidas', n: 10 }, { id: 'plant', txt: 'Planta la carga {n} veces', n: 8 }, { id: 'knife', txt: 'Consigue {n} bajas con cuchillo', n: 5 }
+  ];
+  const WEEKLY_XP = 1500;
+  function weeklyFor(wid) { let h = 11; for (const c of wid) h = (h * 33 + c.charCodeAt(0)) >>> 0; const pool = WK_POOL.slice(), pick = []; while (pick.length < 3) { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; pick.push(pool.splice(h % pool.length, 1)[0]); } return pick.map(c => ({ id: c.id, n: c.n, p: 0, done: false })); }
   // Clanes: desafíos semanales compartidos (3 por semana, rotan) y título para el clan campeón de cada temporada
   const CLAN = { max: 20, bonus: 3000, pool: [
     { id: 'kills', txt: 'Entre todos: {n} bajas', n: 250 }, { id: 'wins', txt: 'Ganen {n} partidas', n: 18 }, { id: 'matches', txt: 'Jueguen {n} partidas', n: 40 },
@@ -118,12 +130,12 @@
     const out = [];
     switch (e.k) {
       case 'wave': if (e.st === 'clear' && e.tm === team) out.push({ n: 80 + 20 * e.n, why: 'oleada ' + e.n + ' superada', ch: [], stat: 'waves' }); break;
-      case 'kill': if (e.a === id && e.v !== id && teamOf(e.v) !== team) { const ch = ['kills']; if (e.h) ch.push('heads'); if (e.w === 'knife') ch.push('knife'); if (e.w === 'he') ch.push('nade'); if (e.w === 'es12') ch.push('shotgun'); if (e.w === 'sr' || e.w === 'tr7') ch.push('sniper'); out.push({ n: 100 + (e.h ? 50 : 0), why: e.h ? 'baja a la cabeza' : 'baja', ch, stat: 'kills' }); } else if (e.ast && e.ast.includes(id)) out.push({ n: 40, why: 'asistencia', ch: [] }); if (e.v === id) out.push({ n: 0, why: '', ch: [], stat: 'deaths' }); break;
+      case 'kill': if (e.a === id && e.v !== id && teamOf(e.v) !== team) { const ch = ['kills']; if (e.h) ch.push('heads'); if (e.w === 'knife') ch.push('knife'); if (e.w === 'he') ch.push('nade'); if (e.w === 'es12') ch.push('shotgun'); if (e.w === 'sr' || e.w === 'tr7') ch.push('sniper'); if (e.wb) ch.push('wb'); if (e.dist >= 35) ch.push('far'); out.push({ n: 100 + (e.h ? 50 : 0), why: e.h ? 'baja a la cabeza' : 'baja', ch, stat: 'kills' }); } else if (e.ast && e.ast.includes(id)) out.push({ n: 40, why: 'asistencia', ch: [] }); if (e.v === id) out.push({ n: 0, why: '', ch: [], stat: 'deaths' }); break;
       case 'plant': if (e.v === id) out.push({ n: 150, why: 'carga plantada', ch: ['plant'], stat: 'plants' }); break;
       case 'medal': if (e.v === id) { const md = MEDALS.find(x => x.id === e.m); if (md) out.push({ n: md.xp, why: 'medalla ' + md.name, ch: [], medal: md.id }); } break;
       case 'defused': if (e.v === id) out.push({ n: 200, why: 'carga desactivada', ch: ['defuse'] }); break;
       case 'rend': if (e.w === team) out.push({ n: 100, why: 'ronda ganada', ch: ['rounds'] }); break;
-      case 'mend': if (e.gg ? e.win === id : e.w === team) out.push({ n: 500, why: 'partida ganada', ch: e.gg ? ['ggwin'] : [], stat: 'wins' }); out.push({ n: 0, why: '', ch: [], stat: 'matches' }); break;
+      case 'mend': if (e.gg ? e.win === id : e.w === team) out.push({ n: 500, why: 'partida ganada', ch: e.gg ? ['ggwin', 'win'] : ['win'], stat: 'wins' }); out.push({ n: 0, why: '', ch: ['match'], stat: 'matches' }); break;
       case 'lvl': if (e.v === id) out.push({ n: 40, why: 'nivel de arma', ch: [] }); break;
     }
     return out;
@@ -297,6 +309,68 @@
       labels: []
     }
   };
+  // Refinería Ocaso: tanques gigantes, pasarela elevada y torre de control para francotiradores
+  MAPS.refineria = {
+    id: 'refineria', name: 'Refinería Ocaso', theme: 'refinery', blurb: 'Refinería abandonada al atardecer: sala de bombas (A), patio de tanques (B), pasarela elevada y torre de control.',
+    bounds: [-40, -32, 40, 32], wallH: 5,
+    boxes: [
+      // sala de bombas (sitio A)
+      [4, -32, 22, -29, 5, 'ware'], [7, -25, 9, -23, 1.2, 'metal'], [15, -25, 17, -23, 1.2, 'metal'], [11, -21, 13, -19.6, 1.1, 'crate'],
+      [4, -17, 12, -16.4, 1, 'metalP'], [16, -27, 22, -26.4, 1, 'metalP'], [-30, -26, 30, -25.4, .6, 'metalP', 4.6],
+      [-22, -24, -16, -21.6, 2.6, 'cont:red'], [-14, -30, -11.6, -24, 2.6, 'cont:blue'], [-6, -20, -4.8, -18.8, 1.1, 'crate'], [-4.8, -20, -3.6, -18.8, 1.1, 'crate'],
+      [26, -22, 28.4, -16, 2.6, 'cont:green'], [24, -12, 25.2, -10.8, 1.1, 'crate'],
+      // patio de tanques (sitio B)
+      [6, 23, 12, 29, 7, 'tank'], [16, 22, 22, 28, 7, 'tank'], [-4, 18, 0, 22, 5, 'tank'],
+      [10, 15, 11.2, 16.2, 1.1, 'crate'], [11.2, 15, 12.4, 16.2, 1.1, 'crate'], [18, 14, 20.4, 15.2, 1, 'barrier'], [2, 26, 3.2, 27.2, 1.1, 'crate'], [14, 18, 22, 18.6, 1, 'metalP'],
+      [-24, 16, -18, 18.4, 2.6, 'cont:red'], [-14, 22, -11.6, 28, 2.6, 'cont:green'], [-12, 13, -10.8, 14.2, 1.1, 'crate'], [26, 16, 28.4, 22, 2.6, 'cont:blue'],
+      // torre de control con escalera y parapetos
+      [-3, -10, 2, -5, 4, 'stationH'], [-3, -10, 2, -9.7, .9, 'concrete', 4], [-3, -5.3, 2, -5, .9, 'concrete', 4], [1.7, -10, 2, -5, .9, 'concrete', 4],
+        [-9.30, -8.4, -8.85, -6.6, 0.3, 'metalP'],
+        [-8.85, -8.4, -8.40, -6.6, 0.6, 'metalP'],
+        [-8.40, -8.4, -7.95, -6.6, 0.9, 'metalP'],
+        [-7.95, -8.4, -7.50, -6.6, 1.2, 'metalP'],
+        [-7.50, -8.4, -7.05, -6.6, 1.5, 'metalP'],
+        [-7.05, -8.4, -6.60, -6.6, 1.8, 'metalP'],
+        [-6.60, -8.4, -6.15, -6.6, 2.1, 'metalP'],
+        [-6.15, -8.4, -5.70, -6.6, 2.4, 'metalP'],
+        [-5.70, -8.4, -5.25, -6.6, 2.7, 'metalP'],
+        [-5.25, -8.4, -4.80, -6.6, 3.0, 'metalP'],
+        [-4.80, -8.4, -4.35, -6.6, 3.3, 'metalP'],
+        [-4.35, -8.4, -3.90, -6.6, 3.6, 'metalP'],
+        [-3.90, -8.4, -3.45, -6.6, 3.9, 'metalP'],
+        [-3.45, -8.4, -3.00, -6.6, 4.2, 'metalP'],
+      // pasarela elevada con escaleras en ambos extremos
+      [-16, 3.2, 14, 4.8, .2, 'metalP', 2.4],
+        [-19.60, 3.2, -19.15, 4.8, 0.3, 'metalP'],
+        [-19.15, 3.2, -18.70, 4.8, 0.6, 'metalP'],
+        [-18.70, 3.2, -18.25, 4.8, 0.9, 'metalP'],
+        [-18.25, 3.2, -17.80, 4.8, 1.2, 'metalP'],
+        [-17.80, 3.2, -17.35, 4.8, 1.5, 'metalP'],
+        [-17.35, 3.2, -16.90, 4.8, 1.8, 'metalP'],
+        [-16.90, 3.2, -16.45, 4.8, 2.1, 'metalP'],
+        [-16.45, 3.2, -16.00, 4.8, 2.4, 'metalP'],
+        [14.00, 3.2, 14.45, 4.8, 2.4, 'metalP'],
+        [14.45, 3.2, 14.90, 4.8, 2.1, 'metalP'],
+        [14.90, 3.2, 15.35, 4.8, 1.8, 'metalP'],
+        [15.35, 3.2, 15.80, 4.8, 1.5, 'metalP'],
+        [15.80, 3.2, 16.25, 4.8, 1.2, 'metalP'],
+        [16.25, 3.2, 16.70, 4.8, 0.9, 'metalP'],
+        [16.70, 3.2, 17.15, 4.8, 0.6, 'metalP'],
+        [17.15, 3.2, 17.60, 4.8, 0.3, 'metalP'],
+      // centro
+      [-10, -1, -8.8, .2, 1.1, 'crate'], [6, -2, 8.4, -.8, 1, 'barrier'], [-1, 8, 1.4, 10.4, 1.1, 'crate'], [-16, -12, -15.6, -11.6, 5, 'pole'], [20, 8, 20.4, 8.4, 5, 'pole']
+    ],
+    spawns: { atk: [[-36, -8], [-36, -3], [-36, 2], [-36, 7], [-34, 0]], def: [[36, -8], [36, -3], [36, 2], [36, 7], [34, 0]] },
+    buy: { atk: [-40, -32, -30, 32], def: [30, -32, 40, 32] },
+    sites: { A: { r: [3, -28, 23, -16], c: [12, -22] }, B: { r: [2, 13, 24, 29], c: [13, 20] } },
+    routes: {
+      A: [[[-34, -14], [-20, -18], [-2, -22], [10, -21]], [[-34, 0], [-12, -2], [4, -12], [12, -19]]],
+      B: [[[-34, 12], [-16, 20], [0, 25], [12, 21]], [[-34, 0], [-12, 1], [4, 12], [13, 19]]]
+    },
+    holds: { A: [[6, -18, Math.PI * .75], [21, -20, Math.PI / 2], [13, -27, 0]], B: [[4, 16, Math.PI * .8], [23, 20, Math.PI / 2], [13, 13, Math.PI]] },
+    steam: [[-15.8, -11.8], [10, -20], [4, 20], [20.2, 8.2], [-8, 24]], beacons: [[-.5, 5.2, -7.5], [13, 5.4, -30.5], [19, 7.3, 25], [9, 7.3, 26]],
+    labels: []
+  };
   // Polígono de tiro: solo para el modo práctica 'range'; no entra en rotación ni votación
   MAPS.poligono = {
     id: 'poligono', name: 'Polígono de tiro', theme: 'port', hidden: true, blurb: 'Práctica de puntería.',
@@ -312,7 +386,7 @@
     routes: { A: [[[0, 2], [-12, -42]]], B: [[[0, 2], [12, -42]]] }, holds: { A: [[-12.5, -42.5, 0]], B: [[12.5, -42.5, 0]] }, labels: []
   };
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
-  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve' };
+  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
   function pickCond(mapId) { const r = Math.random(); if (r < .3) return { night: false, weather: null }; if (r < .55) return { night: false, weather: null, dusk: true }; if (r < .77) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
 
@@ -1451,5 +1525,5 @@
     roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
   }
 
-  return { MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

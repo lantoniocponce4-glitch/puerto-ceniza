@@ -97,6 +97,7 @@ for (const k of ['poly', 'tan', 'od']) withN(MG[k], NSTIPPLE, .55);
 for (const k of ['metal', 'park']) withN(MG[k], NBRUSH, .3);
 withN(MG.rubber, NSTIPPLE, .9);
 const MCAMO = {};
+const ANIMC = { neon: { em: .95, sc: [.05, 0] }, magma: { em: .85, sc: [0, .03] }, prisma: { em: .3, sc: [.035, .035] }, hielo: { em: .18, sc: [0, -.01] }, aurora: { em: .4, sc: [.025, 0] }, obsidiana: { em: .22, sc: [.01, .01] } };
 // skin efectiva de un arma: spec puede ser un id (todas las armas) o { d: general, w: { arma: id | 'none' } }
 function camoFor(spec, id) { if (!spec) return null; if (typeof spec === 'string') return spec; const v = spec.w && Object.prototype.hasOwnProperty.call(spec.w, id) ? spec.w[id] : spec.d; return v && v !== 'none' ? v : null; }
 const CAMO_PBR = { acero: [.95, .3], cobre: [.92, .32], oceano: [.7, .24], grafito: [.45, .4], aurora: [.75, .2], neon: [.3, .35], hielo: [.6, .15], magma: [.4, .5], obsidiana: [.8, .12], prisma: [.7, .2] };
@@ -423,6 +424,7 @@ function mergeChildren(grp, skip) {
   for (const o of kill) grp.remove(o);
   for (const b of by.values()) { const geo = merge(b.geos); geo.computeBoundingSphere(); const m = new T.Mesh(geo, b.mat); m.castShadow = b.cast; m.receiveShadow = true; grp.add(m); for (const g of b.geos) g.dispose(); }
 }
+const POSE_OV = { descanso: { pos: [.14, .3, -.2], rot: [.85, .15, .25] }, hombro: { pos: [.17, .64, .02], rot: [-1.15, .05, .12] }, alerta: { pos: [.06, .44, -.32], rot: [.22, 0, 0] } };
 const HANDPOS = { rifle: [.1, .47, -.2], pistol: [.03, .47, -.44], knife: [.2, .3, -.27], nade: [.2, .34, -.25] };
 function buildSoldier(team, idx, opt = {}) {
   const C = teamMats[team], skin = skinMat(team, idx);
@@ -494,7 +496,7 @@ function buildSoldier(team, idx, opt = {}) {
     if (model.curGun === id) return; if (cur) cur.visible = false; model.curGun = id;
     if (!guns[id]) { guns[id] = buildGun(id, { camo: camoFor(model.camo, id) }); hand.add(guns[id]); }
     cur = guns[id]; cur.visible = true; const info = cur.userData.info; const cls = info.cls;
-    hand.position.set(...HANDPOS[cls]); hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
+    const po = model.poseOv && cls === 'rifle' ? POSE_OV[model.poseOv] : null; hand.position.set(...(po ? po.pos : HANDPOS[cls])); if (po) hand.rotation.set(...po.rot); else hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
     cur.userData.muzzle.add(flash); model.muzzle = cur.userData.muzzle;
     const gp = toLocal(info.grip).applyMatrix4(hand.matrix);
     const fp = cls === 'rifle' ? toLocal(info.fore).applyMatrix4(hand.matrix) : cls === 'pistol' ? gp.clone().add(new T.Vector3(-.035, -.01, .02)) : new T.Vector3(-.24, .14, -.08);
@@ -511,6 +513,7 @@ function buildSoldier(team, idx, opt = {}) {
     for (const k in guns) { hand.remove(guns[k]); delete guns[k]; } cur = null;
     const was = model.curGun; model.curGun = null; if (was) model.setGun(was);
   };
+  model.setPose = function (p) { const ov = POSE_OV[p] ? p : null; if (ov === (model.poseOv || null)) return; model.poseOv = ov; const was = model.curGun; model.curGun = null; if (was) model.setGun(was); };
   model.setHelmet = function (on) { helmet.visible = on; if (cap) cap.visible = !on; };
   model.animate = function (spd, ph, cr, pitch) {
     const k = Math.min(1, spd / 3.2) * (1 - cr); const sw = Math.sin(ph) * .6 * k;
@@ -582,8 +585,29 @@ function poseReload(gun, t) {
   else if (t < .66) _rt.lerpVectors(L.low, L.mag, sm((t - .42) / .24)); else if (t < .8) _rt.copy(L.mag).add(new T.Vector3(0, .012 * Math.sin((t - .66) / .14 * Math.PI) / (gun.scale.x || 1), 0)); else _rt.lerpVectors(L.mag, L.fore, sm((t - .8) / .2));
   solveArm(L.arm, L.sh, _rt.clone(), L.a, L.b, L.pole);
 }
+// camuflajes animados del pase: brillo que respira y dibujo que se desliza
+for (const id in ANIMC) { const m = MCAMO[id]; if (!m || !m.map) continue; m.emissive = new T.Color(0xffffff); m.emissiveMap = m.map; m.emissiveIntensity = ANIMC[id].em; m.needsUpdate = true; }
+function tickCamo(t) { for (const id in ANIMC) { const m = MCAMO[id]; if (!m || !m.map) continue; const a = ANIMC[id]; m.map.offset.set(a.sc[0] * t % 1, a.sc[1] * t % 1); m.emissiveIntensity = a.em * (.7 + .3 * Math.sin(t * 2.2)); } }
+// dijes: cuelgan de un cordón al costado izquierdo del arma (el que ve el jugador)
+const CHM = { brass: S({ color: 0xc9a043, metalness: .9, roughness: .3 }), white: S({ color: 0xf2efe8, roughness: .35 }), black: S({ color: 0x111111, roughness: .5 }), steel: S({ color: 0x8a9096, metalness: .85, roughness: .3 }), gold: S({ color: 0xe8b84a, metalness: .95, roughness: .25, emissive: 0x3a2400 }), cord: S({ color: 0x1a1a1a, roughness: .9 }), amber: S({ color: 0xf2b33d, roughness: .4, emissive: 0x5a3000 }) };
+function charmMesh(id) {
+  const g = new T.Group(), add = (geo, m, x = 0, y = 0, z = 0) => { const o = new T.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
+  if (id === 'bala') { add(new T.CylinderGeometry(.006, .006, .018, 10), CHM.brass, 0, -.009); add(new T.ConeGeometry(.006, .012, 10), CHM.brass, 0, .006); }
+  else if (id === 'dado') { add(rbox(.016, .016, .016, .003), CHM.white); for (const [x, y] of [[-.004, .004], [0, 0], [.004, -.004]]) add(new T.SphereGeometry(.0018, 6, 4), CHM.black, x, y, .0082); }
+  else if (id === 'ancla') { add(new T.CylinderGeometry(.0018, .0018, .024, 6), CHM.steel); const r = add(new T.TorusGeometry(.009, .0018, 6, 14, Math.PI), CHM.steel, 0, -.009); r.rotation.z = Math.PI; add(new T.TorusGeometry(.003, .0012, 6, 10), CHM.steel, 0, .014); add(new T.BoxGeometry(.014, .002, .002), CHM.steel, 0, .007); }
+  else if (id === 'estrella') { const s = new T.Shape(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + Math.PI / 2, r = i % 2 ? .0045 : .011; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(Math.cos(a) * r, Math.sin(a) * r); } const ge = new T.ExtrudeGeometry(s, { depth: .003, bevelEnabled: true, bevelThickness: .001, bevelSize: .001, bevelSegments: 1 }); ge.translate(0, 0, -.0015); add(ge, CHM.gold); }
+  else { const s = new T.Shape(); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, r = .01; i ? s.lineTo(Math.cos(a) * r, Math.sin(a) * r) : s.moveTo(r, 0); } const ge = new T.ExtrudeGeometry(s, { depth: .003, bevelEnabled: true, bevelThickness: .001, bevelSize: .001, bevelSegments: 1 }); ge.translate(0, 0, -.0015); add(ge, CHM.amber); add(new T.BoxGeometry(.008, .003, .0045), CHM.black, 0, 0, 0); }
+  return g;
+}
+function addCharm(gun, id) {
+  if (gun.userData.charm) { gun.remove(gun.userData.charm); gun.userData.charm = null; } if (!id) return;
+  const info = gun.userData.info; if (!info || info.cls === 'nade' || info.cls === 'knife') return;
+  const p = toLocal([info.grip[0] + (info.cls === 'pistol' ? .05 : .17), info.grip[1] + (info.cls === 'pistol' ? .045 : .07)]); const piv = new T.Group(); piv.position.set(info.cls === 'pistol' ? -.022 : -.034, p.y, p.z);
+  const cord = new T.Mesh(new T.CylinderGeometry(.0009, .0009, .03, 4), CHM.cord); cord.position.y = -.015; piv.add(cord); const c = charmMesh(id); c.position.y = -.038; piv.add(c);
+  gun.add(piv); gun.userData.charm = piv;
+}
 window.PCM = {
-  buildGun, buildSoldier, fpArms, setFpTeam, poseReload, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
+  buildGun, buildSoldier, fpArms, setFpTeam, poseReload, tickCamo, addCharm, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setEnv(env) { for (const m of Object.values(MCAMO).concat(Object.values(MG))) if (m && m.isMeshStandardMaterial && m.metalness > .3) { m.envMap = env; m.envMapIntensity = .9; m.needsUpdate = true; } },
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };
