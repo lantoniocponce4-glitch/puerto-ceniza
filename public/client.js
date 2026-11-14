@@ -1418,7 +1418,7 @@ function updateRemotes(dt) {
     if (!a.alive) { a.deadT += dt; const k = Math.min(1, a.deadT / .45); m.body.rotation.x = lerp(0, Math.PI / 2 * .96, k * k); m.body.position.y = -.05 * k; m.g.visible = a.deadT < 6; continue; }
     m.g.visible = !specMe; m.body.rotation.x = 0; m.body.position.y = 0;
     const spd = Math.hypot(a.vx, a.vz); a.walkPh += dt * spd * 2.2; const cr = clamp((1.8 - a.h) / .58, 0, 1);
-    m.animate(spd, a.walkPh, cr, a.pitch); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42;
+    const sy = Math.sin(a.yaw), cy = Math.cos(a.yaw); m.animate(spd, a.walkPh, cr, a.pitch, { fw: -a.vx * sy - a.vz * cy, sd: a.vx * cy - a.vz * sy, walk: !!(a.flags & 2), air: Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) > .2 }); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42;
     setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
     a.flashT = (a.flashT || 0) - dt; m.flash.visible = a.flashT > 0;
     // pasos audibles
@@ -1539,7 +1539,7 @@ function updateHUD(dt) {
   const hideXh = !me.alive || scoped || (w && w.scope) || NADES[me.cur] || (me.adsK || 0) > .35; xh.style.opacity = hideXh ? 0 : 1;
   if (w && !hideXh) { const inacc = inaccuracy(w); const gap = 3 + inacc * (innerHeight / 2) / Math.tan(camera.fov * Math.PI / 360) * .9 + me.sprayI * .6; xh.children[0].style.top = (-gap - 7) + 'px'; xh.children[1].style.top = gap + 'px'; xh.children[2].style.left = (-gap - 7) + 'px'; xh.children[3].style.left = gap + 'px'; }
   // punto central al apuntar: referencia de tiro siempre visible, también con miras de hierro
-  $('#adsDot').style.opacity = me.alive && (me.adsK || 0) > .6 && !(w && w.scope) ? 1 : 0;
+  $('#adsDot').style.opacity = 0;
   if (hitT > 0) { hitT -= dt; $('#hit').style.opacity = clamp(hitT / .1, 0, 1); } else $('#hit').style.opacity = 0; setCls('#xh', hitT > 0 ? ($('#hit').className === 'kill' ? 'hk' : 'hh') : '');
   $('#vign').style.opacity = me.alive && t - (me.lastHurt || 0) < .5 ? .7 : me.alive && hp < 30 ? .45 : 0;
   flashT = Math.max(0, flashT - dt); $('#flashOv').style.opacity = clamp(flashT / 1.2, 0, 1);
@@ -2914,6 +2914,9 @@ function updateVM(dt) {
   const draw = me.drawT > 0 ? me.drawT / .5 : 0;
   const ak = me.adsK || 0, ap = g.ads || g.pos, calm = 1 - ak * .85;
   rz -= (me.lean || 0) * .16;
+  { const syw = Math.sin(me.yaw), cyw = Math.cos(me.yaw), side = me.vel.x * cyw - me.vel.z * syw; vm.strafe = lerp(vm.strafe || 0, clamp(side / 5, -1, 1), 1 - Math.exp(-dt * 7)); rz -= vm.strafe * .07; ox -= vm.strafe * .012;
+    vm.air = lerp(vm.air || 0, me.grounded ? 0 : 1, 1 - Math.exp(-dt * 9)); oy -= vm.air * .018; rx += vm.air * .05 * (me.vel.y > 0 ? 1 : -.6);
+    const fig = Math.min(1, spd / 4) * (isKnife ? 1.6 : 1); rz += Math.sin(vm.bobT) * .025 * fig; }
   const px = lerp(g.pos[0], ap[0], ak), py = lerp(g.pos[1], ap[1], ak), pz = lerp(g.pos[2], ap[2], ak);
   vm.swX = lerp(vm.swX || 0, 0, 1 - Math.exp(-dt * 8)); vm.swY = lerp(vm.swY || 0, 0, 1 - Math.exp(-dt * 8)); me.recoilJolt = Math.max(0, (me.recoilJolt || 0) - dt * 6);
   const land = Math.sin((me.landT || 0) * Math.PI) * .03;

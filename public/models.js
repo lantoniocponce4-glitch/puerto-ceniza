@@ -85,7 +85,7 @@ const MG = {
   od: S({ color: 0x55603e, map: TXG, roughness: .76 }),
   wood: S({ map: TXWOOD, roughness: .5 }),
   steel: S({ color: 0xc9ccd0, metalness: 1, roughness: .16 }),
-  glass: new T.MeshStandardMaterial({ color: 0x9fd0e8, metalness: .6, roughness: .02, transparent: true, opacity: .18, depthWrite: false }),
+  glass: new T.MeshStandardMaterial({ color: 0x7fb8d8, metalness: .75, roughness: .03, transparent: true, opacity: .14, depthWrite: false, envMapIntensity: 1.4 }),
   red: new T.MeshBasicMaterial({ color: 0xff2b1a }),
   dotw: new T.MeshBasicMaterial({ color: 0xf4f1e6 }),
   dotg: new T.MeshBasicMaterial({ color: 0x8dff7a }),
@@ -135,7 +135,7 @@ function holo(x, y, w = .034) {
   // marco abierto: base, dos postes laterales y visera; se ve a través al apuntar
   const hw = w / 2;
   return { body: [bx(x - .03, y, x + .07, y + .012, w), bx(x - .018, y + .012, x + .062, y + .048, .004, hw - .002), bx(x - .018, y + .012, x + .062, y + .048, .004, -hw + .002), bx(x - .022, y + .046, x + .066, y + .052, w)],
-    glass: bx(x + .028, y + .013, x + .03, y + .046, w - .006), dot: sph(.0015, x + .027, y + .029, 0, 1, 1, 1, 8), sight: [x + .027, y + .029] };
+    glass: bx(x + .028, y + .013, x + .03, y + .046, w - .006), sight: Object.assign([x + .027, y + .029], { ret: [x + .0262, y + .029, Math.min(.03, w - .008)] }) };
 }
 
 /* ---------- Definiciones de armas (adelante = +x, cañón en boreY) ---------- */
@@ -149,7 +149,7 @@ const DEF = {
     a('metal', cyl(.0105, .0105, .475, .6, .045)); a('metal', cyl(.016, .015, .6, .655, .045)); for (let i = 0; i < 3; i++) a('poly', bx(.612 + i * .013, .054, .618 + i * .013, .062, .034));
     a('park', rail(-.1, .21, .074, .032)); a('park', rail(.22, .46, .07, .03));
     a('park', ex([[.43, .07], [.45, .07], [.448, .108], [.438, .108]], .01));
-    const h = holo(.0, .086); a('poly', h.body); a('glass', h.glass); a('red', h.dot);
+    const h = holo(.0, .086); a('poly', h.body); a('glass', h.glass);
     a('metal', bx(-.105, .062, -.085, .072, .07)); a('poly', gripG(-.035)); a('metal', trig(-.025));
     a('metal', ex([[.03, 0], [.095, 0], ['q', .105, -.09, .135, -.17], [.075, -.185], ['q', .05, -.09, .03, 0]], .026));
     a('poly', ex([[-.12, .066], [-.12, .004], [-.31, -.028], [-.37, -.034], [-.375, -.02], [-.375, .06], [-.37, .07], [-.31, .07]], .046, 0, .004));
@@ -161,7 +161,7 @@ const DEF = {
     a('tan', ex([[-.32, -.045], [-.1, -.03], [.02, -.005], [.3, -.002], [.31, .02], [.31, .072], [-.3, .075], [-.335, .04], [-.335, -.03]], .062, 0, .005));
     a('park', ex([[-.14, .074], [.18, .074], [.18, .124], [-.14, .124]], .024, 0, .003, [[[-.12, .085], [.16, .085], [.16, .112], [-.12, .112]]]));
     a('park', rail(-.12, .17, .124, .02));
-    const h = holo(.04, .136, .03); a('poly', h.body); a('glass', h.glass); a('red', h.dot);
+    const h = holo(.04, .136, .03); a('poly', h.body); a('glass', h.glass);
     a('metal', cyl(.011, .011, .31, .46, .045)); a('metal', cyl(.015, .015, .46, .5, .045));
     a('poly', gripG(.07)); a('metal', trig(.08));
     a('metal', ex([[-.14, -.03], [-.08, -.02], ['q', -.07, -.09, -.06, -.16], [-.12, -.17], ['q', -.13, -.1, -.14, -.03]], .026));
@@ -185,7 +185,7 @@ const DEF = {
     a('park', ex([[-.16, -.012], [.26, -.012], [.27, .01], [.27, .088], [-.16, .088], [-.17, .06]], .072, 0, .005));
     a('park', ex([[-.13, .088], [.17, .088], [.15, .104], [-.11, .104]], .074, 0, .004));
     a('park', rail(-.12, .15, .104, .03));
-    const h = holo(-.02, .116); a('poly', h.body); a('glass', h.glass); a('red', h.dot);
+    const h = holo(-.02, .116); a('poly', h.body); a('glass', h.glass);
     a('metal', cyl(.027, .027, .27, .47, .05)); for (const x of [.3, .36, .42]) a('poly', cyl(.0285, .0285, x, x + .012, .05));
     a('metal', cyl(.015, .015, .47, .74, .05)); a('metal', cyl(.02, .019, .74, .79, .05));
     a('poly', ex([[.28, .077], [.42, .077], [.42, .12], [.28, .12]], .016, 0, .003, [[[.295, .088], [.405, .088], [.405, .11], [.295, .11]]]));
@@ -267,7 +267,7 @@ DEF.k11 = function () {
   const [P, a] = A();
   a('poly', ex([[-.11, 0], [.14, 0], [.15, .012], [.15, .07], [-.11, .072], [-.12, .045]], .048, 0, .004));
   a('od', ex([[-.1, .07], [.13, .07], [.13, .08], [-.1, .08]], .04, 0, .002));
-  a('park', rail(-.09, .12, .08, .026)); const h = holo(-.02, .092, .03); a('poly', h.body); a('glass', h.glass); a('red', h.dot);
+  a('park', rail(-.09, .12, .08, .026)); const h = holo(-.02, .092, .03); a('poly', h.body); a('glass', h.glass);
   a('metal', cyl(.016, .016, .15, .21, .04)); a('metal', cyl(.02, .018, .21, .26, .04)); for (let i = 0; i < 4; i++) a('poly', bx(.22 + i * .01, .052, .225 + i * .01, .06, .03));
   a('metal', ex([[.03, 0], [.07, 0], [.085, -.24], [.045, -.25]], .024)); for (let y = -.06; y > -.23; y -= .04) a('poly', bx(.04, y, .08, y + .006, .026));
   a('poly', gripG(-.05)); a('metal', trig(-.04));
@@ -290,7 +290,7 @@ DEF.bp9 = function () {
   const [P, a] = A();
   a('tan', ex([[-.36, -.05], [-.36, .06], [-.34, .075], [.2, .075], [.22, .06], [.22, .012], [.08, .0], [.02, -.01], [-.12, -.02], [-.3, -.06]], .06, 0, .006));
   a('park', ex([[-.3, .075], [.18, .075], [.18, .088], [-.3, .088]], .03, 0, .002)); a('park', rail(-.28, .16, .088, .024));
-  const h = holo(-.02, .1); a('poly', h.body); a('glass', h.glass); a('red', h.dot);
+  const h = holo(-.02, .1); a('poly', h.body); a('glass', h.glass);
   a('metal', cyl(.012, .012, .22, .44, .045)); a('metal', cyl(.016, .016, .44, .49, .045));
   a('poly', ex([[.04, .0], [.1, .0], [.088, -.1], [.035, -.098]], .034)); a('metal', trig(.045));
   a('metal', ex([[-.21, -.035], [-.15, -.03], [-.13, -.2], [-.19, -.21]], .026));
@@ -333,9 +333,16 @@ function gunParts(id) {
   return (cache[id] = { meshes, info: d });
 }
 const toLocal = (p) => new T.Vector3(0, p[1], -p[0]);
+// retícula de mira holográfica: anillo de referencia, punto central y marcas cortas (dibujada una vez)
+const RETTEX = (() => { const [c, x] = cnv(256, 256); x.clearRect(0, 0, 256, 256); x.strokeStyle = '#fff'; x.fillStyle = '#fff'; x.shadowColor = '#fff'; x.shadowBlur = 6;
+  x.lineWidth = 6; x.beginPath(); x.arc(128, 128, 92, 0, 7); x.stroke(); x.beginPath(); x.arc(128, 128, 9, 0, 7); x.fill();
+  for (const [a, b, c2, d] of [[128, 20, 128, 44], [128, 212, 128, 236], [20, 128, 44, 128], [212, 128, 236, 128]]) { x.beginPath(); x.moveTo(a, b); x.lineTo(c2, d); x.stroke(); }
+  const t = new T.CanvasTexture(c); t.anisotropy = 4; return t; })();
+const RETMAT = new T.MeshBasicMaterial({ map: RETTEX, color: 0xff2414, transparent: true, opacity: .95, depthWrite: false, toneMapped: false });
 function buildGun(id, opt = {}) {
   const { meshes, info } = gunParts(id); const g = new T.Group();
   for (const [m, geo] of meshes) { const mat = opt.camo && MCAMO[opt.camo] && CAMO_KEYS.has(m) ? MCAMO[opt.camo] : MG[m]; const mesh = new T.Mesh(geo, mat); mesh.castShadow = opt.shadow !== false; mesh.receiveShadow = opt.shadow !== false; g.add(mesh); }
+  if (info.sight && info.sight.ret) { const [rx, ry, rs] = info.sight.ret; const ret = new T.Mesh(new T.PlaneGeometry(rs * .82, rs * .82), RETMAT); ret.position.set(0, ry, -rx); ret.renderOrder = 3; g.add(ret); }
   const mz = new T.Object3D(); mz.position.set(0, info.boreY, -info.muzzle); g.add(mz);
   g.userData = { muzzle: mz, info };
   return g;
@@ -496,7 +503,7 @@ function buildSoldier(team, idx, opt = {}) {
     if (model.curGun === id) return; if (cur) cur.visible = false; model.curGun = id;
     if (!guns[id]) { guns[id] = buildGun(id, { camo: camoFor(model.camo, id) }); hand.add(guns[id]); }
     cur = guns[id]; cur.visible = true; const info = cur.userData.info; const cls = info.cls;
-    const po = model.poseOv && cls === 'rifle' ? POSE_OV[model.poseOv] : null; hand.position.set(...(po ? po.pos : HANDPOS[cls])); if (po) hand.rotation.set(...po.rot); else hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
+    const po = model.poseOv && cls === 'rifle' ? POSE_OV[model.poseOv] : null; model._hpy = undefined; hand.position.set(...(po ? po.pos : HANDPOS[cls])); if (po) hand.rotation.set(...po.rot); else hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
     cur.userData.muzzle.add(flash); model.muzzle = cur.userData.muzzle;
     const gp = toLocal(info.grip).applyMatrix4(hand.matrix);
     const fp = cls === 'rifle' ? toLocal(info.fore).applyMatrix4(hand.matrix) : cls === 'pistol' ? gp.clone().add(new T.Vector3(-.035, -.01, .02)) : new T.Vector3(-.24, .14, -.08);
@@ -515,13 +522,22 @@ function buildSoldier(team, idx, opt = {}) {
   };
   model.setPose = function (p) { const ov = POSE_OV[p] ? p : null; if (ov === (model.poseOv || null)) return; model.poseOv = ov; const was = model.curGun; model.curGun = null; if (was) model.setGun(was); };
   model.setHelmet = function (on) { helmet.visible = on; if (cap) cap.visible = !on; };
-  model.animate = function (spd, ph, cr, pitch) {
-    const k = Math.min(1, spd / 3.2) * (1 - cr); const sw = Math.sin(ph) * .6 * k;
-    legs[0].hip.rotation.x = sw + cr * 1.25; legs[1].hip.rotation.x = -sw + cr * .2;
-    legs[0].knee.rotation.x = -Math.max(0, Math.sin(ph - 1.3)) * 1.0 * k - cr * 2.1;
-    legs[1].knee.rotation.x = -Math.max(0, Math.sin(ph - 1.3 + Math.PI)) * 1.0 * k - cr * 1.7;
-    const y = .95 - cr * .42 + Math.abs(Math.cos(ph)) * .022 * k; hips.position.y = y; upper.position.y = y;
-    upper.rotation.x = pitch * .65 + cr * .1; upper.rotation.y = Math.sin(ph) * .05 * k; head.rotation.x = pitch * .25;
+  model.animate = function (spd, ph, cr, pitch, mv) {
+    mv = mv || {}; const t = performance.now() * .001, run = Math.min(1, spd / 3.2), k = run * (1 - cr * .55);
+    // dirección del paso respecto de donde mira: de lado las piernas giran, hacia atrás el paso se invierte
+    const fw = mv.fw === undefined ? spd : mv.fw, sd = mv.sd || 0, back = fw < -.3 && Math.abs(fw) > Math.abs(sd) * .6 ? -1 : 1;
+    const tgtYaw = spd > .4 ? Math.max(-.85, Math.min(.85, Math.atan2(-sd, Math.abs(fw) + .01) * .75 * back)) : 0; model._hy = (model._hy || 0) + (tgtYaw - (model._hy || 0)) * .18;
+    const amp = (mv.walk ? .42 : .58) * (1 - cr * .4), sw = Math.sin(ph) * amp * k * back;
+    if (mv.air) { model._air = Math.min(1, (model._air || 0) + .12); } else model._air = Math.max(0, (model._air || 0) - .2); const air = model._air;
+    legs[0].hip.rotation.x = sw * (1 - air) + cr * 1.25 + air * .55; legs[1].hip.rotation.x = -sw * (1 - air) + cr * .2 + air * .25;
+    legs[0].knee.rotation.x = (-Math.max(0, Math.sin(ph - 1.3 * back)) * 1.05 * k - cr * 2.1) * (1 - air) - air * 1.0;
+    legs[1].knee.rotation.x = (-Math.max(0, Math.sin(ph - 1.3 * back + Math.PI)) * 1.05 * k - cr * 1.7) * (1 - air) - air * .7;
+    hips.rotation.y = model._hy; hips.rotation.z = Math.sin(ph) * .045 * k;
+    const bob = Math.abs(Math.cos(ph)) * .03 * k, breath = Math.sin(t * 1.6) * .006 * (1 - run);
+    const y = .95 - cr * .42 + bob - air * .05; hips.position.y = y; upper.position.y = y + breath;
+    upper.rotation.x = pitch * .65 + cr * .1 + run * .06 + Math.sin(t * 1.6) * .012 * (1 - run); upper.rotation.y = -model._hy * .85 + Math.sin(ph) * .06 * k; upper.rotation.z = -Math.sin(ph) * .03 * k;
+    head.rotation.x = pitch * .25 - run * .05; head.rotation.y = model._hy * .3;
+    hand.position.y = (model._hpy !== undefined ? model._hpy : (model._hpy = hand.position.y)) + Math.sin(ph * 2) * .008 * k;
   };
   return model;
 }
