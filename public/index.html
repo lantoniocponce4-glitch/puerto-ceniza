@@ -555,6 +555,36 @@ html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #s
 #wslots button b{font-size:12px;font-weight:700;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
 #wslots button span{font-size:9px;color:var(--dim)}
 #wslots button.cur{border-color:var(--amber);background:linear-gradient(180deg,rgba(242,179,61,.28),rgba(40,30,8,.5))}#wslots button.cur span{color:var(--amber)}
+
+/* ---------- Compra en celular: pestañas de categoría + cuadrícula compacta, todo en una pantalla ---------- */
+#buyClose{display:none}
+.btabs{display:none}
+body.touchUI #buy{align-items:stretch;padding:0}
+body.touchUI .buybox{width:100%;height:100%;max-height:100%;border-radius:0;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px));gap:6px;display:grid;grid-template-columns:132px 1fr;grid-template-rows:auto 1fr;overflow:hidden}
+body.touchUI .buyhead{grid-column:1/3;align-items:center;flex-wrap:nowrap}
+body.touchUI .buyhead h2{font-size:20px}
+body.touchUI #buyMoney{font-size:22px;margin-left:auto}
+body.touchUI #buyClose{all:unset;box-sizing:border-box;width:44px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--line);color:var(--sand);font-size:18px;cursor:pointer;margin-right:env(safe-area-inset-right,0px)}
+body.touchUI .btabs{display:flex;flex-direction:column;gap:4px;overflow-y:auto;min-height:0}
+body.touchUI .btabs button{all:unset;box-sizing:border-box;padding:0 10px;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-family:var(--f-display);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);cursor:pointer}
+body.touchUI .btabs button small{font-family:var(--f-mono);font-size:10px;font-weight:400}
+body.touchUI .btabs button[aria-selected="true"]{color:var(--sand);border-color:var(--amber);background:rgba(242,179,61,.14);box-shadow:inset 3px 0 0 var(--amber)}
+body.touchUI .bcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:min-content;gap:6px;overflow-y:auto;min-height:0;padding-right:calc(4px + env(safe-area-inset-right,0px));-webkit-overflow-scrolling:touch;touch-action:pan-y}
+body.touchUI .bcol{display:contents}
+body.touchUI .bcol>.lbl{display:none}
+body.touchUI .bi{min-height:58px;padding:6px 10px}
+body.touchUI .bi .n{font-size:13px}
+body.touchUI #teamBuy,body.touchUI .buybox>.small{display:none}
+
+/* botón de compra: grande, junto al dinero y latiendo durante la fase de compra */
+#touch #bBuy{width:56px;height:56px;border-radius:12px;border-color:var(--money);color:var(--money)}
+#touch #bBuy.pulse{animation:buyPulse 1.2s ease-in-out infinite}
+@keyframes buyPulse{0%,100%{box-shadow:0 0 0 0 rgba(143,214,148,.0)}50%{box-shadow:0 0 0 7px rgba(143,214,148,.28)}}
+@media (prefers-reduced-motion:reduce){#touch #bBuy.pulse{animation:none}}
+
+/* el chip de la sala se oculta mientras hay un anuncio grande (no lo tapa) */
+#roomChip{transition:opacity .2s}
+#announce.on ~ #roomChip{opacity:0}
 </style>
 </head>
 <body>
@@ -729,7 +759,8 @@ html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #s
 
   <div id="buy" class="ov" hidden>
     <div class="buybox">
-      <div class="buyhead"><h2>Comprar</h2><span id="buyTime"></span><span id="buyMoney">$0</span></div>
+      <div class="buyhead"><h2>Comprar</h2><span id="buyTime"></span><span id="buyMoney">$0</span><button type="button" id="buyClose" aria-label="Cerrar la compra">✕</button></div>
+      <div class="btabs" id="btabs" role="tablist" aria-label="Categorías"></div>
       <div class="bcols" id="bcols"></div>
       <div id="teamBuy" class="teamBuy"></div>
       <div class="small">Las armas nuevas reemplazan a la del mismo tipo, que queda en el suelo. <kbd class="mono">B</kbd> o <kbd class="mono">Esc</kbd> para cerrar.</div>

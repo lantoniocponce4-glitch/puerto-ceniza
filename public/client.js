@@ -47,7 +47,7 @@ const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
 /* ---------- Preferencias ---------- */
 let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb', gfx: isTouch ? 'low' : 'high' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
-if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high'; if (!['max', '60', '30'].includes(prefs.fps)) prefs.fps = 'max';
+if (!MAPS[prefs.map] || MAPS[prefs.map].hidden) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high'; if (!['max', '60', '30'].includes(prefs.fps)) prefs.fps = 'max';
 if (isTouch && prefs.gfxV !== 2) { if (prefs.gfx === 'low') prefs.gfx = 'high'; prefs.gfxV = 2; try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } }
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
@@ -455,7 +455,7 @@ function desertDecor(M) {
   for (const [x, z] of [[-3.6, 14], [3.6, 20], [-3.6, -10], [21, -6.6], [-17.6, -9.2], [29.5, 23], [-33.5, -7.4], [17.4, -25]]) if (!solidAt(x, z, .3)) jar(x, z, rand(.8, 1.2));
   // cables de lado a lado del mercado
   const wire = new THREE.LineBasicMaterial({ color: 0x222222 });
-  for (const z of [-6, 2, 14]) { const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-4, 5.2, z), new THREE.Vector3(0, 4.6, z + .3), new THREE.Vector3(4, 5.2, z)]); worldGroup.add(new THREE.Line(g, wire)); }
+  for (const z of [-6, 2, 14]) { if (!(solidAt(-4.2, z, 4.8) && solidAt(4.2, z, 4.8))) continue; const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-4, 5.2, z), new THREE.Vector3(0, 4.6, z + .3), new THREE.Vector3(4, 5.2, z)]); worldGroup.add(new THREE.Line(g, wire)); }
 }
 function portDecor(M) {
   const [x0, z0, x1, z1] = M.bounds; const keys = Object.keys(CONT_COL);
@@ -1728,7 +1728,7 @@ function updateHUD(dt) {
   { const sk = me.streak | 0, sb = $('#streakBox'), next = [3, 5, 7].find(n => n > sk); const show = !gg && me.alive && sk > 0 && G.mode !== 'range'; if (sb.hidden === show) sb.hidden = !show;
     if (show) setHtml('#streakBox', `Racha <b>${sk}</b>` + (next ? ` · ${next - sk} para ${{ 3: 'radar', 5: 'blindaje', 7: 'dron' }[next]}` : ' · ¡dron listo!')); }
   if (gg) { const lv = me.lvl | 0, nx = PC.LADDER[lv + 1]; const txt = `<b>Nivel ${lv + 1}</b> de ${PC.LADDER.length} · ${esc((WEAPONS[PC.LADDER[lv]] || {}).name || '')}${nx ? `<span>Siguiente: ${esc(WEAPONS[nx].name)}</span>` : '<span>¡Gana con una baja a cuchillo!</span>'}`; if ($('#ggBox')._t !== txt) { setHtml('#ggBox', txt); $('#ggBox')._t = txt; } }
-  else setHtml('#money', '$' + me.money + '<small>' + (me.cb ? 'compra con B' : 'en mano') + '</small>');
+  else setHtml('#money', '$' + me.money + '<small>' + (me.cb ? (isTouch ? 'toca $ para comprar' : 'compra con B') : 'en mano') + '</small>');
   const w = WEAPONS[me.cur]; const am = me.ammo[me.cur];
   if (w && !w.melee && am) { setTxt('#ammoN', am.mag); setCls('#ammoN', am.mag <= w.mag * .25 ? 'low' : ''); setTxt('#ammoR', '/ ' + am.res); }
   else if (NADES[me.cur]) { setTxt('#ammoN', me.inv.n[me.cur]); setCls('#ammoN', ''); setTxt('#ammoR', NADES[me.cur].name + (isTouch ? ' · mantén Fuego y suelta' : ' · clic: lejos · clic der.: corto')); }
@@ -1754,7 +1754,7 @@ function updateHUD(dt) {
   if (me.alive && mySide === 'atk' && B[0] === 'carried' && B[4] === me.id) { if (site && G.phase === 'live') { hint = myA && (myA.flags & 8) ? 'Plantando la carga… no te muevas' : 'Mantén E para plantar en ' + site; prog = B[6]; } }
   if (me.alive && mySide === 'def' && B[0] === 'planted' && Math.hypot(me.pos.x - B[1], me.pos.z - B[3]) < 1.7) { hint = myA && (myA.flags & 8) ? (me.kit ? 'Desactivando con kit…' : 'Desactivando… (10 s sin kit)') : 'Mantén E para desactivar'; prog = B[7]; }
   $('#hint').hidden = !hint; if (hint) { setTxt('#hintT', hint); $('#hintBar').style.width = clamp(prog, 0, 1) * 100 + '%'; }
-  $('#bAct').hidden = !(isTouch && hint); $('#bBuy').hidden = !(isTouch && me.cb);
+  $('#bAct').hidden = !(isTouch && hint); $('#bBuy').hidden = !(isTouch && me.cb); $('#bBuy').classList.toggle('pulse', isTouch && me.cb && G.phase === 'buy' && $('#buy').hidden);
   $('#bAds').hidden = !(isTouch && w && (w.scope || canAds()));
   $('#bNade').hidden = !(isTouch && me.alive && (me.inv.n.he + me.inv.n.fl + me.inv.n.sm) > 0);
   // zona
@@ -1798,15 +1798,26 @@ function drawTeamBuy() {
   $('#askGun').onclick = () => { sendMsg({ t: 'chat', m: `Necesito un arma: tengo $${me.money || 0}` }); toast('Pediste un arma a tu equipo'); };
   $('#dropGun').onclick = () => { if (me.inv && me.inv.p) { if (me.cur !== me.inv.p) setCur(me.inv.p); setTimeout(() => sendMsg({ t: 'drop', bomb: 0 }), 60); toast('Soltaste tu arma: tu compañero la recoge pasando por encima'); } else toast('No tienes arma principal'); };
 }
+// En celular la compra muestra una categoría por vez (pestañas a la izquierda) para que todo quepa en una pantalla
+let buyTab = 1;
 function drawBuy() {
   drawTeamBuy();
-  $('#bcols').innerHTML = BUY.map(([title, items]) => `<div class="bcol"><div class="lbl">${title}</div>${items.map(i => {
+  const item = i => {
     if (i === 'kit' && sideOf(me.team) !== 'def') return ''; if (WEAPONS[i] && WEAPONS[i].side && WEAPONS[i].side !== sideOf(me.team)) return '';
     const name = WEAPONS[i] ? WEAPONS[i].name : NADES[i] ? NADES[i].name : GEARN[i][0]; const p = priceOf(i); const own = owned(i); const ban = WEAPONS[i] && G.rules && G.rules.arms !== 'all' && !({ pistolas: w => w.slot === 2, franco: w => w.slot === 2 || !!w.scope, escopetas: w => w.slot === 2 || !!w.pellets, cuchillo: () => false }[G.rules.arms] || (() => true))(WEAPONS[i]); const dis = own || ban || p > me.money;
     const sub = WEAPONS[i] ? `${WEAPONS[i].cls} · ${WEAPONS[i].mag}/${WEAPONS[i].res}` : NADES[i] ? (NADES[i].max > 1 ? 'máx. ' + NADES[i].max : 'máx. 1') : '';
     return `<button type="button" class="bi${own ? ' own' : ''}" data-i="${i}" aria-disabled="${dis}"><span class="n">${name}</span><span class="p">$${p}</span><span class="k">${ban ? 'No permitida en esta sala' : sub}</span></button>`;
-  }).join('')}</div>`).join('');
+  };
+  if (isTouch) {
+    const tabs = BUY.map(([title, items], k) => { const n = items.filter(i => item(i)).length; return n ? `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === buyTab}">${title.split(' ')[0]}<small>${n}</small></button>` : ''; }).join('');
+    const tb = $('#btabs'); if (tb._h !== tabs) { tb.innerHTML = tabs; tb._h = tabs; }
+    $('#bcols').innerHTML = `<div class="bcol">${(BUY[buyTab] || BUY[0])[1].map(item).join('')}</div>`; return;
+  }
+  $('#bcols').innerHTML = BUY.map(([title, items]) => `<div class="bcol"><div class="lbl">${title}</div>${items.map(item).join('')}</div>`).join('');
 }
+$('#btabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (!b) return; buyTab = +b.dataset.tab; drawBuy(); $('#bcols').scrollTop = 0; });
+$('#buyClose').addEventListener('click', () => toggleBuy());
+if (isTouch) document.body.classList.add('touchUI');
 $('#bcols').addEventListener('click', e => { const b = e.target.closest('.bi'); if (b) b.blur(); if (!b || b.getAttribute('aria-disabled') === 'true') return; sendMsg({ t: 'buy', i: b.dataset.i }); sNoise(.06, .3, 1800); });
 function toggleBuy(gesture) { if (!$('#buy').hidden) closeBuy(gesture); else if (me.cb && me.alive) { drawBuy(); $('#buy').hidden = false; releaseLock(); me.fireHeld = false; } else toast(G.phase === 'buy' || G.phase === 'live' ? 'Solo puedes comprar en tu zona de inicio al comienzo de la ronda' : 'La compra abre al empezar la ronda'); }
 function closeBuy(gesture) { if ($('#buy').hidden) return; $('#buy').hidden = true; blurUI(); if (G.state === 'playing' && $('#pause').hidden) requestLock(gesture); }

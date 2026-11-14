@@ -2,7 +2,7 @@
 
 Shooter táctico por rondas, 5 contra 5, en el navegador. Los atacantes plantan la carga en el sitio A o B; los defensores lo impiden o la desactivan. Hasta 10 personas por sala; los cupos vacíos los ocupan bots.
 
-- Mapas originales: **Alcazaba** (pueblo de adobe) y **Muelle 9** (terminal portuaria).
+- Mapas originales: **Alcazaba** (pueblo de adobe), **Muelle 9** (terminal portuaria), **Distrito Lumen** (ciudad), **Fundición** (industria al atardecer) y **Oasis** (aldea del desierto). Spawns con salidas en chicane y primer contacto entre equipos a los 4,5 s o más.
 - Siete mapas con coberturas pensadas para el juego táctico (sacos de arena, barriles, muros bajos) y sin líneas de visión de spawn a spawn.
 - Bots con economía de equipo, rotaciones entre sitios, posiciones post-plantado y dificultad ajustada (reacción, puntería a la cabeza, control del retroceso).
 - Mecánicas de shooter táctico: frenado al recibir balas, frenado rápido al soltar la tecla (contra-strafe) y menos precisión al aterrizar.

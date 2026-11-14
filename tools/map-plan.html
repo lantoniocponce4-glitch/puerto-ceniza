@@ -1,4 +1,4 @@
-<!doctype html><html><body style="margin:0;background:#111"><canvas id=c></canvas>
+<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#111"><canvas id=c></canvas>
 <script src="../shared/core.js"></script>
 <script>
 function draw(id){const M=PC.MAPS[id];const W=new PC.World(id);const S=12;const [x0,z0,x1,z1]=M.bounds;const c=document.getElementById('c');c.width=(x1-x0)*S+40;c.height=(z1-z0)*S+60;const g=c.getContext('2d');

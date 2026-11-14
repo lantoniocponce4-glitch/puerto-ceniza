@@ -8,7 +8,8 @@
     "start": "node server.js",
     "test:maps": "node tools/validate-maps.js",
     "test:bots": "node tools/sim-bots.js",
-    "test": "node tools/validate-maps.js && node tools/sim-bots.js"
+    "test": "node tools/validate-maps.js && node tools/contact.js && node tools/sim-bots.js",
+    "test:contact": "node tools/contact.js"
   },
   "engines": {
     "node": ">=18"

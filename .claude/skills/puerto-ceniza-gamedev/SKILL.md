@@ -23,7 +23,7 @@ Los textos del juego, los comentarios y los mensajes de commit van **en español
 ## Cómo comprobar cada cambio (obligatorio)
 
 1. `node --check` en cada archivo JS tocado.
-2. Mapas o navegación: `npm run test:maps` debe dar ✓ en los 7 mapas.
+2. Mapas o navegación: `npm run test:maps` debe dar ✓ en todos los mapas y `npm run test:contact` debe pasar (primer contacto ≥ 4,5 s, lejos de los spawns, y defensores llegando antes a los sitios). Con `LIST=8 node tools/contact.js <mapa>` ves los contactos más tempranos para corregirlos.
 3. Bots, armas, economía o mapas: `npm run test:bots` (o `G=6 node tools/sim-bots.js` para más precisión). Meta: atacantes entre 40 % y 60 % por mapa, pocas rondas por `time` (si hay muchas, hay bots atascados) y sin errores. Con 2 partidas la varianza es alta: no se ajusta nada con menos de 6.
 4. Algo visual: `PORT=3111 npm start` y luego `node tools/shots.cjs plan|cam|mobile ...`, y **mirar las capturas**. Hace falta Playwright (`npm i -D playwright` en local; en la nube ya viene).
 5. `?debug=1` en la URL expone `window.PCDBG` (`me`, `G`, `camera`, `actors`, `perf`) y `PCDBG.cam = [x, y, z, yaw, pitch]` fija la cámara para capturas.
@@ -31,7 +31,10 @@ Los textos del juego, los comentarios y los mensajes de commit van **en español
 ## Diseño de mapas (shooter táctico)
 
 - Un mapa son cajas `[x0, z0, x1, z1, alto, material, y0?]`. Los añadidos van en `MAP_EXTRA` (al final de los mapas en `core.js`).
-- **Nunca** una línea de visión de spawn a spawn (el validador la detecta). Se corta con un objeto de 2 m o más (la altura de los ojos es 1,66 m).
+- **Nunca** una línea de visión de spawn a spawn ni desde la zona de spawn (el validador revisa los puntos exactos y `tools/contact.js` toda la zona). Se corta con un objeto de 2 m o más (la altura de los ojos es 1,66 m).
+- Salidas de spawn en **chicane**: dos muros desplazados (uno con hueco a la izquierda y otro a la derecha) para que al salir haya que girar. Las calles largas llevan puertas desplazadas; el medio, una sala con bloque central (se entra por un lado y se sale por el otro). Los huecos deben medir 2 m o más para que los bots pasen; prueba con el validador.
+- No copies mapas de otros juegos: diseña trazados propios con estos principios.
+- Mapas en rotación: Alcazaba, Muelle 9, Distrito Lumen, Fundición y Oasis. Retirados (ocultos con `hidden`): Fundo Azul, Estación Boreal, Refinería Ocaso y Villa Salitre.
 - Estructura clásica: tres carriles (dos sitios y el medio) con puntos de choque. Cada sitio necesita: cobertura central para jugar alrededor de la carga, cobertura en cada entrada para quien ataca y posiciones para quien defiende con al menos dos ángulos.
 - Alturas: 1,1 a 1,2 m = cobertura agachado (se dispara por encima de pie); 2 m o más = bloquea la vista; apilar 1,3 + 1,1 = caja para subirse.
 - Materiales: `crate`, `wood`, `bench`, `glassC` se rompen y dejan pasar balas; `sandbag` y `barrel` (modelos propios) no se atraviesan; `concrete2` para bloques grandes. Evita `metalP` en bloques grandes (se ve negro liso).
@@ -43,6 +46,7 @@ Los textos del juego, los comentarios y los mensajes de commit van **en español
 - La dificultad está en `DIFF` (`react`, `err`, `turn`, `hs` cabeza, `fov` campo de visión, `spray` control del retroceso).
 - Ya hacen: reacción según distancia, postura y ángulo; economía de equipo; rotación de defensores (`this.rot`); reagruparse y entrar con cegadora; tras plantar, cobertura con vista a la carga; acudir cuando desactivan; equilibrio dinámico por marcador fuera del competitivo (`botSkill`).
 - Para cambiar el comportamiento, primero mide con el simulador, cambia **una cosa** y vuelve a medir.
+- Navegación: `nearestWalk(k, x, z)` elige la casilla alcanzable sin cruzar paredes y `lineWalk` revisa los costados del cuerpo al acortar rutas. Si aparecen rondas por `time` en la simulación, busca bots trabados (posición y `ri` de la ruta al terminar el tiempo).
 
 ## Armas: cómo agregar una
 

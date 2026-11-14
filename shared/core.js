@@ -190,7 +190,7 @@
         [30, 5.6, 33.4, 6.4, 4.2, 'stone'], [36.6, 5.6, 40, 6.4, 4.2, 'stone'], [33.4, 5.6, 36.6, 6.4, 1.4, 'stone', 2.8],
         // mercado en mid
         [-4, -2.6, -3, -1.4, 3.4, 'stone'], [3, -2.6, 4, -1.4, 3.4, 'stone'], [-3, -2.6, 3, -1.4, .8, 'stone', 3.0],
-        [-3.4, 9, -1.8, 11.4, 1.1, 'wood'], [1.6, 3, 3.4, 5.4, 1.1, 'wood'], [-4, -18, -.8, -17.4, 1.05, 'stone'],
+        [-3.4, 9, -1.8, 11.4, 1.1, 'wood'], [-4, -18, -.8, -17.4, 1.05, 'stone'],
         // sitio A
         [23.4, -14.6, 25.8, -13.4, 2.4, 'crate'], [23.4, -13.4, 24.6, -12.2, 1.2, 'crate'], [30, -18, 32.2, -15.8, 1.0, 'stone'], [20, -20.3, 26, -19.7, 1.1, 'stone'], [34, -11, 36, -9, 2.2, 'crate'], [36.5, -22, 38.5, -20.8, 1.2, 'crate'],
         // sitio B
@@ -202,8 +202,8 @@
       buy: { atk: [-18, 22, 18, 32], def: [-16, -32, 16, -22] },
       sites: { A: { r: [21, -23, 39, -7], c: [28, -14] }, B: { r: [-39, -23, -19, -9], c: [-28, -16] } },
       routes: {
-        A: [[[1, 18], [1, -4], [10, -11], [24, -11]], [[22, 27], [35, 18], [35, 0], [33, -9]]],
-        B: [[[-22, 27], [-30, 20], [-30, 0], [-30, -11]], [[0, 18], [-1, -12], [-1, -17], [-14, -17], [-24, -17]]]
+        A: [[[1, 18], [3, -4], [10, -11], [24, -11]], [[22, 27], [35, 18], [35, 0], [33, -9]]],
+        B: [[[-22, 27], [-30, 20], [-30, 0], [-30, -11]], [[0, 18], [-3, -12], [-1, -17], [-14, -17], [-24, -17]]]
       },
       holds: { A: [[33, -8.5, Math.PI], [20.5, -11, Math.PI / 2], [27, -21.5, Math.PI * .8]], B: [[-30, -10, Math.PI], [-20.5, -17, -Math.PI / 2], [-37, -21, -Math.PI * .8]] },
       labels: [['A', 31.4, -24.9, 0], ['B', -27, -24.9, 0], ['A', 33.6, 5.5, Math.PI], ['B', -27.2, 23.9, 0]]
@@ -222,7 +222,7 @@
         // rutas
         [-18, -27.2, -12, -24.8, 2.6, 'cont:gray'], [-13, 24.8, -7, 27.2, 2.6, 'cont:orange'], [1.6, -16, 2.8, -14.8, 1.1, 'crate'], [3.2, 15, 4.4, 16.2, 1.1, 'crate'],
         [-31, -16, -29.8, -14.8, 1.1, 'crate'], [-31, 14, -29.8, 15.2, 1.1, 'crate'], [29.8, -18, 31, -16.8, 1.1, 'crate'], [29.8, 18, 31, 19.2, 1.1, 'crate'],
-        [-23, -.6, -21.8, .6, 1.1, 'crate'], [22, -.6, 23.2, .6, 1.1, 'crate']
+
       ],
       spawns: { atk: [[-32, -8], [-32, -3], [-32, 2], [-32, 7], [-30, 0]], def: [[32, -6], [32, -2], [32, 2], [32, 6], [30, 0]] },
       buy: { atk: [-36, -30, -26, 30], def: [26, -30, 36, 30] },
@@ -507,12 +507,100 @@
     sites: { A: { r: [-13, -43, -12, -42], c: [-12.5, -42.5] }, B: { r: [12, -43, 13, -42], c: [12.5, -42.5] } },
     routes: { A: [[[0, 2], [-12, -42]]], B: [[[0, 2], [12, -42]]] }, holds: { A: [[-12.5, -42.5, 0]], B: [[12.5, -42.5, 0]] }, labels: []
   };
+  // Fundición: mapa industrial al atardecer. Terroristas al oeste, antiterroristas al este.
+  // Tres carriles: largo norte hacia A (con puertas estrechas), medio con puertas en zigzag y conectores (corto a A, bajo a B),
+  // y túnel techado al sur hacia B. Los spawns salen por chicanes: desde ningún spawn se ve un carril completo.
+  MAPS.fundicion = {
+    id: 'fundicion', name: 'Fundición', theme: 'refinery', blurb: 'Fundición al atardecer: carril largo a A con puertas, medio con conectores y túnel techado hacia B.',
+    bounds: [-44, -36, 44, 36], wallH: 6,
+    boxes: [
+      // bloques de naves (definen los carriles)
+      [-34, -26, -14, -4, 7, 'ware'], [-14, -26, 6, -4, 6.5, 'ware2'], [12, -18, 32, -4, 6.5, 'ware'],
+      [-34, 4, -14, 26, 7, 'ware2'], [-14, 4, 4, 26, 6.5, 'ware'], [10, 4, 32, 18, 6.5, 'ware2'],
+      // patio de spawn terrorista: chicanes en las tres salidas
+      [-34, -36, -33.4, -31, 2.8, 'concrete2'], [-29, -31, -28.4, -26, 2.8, 'concrete2'],
+      [-34, -4, -33.4, 1, 2.8, 'concrete2'], [-29, -1, -28.4, 4, 2.8, 'concrete2'],
+      [-34, 31, -33.4, 36, 2.8, 'concrete2'], [-29, 26, -28.4, 31, 2.8, 'concrete2'],
+      // carril largo norte: contenedores intercalados y puertas estrechas a la entrada de A
+      [-20, -36, -14, -33.6, 2.6, 'cont:gray'], [-6, -28.4, 0, -26, 2.6, 'cont:orange'], [-24, -30.6, -22.6, -29.2, 1.2, 'crate'], [4, -34.6, 5.4, -33.2, 1.2, 'barrel'],
+      [13.4, -36, 14, -31.4, 3.2, 'ware2'], [13.4, -28.6, 14, -26, 3.2, 'ware2'], [10.8, -26, 14, -25.4, 3.2, 'ware2'],
+      // sitio A
+      [20, -30, 26, -27.6, 2.6, 'cont:red'], [28, -24, 30.4, -21.6, 1.3, 'stone'], [28, -24, 29.2, -22.8, 1.1, 'crate', 1.3], [17, -21.6, 20, -20.8, 1.15, 'sandbag'], [31.4, -33.6, 33.2, -31.8, 1.2, 'barrel'], [22, -23.4, 23.4, -22, 1.2, 'crate'],
+      // conector corto (medio → A) con puerta
+      [6, -12, 9.6, -11.4, 2.8, 'ware2'], [9.6, -20.6, 11, -19.2, 1.2, 'crate'],
+      // medio: chicane de salida del lado terrorista, puertas en zigzag y chicane del lado antiterrorista
+      [-10.6, -4, -10, 1, 2.8, 'concrete2'], [-4, -1, -3.4, 4, 2.8, 'concrete2'], [-20, -3.4, -18.6, -2, 1.2, 'crate'], [0, 1.6, 2.4, 2.8, 1.2, 'barrel'],
+      [24, -1, 24.6, 4, 2.8, 'concrete2'], [29, -4, 29.6, 1, 2.8, 'concrete2'], [14, -3.6, 16.6, -2.4, 1.3, 'stone'],
+      // conector bajo (medio → B) con puerta
+      [6.4, 13, 10, 13.6, 2.8, 'ware'], [4.6, 20, 6, 21.4, 1.2, 'crate'],
+      // túnel techado al sur y puertas de B
+      [-20, 26, 0, 34, .5, 'roofDark', 3.1], [-12, 30.6, -10, 32.6, 2.8, 'concrete2'], [-4, 26, -2, 28.4, 2.8, 'concrete2'], [-26, 33.6, -20, 36, 2.6, 'cont:blue'],
+      [13.4, 26, 14, 30.4, 3.2, 'ware'], [13.4, 32.6, 14, 36, 3.2, 'ware'], [10.8, 25.4, 14, 26, 3.2, 'ware'],
+      // sitio B
+      [20, 27.6, 26, 30, 2.6, 'cont:green'], [28, 21.6, 30.4, 24, 1.3, 'stone'], [28, 21.6, 29.2, 22.8, 1.1, 'crate', 1.3], [17, 20.8, 20, 21.6, 1.15, 'sandbag'], [31.4, 31.8, 33.2, 33.6, 1.2, 'barrel'], [22, 22, 23.4, 23.4, 1.2, 'crate'],
+      // camino antiterrorista a los sitios (detrás de las naves del este)
+      [36, -20, 38.4, -17.6, 1.2, 'barrel'], [36, 17.6, 38.4, 20, 1.2, 'barrel'], [32, -12, 33.4, -10.6, 1.2, 'crate'], [32, 10.6, 33.4, 12, 1.2, 'crate'],
+      [34.6, -9, 40, -8.4, 2.8, 'concrete2'], [34.6, 8.4, 40, 9, 2.8, 'concrete2']
+    ],
+    spawns: { atk: [[-40, -4], [-40, 0], [-40, 4], [-38, -2], [-38, 2]], def: [[40, -4], [40, 0], [40, 4], [38, -2], [38, 2]] },
+    buy: { atk: [-44, -10, -34, 10], def: [34, -8, 44, 8] },
+    sites: { A: { r: [15, -35, 34, -19], c: [24, -25] }, B: { r: [15, 19, 34, 35], c: [24, 25] } },
+    routes: {
+      A: [[[-38, -6], [-36, -24], [-26, -33], [8, -30], [16, -30]], [[-36, 0], [-12, 2], [8, -2], [8, -16], [14, -22]]],
+      B: [[[-38, 6], [-36, 24], [-24, 31], [-8, 29], [8, 30], [16, 30]], [[-36, 0], [-12, -2], [6, 2], [7, 16], [14, 22]]]
+    },
+    holds: { A: [[31, -20, Math.PI * .6], [16, -24, Math.PI / 2], [26, -33, Math.PI * .8]], B: [[31, 20, Math.PI * .4], [16, 24, Math.PI / 2], [26, 33, Math.PI * .2]] },
+    labels: []
+  };
+  // Oasis: aldea del desierto alrededor de un patio con estanque. Terroristas al sur, antiterroristas al norte.
+  // Los sitios quedan a los costados (A oeste, B este); el patio central conecta ambos y lo vigila una pasarela techada.
+  MAPS.oasis = {
+    id: 'oasis', name: 'Oasis', theme: 'desert', blurb: 'Aldea del desierto: patio central con estanque, sitio A en el bazar del oeste y sitio B en el caravasar del este.',
+    bounds: [-42, -38, 42, 38], wallH: 6,
+    boxes: [
+      // manzanas
+      [-30, -16, -14, -10, 6.5, 'bld'], [14, -16, 30, -10, 6.5, 'bld2'], [-10, -38, 10, -28, 6, 'bld'],
+      [-30, 8, -12, 24, 6, 'bld2'], [12, 8, 30, 24, 6.5, 'bld'], [-6, 14, 6, 28, 6, 'bld2'],
+      [-42, -10, -36, 8, 6, 'bld'], [36, -10, 42, 8, 6, 'bld2'],
+      // patio central: estanque con borde bajo, palmeras de piedra y una pasarela techada al norte
+      [-4, -5, 4, 3, .9, 'stoneC'], [-14, -10, -10, -2, 3.2, 'bld2'], [10, -10, 14, -2, 3.2, 'bld'], [-8, -16, 8, -14, .4, 'roof', 3.2],
+      [-9.6, -14, -8.6, -13, 3.2, 'stone'], [8.6, -14, 9.6, -13, 3.2, 'stone'],
+      // resguardo del spawn antiterrorista: muro corrido, se sale por los costados (hacia los sitios)
+      [-11, -19, 11, -18.4, 2.8, 'bld'],
+      // spawn terrorista (sur): chicanes en las salidas oeste, centro y este
+      [-14.4, 28, -6, 28.6, 2.8, 'bld'], [6, 28, 14.4, 28.6, 2.8, 'bld'], [-9.6, 16.6, -6, 17.2, 2.8, 'bld2'], [6, 16.6, 9.6, 17.2, 2.8, 'bld'], [-12, 14, -8.4, 14.6, 2.8, 'bld'], [8.4, 14, 12, 14.6, 2.8, 'bld2'], // puertas de los pasillos al patio (hueco hacia afuera) [-3, 31, 3, 31.6, 2.8, 'bld2'],
+      [-34, 24, -30, 24.6, 2.8, 'bld2'], [30, 24, 34, 24.6, 2.8, 'bld'],
+      // spawn antiterrorista (norte)
+      [-14, -28, -10, -27.4, 2.8, 'bld2'], [10, -28, 14, -27.4, 2.8, 'bld'],
+      // calles laterales (largas) con puertas desplazadas
+      [-36, -2, -32, -1.4, 2.8, 'bld2'], [-34, 12, -30, 12.6, 2.8, 'bld'], [32, -2, 36, -1.4, 2.8, 'bld'], [30, 12, 34, 12.6, 2.8, 'bld2'],
+      // sitio A (bazar del oeste)
+      [-40, -34, -36, -30, 2.4, 'crate'], [-26, -34, -23.6, -31.6, 1.3, 'stone'], [-26, -34, -24.8, -32.8, 1.1, 'crate', 1.3], [-33, -24, -30.6, -23.2, 1.15, 'sandbag'], [-38.4, -18, -36.6, -16.2, 1.2, 'barrel'], [-20, -30, -18.6, -28.6, 1.2, 'wood'], [-40, -19.6, -36.8, -18.8, 1.15, 'sandbag'], [-23, -18.6, -19.8, -17.8, 1.15, 'sandbag'],
+      // sitio B (caravasar del este)
+      [36, -34, 40, -30, 2.4, 'crate'], [23.6, -34, 26, -31.6, 1.3, 'stone'], [24.8, -34, 26, -32.8, 1.1, 'crate', 1.3], [30.6, -24, 33, -23.2, 1.15, 'sandbag'], [36.6, -18, 38.4, -16.2, 1.2, 'barrel'], [18.6, -30, 20, -28.6, 1.2, 'wood'], [36.8, -19.6, 40, -18.8, 1.15, 'sandbag'], [19.8, -18.6, 23, -17.8, 1.15, 'sandbag'],
+      // calles del sur y coberturas sueltas
+      [-24, 28, -22.6, 29.4, 1.2, 'crate'], [22.6, 28, 24, 29.4, 1.2, 'crate'], [-10, 2, -8.6, 3.4, 1.2, 'barrel'], [8.6, -6.4, 10, -5, 1.2, 'barrel'], [-20, -4, -17.6, -3.2, 1.15, 'sandbag'], [17.6, 1.2, 20, 2, 1.15, 'sandbag']
+    ],
+    spawns: { atk: [[-4, 35], [0, 34], [4, 35], [-2, 36], [2, 36]], def: [[-4, -25], [0, -25], [4, -25], [-2, -26.5], [2, -26.5]] },
+    buy: { atk: [-12, 29, 12, 38], def: [-10, -28, 10, -20] },
+    sites: { A: { r: [-41, -37, -18, -18], c: [-30, -28] }, B: { r: [18, -37, 41, -18], c: [30, -28] } },
+    routes: {
+      A: [[[-8, 32], [-24, 30], [-33, 18], [-33, 0], [-33, -14], [-30, -22]], [[0, 30], [-9, 20], [-12, 4], [-24, -4], [-32, -18]]],
+      B: [[[8, 32], [24, 30], [33, 18], [33, 0], [33, -14], [30, -22]], [[0, 30], [9, 20], [12, 4], [24, -4], [32, -18]]]
+    },
+    holds: { A: [[-21, -20, -Math.PI * .7], [-38, -21, Math.PI], [-28, -35, Math.PI * .9]], B: [[21, -20, Math.PI * .7], [38, -21, Math.PI], [28, -35, -Math.PI * .9]] },
+    labels: []
+  };
+  // mapas retirados de la rotación (abiertos, con calles de punta a punta o sitios mal ubicados respecto de los spawns)
+  for (const k of ['fundo', 'boreal', 'refineria', 'villa']) if (MAPS[k]) MAPS[k].hidden = true;
   // Rediseño: más coberturas en sitios y rutas, y sin líneas de visión de spawn a spawn.
   // sandbag = muro de sacos de arena (no se atraviesa) · barrel = grupo de barriles
   const MAP_EXTRA = {
     alcazaba: [
       // medio: pozo de piedra que corta la línea larga y zigzag en la entrada de los defensores
-      [-1.3, 12.6, 1.3, 15.2, 2.3, 'stone'], [.8, -21.6, 4, -20.8, 1.15, 'sandbag'], [-4, 19.2, -2.6, 20.6, 1.2, 'crate'], [2.6, 2.6, 4, 4, 1.2, 'barrel'], [-3, -24.8, 1.6, -24.2, 2.3, 'bld2'],
+      [-1.9, -13, 4, -12.4, 2.8, 'bld2'], [-4, 6, 1.7, 6.6, 2.8, 'bld2'], [-1.9, -9, 1.7, 2.6, 3.2, 'bld'], [2, 8, 3.4, 9.2, 2.2, 'stone'], // sala del medio con bloque central // puertas del medio en zigzag (este del lado defensor, oeste del lado atacante)
+      // chicanes en S en la boca de cada spawn: para salir hay que girar y desde el spawn no se ve la calle central
+      [-4, -21.4, 1.4, -20.8, 2.8, 'bld2'], [-1.4, -25.4, 4.8, -24.8, 2.8, 'bld2'], [-1.9, 21.2, 4, 21.8, 2.8, 'bld2'], [-4.8, 24.6, 1.4, 25.2, 2.8, 'bld2'], [-30.4, 3, -27, 3.8, 2.6, 'stone'], [-31.5, 21, -27, 21.6, 2.8, 'bld'], [-34, -3, -29.4, -2.4, 2.8, 'bld'], [32.2, -2, 37, -1.4, 2.8, 'stone'], // carriles laterales sin línea recta [.8, -21.6, 4, -20.8, 1.15, 'sandbag'], [2.6, 2.6, 4, 4, 1.2, 'barrel'],
       // sitio A: bloque central para jugar alrededor, sacos en la entrada larga y barriles al fondo
       [28.6, -12.8, 31.2, -10.2, 1.3, 'stone'], [28.6, -12.8, 29.9, -11.5, 1.1, 'stone', 1.3], [36.4, -5.2, 39.6, -4.4, 1.15, 'sandbag'], [37, -16, 38.8, -14.2, 1.2, 'barrel'], [21.2, -9.6, 22.6, -8.2, 1.2, 'crate'],
       // calle larga hacia A
@@ -524,7 +612,10 @@
     ],
     muelle: [
       // carril central: contenedor que corta la vista entre spawns y sacos del lado defensor
-      [-6, 1.6, 0, 3.9, 2.6, 'cont:orange'], [18.6, 1.8, 21.6, 2.6, 1.15, 'sandbag'], [4.4, -1.4, 6, 1, 2.2, 'stone'], [-21.6, -3.6, -20.2, -2.2, 1.2, 'barrel'],
+      [-6, 1.6, 0, 3.9, 2.6, 'cont:orange'], [18.6, 1.8, 21.6, 2.6, 1.15, 'sandbag'], [4.4, -1.4, 6, 2.4, 2.4, 'stone'], // patios de spawn: cada salida es una chicane en S (desde el spawn no se ve ningún carril completo)
+      [-27, -30, -26.4, -25, 2.8, 'ware'], [-22, -27, -21.4, -22, 2.8, 'ware'], [-27, -4, -26.4, 1, 2.8, 'ware'], [-22.4, -1, -21.8, 4, 2.8, 'ware'], [-27, 25, -26.4, 30, 2.8, 'ware'], [-22, 22, -21.4, 27, 2.8, 'ware'],
+      [26.4, -1, 27, 4, 2.8, 'ware2'], [21.4, -4, 22, 1, 2.8, 'ware2'],
+      [26.4, 12, 27, 17, 2.8, 'ware2'], [26.4, 21, 27, 30, 2.8, 'ware2'], [26.4, -30, 27, -21, 2.8, 'ware2'], [26.4, -17, 27, -14, 2.8, 'ware2'], [2.6, -4, 3.2, .6, 2.8, 'ware'], [-2, 27.4, 4, 29.8, 2.6, 'cont:blue'], [-2, -29.8, 4, -27.4, 2.6, 'cont:red'], // puerta del carril central y contenedores intercalados en los carriles exteriores
       // sitio A
       [17.6, -16.6, 18.9, -15.3, 1.2, 'crate'], [18.6, -20.8, 21.2, -20, 1.15, 'sandbag'], [23, -27.8, 24.8, -26, 1.2, 'barrel'], [7.6, -27.6, 10, -25.2, 1.3, 'stone'],
       // sitio B
@@ -544,11 +635,13 @@
     ],
     distrito: [
       // avenida: más autos, barreras y un contenedor de basura para no cruzar al descubierto
-      [-37.6, -1, -33.2, .8, 1.45, 'car:navy'], [24, -1.6, 28.4, .2, 1.5, 'car:red'], [-24, 1.4, -21, 2, .95, 'barrier'], [20, -6.6, 23, -6, .95, 'barrier'], [-1.2, -6.4, .3, -4.4, 1.3, 'dumpster'], [-.8, -17, .8, -15, 2.6, 'kiosk'],
+      [-37.6, -1, -33.2, .8, 1.45, 'car:navy'], [24, -1.6, 28.4, .2, 1.5, 'car:red'], [-24, 1.4, -21, 2, .95, 'barrier'], [20, -6.6, 23, -6, .95, 'barrier'], [-1.2, -6.6, 1.2, -4.6, 2.6, 'kiosk'], [-.8, -17, .8, -15, 2.6, 'kiosk'], [-2, -20, -.2, -19.4, 2.6, 'concrete2'], [.2, -13, 2, -12.4, 2.6, 'concrete2'], // zigzag en la galería
+      [-1.9, 21, 4, 21.6, 2.8, 'city2'], [-4.8, 24.6, 1.4, 25.2, 2.8, 'city2'], [-4, 10, 1.6, 10.6, 2.8, 'city2'], // chicane en la salida del spawn atacante y puerta del callejón
+      [-24, 21, -20, 21.6, 2.8, 'city'], [-22.8, 9, -18, 9.6, 2.8, 'city'], [22, 21, 26, 21.6, 2.8, 'city'], [20, 9, 24.6, 9.6, 2.8, 'city'], // puertas desplazadas en los callejones laterales
       // plaza (B)
       [-33.2, -17.2, -31.8, -14.6, .9, 'planter'], [-38.6, -17, -36.8, -12.6, 1.45, 'car:silver'], [-22, -21.6, -19.6, -20.8, 1.15, 'sandbag'],
       // estacionamiento (A)
-      [27, -15.8, 30, -15.2, .95, 'barrier'], [35.4, -23.6, 36.9, -21.6, 1.3, 'dumpster'], [22.4, -21.8, 24.2, -20, 1.2, 'barrel'],
+      [27, -15.8, 30, -15.2, .95, 'barrier'], [24.6, -7.8, 28, -7.2, 2.6, 'concrete2'], [0, 5, 2.8, 6.2, 2.2, 'concrete2'], [35.4, -23.6, 36.9, -21.6, 1.3, 'dumpster'], [22.4, -21.8, 24.2, -20, 1.2, 'barrel'],
       // callejones y salida de los defensores
       [-19.6, 19, -18.4, 20.2, 1.2, 'crate'], [24.6, 17, 25.8, 18.2, 1.2, 'crate'], [-18, -28.6, -15.6, -27.4, 1.2, 'crate'], [16, -29, 19, -28.2, 1.15, 'sandbag'], [-24, -27.6, -21, -26.8, 1.15, 'sandbag']
     ],
@@ -583,7 +676,7 @@
   };
   for (const k in MAP_EXTRA) if (MAPS[k]) MAPS[k].boxes.push(...MAP_EXTRA[k]);
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
-  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena' };
+  const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena', fundicion: 'lluvia', oasis: 'arena' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
   function pickCond(mapId) { const r = Math.random(); if (r < .3) return { night: false, weather: null }; if (r < .55) return { night: false, weather: null, dusk: true }; if (r < .77) return { night: true, weather: null }; return { night: false, weather: WEATHER[mapId] || null }; }
 
@@ -697,17 +790,29 @@
       const B = this.map.bounds; a.pos.x = clamp(a.pos.x, B[0] + .4, B[2] - .4); a.pos.z = clamp(a.pos.z, B[1] + .4, B[3] - .4);
     }
     cIdx(x, z) { const i = Math.floor(x - this.GX0), j = Math.floor(z - this.GZ0); if (i < 0 || j < 0 || i >= this.GW || j >= this.GH) return -1; return j * this.GW + i; }
-    nearestWalk(k) {
+    // casilla caminable más cercana. Si se da la posición real (x, z), elige la más cercana a la que se llega en línea recta
+    // sin cruzar una pared (antes podía elegir la del otro lado de un muro delgado y el bot se trababa intentando atravesarlo)
+    nearestWalk(k, x, z) {
       const GW = this.GW, GH = this.GH; if (k >= 0 && this.walk[k]) return k;
       const i0 = k < 0 ? 0 : k % GW, j0 = k < 0 ? 0 : (k / GW) | 0;
-      for (let r = 1; r < 8; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { const i = i0 + di, j = j0 + dj; if (i < 0 || j < 0 || i >= GW || j >= GH) continue; const q = j * GW + i; if (this.walk[q]) return q; }
+      for (let r = 1; r < 8; r++) {
+        const cand = [];
+        for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue; const i = i0 + di, j = j0 + dj; if (i < 0 || j < 0 || i >= GW || j >= GH) continue; const q = j * GW + i; if (this.walk[q]) cand.push(q); }
+        if (!cand.length) continue;
+        if (x === undefined) return cand[0];
+        const cx = q => this.GX0 + (q % GW) + .5, cz = q => this.GZ0 + ((q / GW) | 0) + .5;
+        cand.sort((p, q) => Math.hypot(cx(p) - x, cz(p) - z) - Math.hypot(cx(q) - x, cz(q) - z));
+        for (const q of cand) { const dx = cx(q) - x, dz = cz(q) - z, L = Math.hypot(dx, dz) || 1e-6; if (this.traceWorld([x, .9, z], [dx / L, 0, dz / L], L).t >= L - .02) return q; }
+        return cand[0];
+      }
       return -1;
     }
-    lineWalk(x0, z0, x1, z1) { const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), n = Math.ceil(L / .4); for (let s = 1; s <= n; s++) { const t = s / n; const k = this.cIdx(x0 + dx * t, z0 + dz * t); if (k < 0 || !this.walk[k]) return false; } return true; }
+    // tramo recto caminable: se revisa el centro y los dos costados del cuerpo (así el atajo no corta esquinas donde el bot se traba)
+    lineWalk(x0, z0, x1, z1) { const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz), n = Math.ceil(L / .3); if (L < 1e-6) return true; const px = -dz / L * .36, pz = dx / L * .36; for (let s = 1; s <= n; s++) { const t = s / n, x = x0 + dx * t, z = z0 + dz * t; for (const o of [0, 1, -1]) { const k = this.cIdx(x + px * o, z + pz * o); if (k < 0 || !this.walk[k]) return false; } } return true; }
     findPath(sx, sz, tx, tz) {
       const GW = this.GW, GH = this.GH, walk = this.walk, gS = this.gS, came = this.came, stamp = this.stamp, closed = this.closed;
       const cX = k => this.GX0 + (k % GW) + .5, cZ = k => this.GZ0 + ((k / GW) | 0) + .5;
-      const s = this.nearestWalk(this.cIdx(sx, sz)), t = this.nearestWalk(this.cIdx(tx, tz)); if (s < 0 || t < 0) return null;
+      const s = this.nearestWalk(this.cIdx(sx, sz), sx, sz), t = this.nearestWalk(this.cIdx(tx, tz), tx, tz); if (s < 0 || t < 0) return null;
       const gen = ++this.gen;
       const heap = []; const tI = t % GW, tJ = (t / GW) | 0;
       const h = k => { const di = Math.abs(k % GW - tI), dj = Math.abs(((k / GW) | 0) - tJ); return Math.max(di, dj) + .414 * Math.min(di, dj); };
@@ -1497,7 +1602,7 @@
           { const dx = best.pos.x - b.pos.x, dz = best.pos.z - b.pos.z, dist = Math.hypot(dx, dz) || 1, dot = (dx * fx + dz * fz) / dist, sp = Math.hypot(best.vel.x, best.vel.z);
             b.react = D.react * rand(.85, 1.25) + Math.min(.25, dist * .005) + (best.h < 1.5 ? .08 : 0) + (sp > .3 && sp < 3 ? .06 : 0) + (dot < .8 && !alert ? .14 : 0) - (alert ? .08 : 0); b.react *= this.botSkill(b); } } b.lastKnown = V(best.pos.x, best.pos.y, best.pos.z); b.lastKnownT = this.now;
         // defensor que ve rivales cerca de un sitio: pide rotación (los del otro sitio acuden tras unos segundos)
-        if ((this.mode === 'bomb' || this.mode === 'elim') && this.phase === 'live' && !this.rot && this.side(b.team) === 'def') for (const k in this.M.sites) { const c = this.M.sites[k].c; if (Math.hypot(best.pos.x - c[0], best.pos.z - c[1]) < 18) { let n = 0; for (const o of this.actors) if (o.alive && o.team === best.team && Math.hypot(o.pos.x - c[0], o.pos.z - c[1]) < 22) n++; if (n >= 2) { this.rot = { site: k, at: this.now + rand(1.5, 3.5), team: b.team }; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); } break; } }
+        if ((this.mode === 'bomb' || this.mode === 'elim') && this.phase === 'live' && !this.rot && this.side(b.team) === 'def') for (const k in this.M.sites) { const c = this.M.sites[k].c; if (Math.hypot(best.pos.x - c[0], best.pos.z - c[1]) < 18) { let n = 0; for (const o of this.actors) if (o.alive && o.team === best.team && Math.hypot(o.pos.x - c[0], o.pos.z - c[1]) < 22) n++; if (n >= 1) { this.rot = { site: k, at: this.now + rand(.8, 2), team: b.team }; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); } break; } }
       }
       else b.target = null;
     }

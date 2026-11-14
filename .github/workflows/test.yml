@@ -18,5 +18,7 @@ jobs:
         run: for f in shared/core.js server.js accounts.js public/client.js public/models.js; do node --check "$f"; done
       - name: Mapas (spawns, rutas de bots y líneas de visión)
         run: npm run test:maps
+      - name: Primer contacto entre equipos (spawns sin enfrentarse)
+        run: npm run test:contact
       - name: Partidas simuladas con bots
         run: npm run test:bots
