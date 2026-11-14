@@ -748,6 +748,9 @@ let AC = null, master = null, noiseBuf = null, curBus = null; const bus = {};
 const OUT = () => curBus || bus.fx || master;
 function uiSound(fn) { curBus = bus.ui; try { fn(); } finally { curBus = null; } }
 function applyVol() { if (!AC) return; const v = prefs.vol; master.gain.value = .55 * v.m; bus.fx.gain.value = v.fx; bus.amb.gain.value = v.amb; bus.ui.gain.value = v.ui; }
+// en segundo plano (otra pestaña, app minimizada o pantalla bloqueada) el juego se silencia; al volver, el sonido regresa
+document.addEventListener('visibilitychange', () => { if (!AC) return; if (document.hidden) AC.suspend().catch(() => {}); else AC.resume().catch(() => {}); });
+addEventListener('pagehide', () => { if (AC) AC.suspend().catch(() => {}); });
 function initAudio() {
   if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
   try {
