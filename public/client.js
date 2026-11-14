@@ -55,7 +55,7 @@ const MAXA = Math.min(16, (renderer.capabilities.getMaxAnisotropy && renderer.ca
 // Entorno de reflejos para metales (armas y acabados): cielo, horizonte cálido y suelo oscuro
 try { const [ec, ex] = [document.createElement('canvas'), null]; ec.width = 256; ec.height = 128; const x2 = ec.getContext('2d'); const gg = x2.createLinearGradient(0, 0, 0, 128); gg.addColorStop(0, '#9fb8d8'); gg.addColorStop(.46, '#f1e2c8'); gg.addColorStop(.52, '#6d6458'); gg.addColorStop(1, '#1e1d1b'); x2.fillStyle = gg; x2.fillRect(0, 0, 256, 128); x2.fillStyle = 'rgba(255,255,255,.9)'; x2.fillRect(60, 18, 40, 10); x2.fillRect(170, 26, 28, 8);
   const et = new THREE.CanvasTexture(ec); et.mapping = THREE.EquirectangularReflectionMapping; const pm = new THREE.PMREMGenerator(renderer); const env = pm.fromEquirectangular(et).texture; pm.dispose(); et.dispose(); if (window.PCM && PCM.setEnv) PCM.setEnv(env); } catch (e) { }
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.autoClear = false;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.autoClear = false; renderer.shadowMap.autoUpdate = false; let SHF = 0;
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xd9cdb5, .0065);
 const camera = new THREE.PerspectiveCamera(74, 1, .05, 600); camera.rotation.order = 'YXZ'; scene.add(camera);
@@ -314,6 +314,7 @@ function buildWorld(mapId) {
     if (snow && b.minY < 3.8 && b.maxY > .9 && b.mat !== 'metalP') boxAt(b.minX + .04, b.maxY, b.minZ + .04, b.maxX - .04, b.maxY + .14, b.maxZ - .04, MAT.snowCap, 3, false);
     if (b.mat.startsWith('cont')) { boxAt(b.minX - .03, b.maxY - .12, b.minZ - .03, b.maxX + .03, b.maxY, b.maxZ + .03, MAT.dark, 0, false); }
   }
+  if (prefs.gfx !== 'low') decorFacades(M);
   // perímetro
   const [x0, z0, x1, z1] = M.bounds, H = M.wallH, pm = desert ? MAT.bld2 : rural ? MAT.hedge : city ? MAT.city2 : snow ? MAT.stationH : MAT.concrete;
   for (const [a, b, c, d] of [[x0 - 1, z0 - 1, x1 + 1, z0], [x0 - 1, z1, x1 + 1, z1 + 1], [x0 - 1, z0, x0, z1], [x1, z0, x1 + 1, z1]]) {
@@ -489,6 +490,30 @@ function snowDecor(M) {
   // franjas de los sitios y faroles del andén
   for (const k in M.sites) { const [a, b, c, d] = M.sites[k].r; const col = std({ color: k === 'A' ? 0xd9a22e : 0x3fb4c9, roughness: .7 }); boxAt(a, .32, b, c, .34, b + .25, col, 0, false); boxAt(a, .006, d - .25, c, .03, d, col, 0, false); }
   for (const x of [-9, -1, 7, 15, 23]) { const l = new THREE.Mesh(uvBox(.5, .12, .3, 0), new THREE.MeshBasicMaterial({ color: 0xffe0b0 })); l.position.set(x, 3.5, -21); worldGroup.add(l); }
+}
+
+/* ---------- Detalle de fachadas: aire acondicionado, tuberías, cajas eléctricas, faroles y carteles ---------- */
+const FAC_MAT = { unit: std({ color: 0xb9bcbe, roughness: .5, metalness: .4 }), grill: std({ color: 0x2a2d30, roughness: .7, metalness: .3 }), pipe: std({ color: 0x6f747a, roughness: .45, metalness: .7 }), box: std({ color: 0x8c9196, roughness: .55, metalness: .5 }), lamp: std({ color: 0x1d1f22, roughness: .5, metalness: .6 }), glow: new THREE.MeshBasicMaterial({ color: 0xffe3b0 }), sign: std({ color: 0x9a2d22, roughness: .8 }), sign2: std({ color: 0x1f4d6a, roughness: .8 }) };
+function decorFacades(M) {
+  const G2 = {}; const put = (k, geo, x, y, z, ry = 0) => { geo.rotateY(ry); geo.translate(x, y, z); (G2[k] || (G2[k] = [])).push(geo); };
+  const FAC = new Set(['bld', 'bld2', 'ware', 'ware2', 'wareDark', 'city', 'city2', 'stationH']); let seed = 1; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (const b of WORLD.colliders) {
+    if (!FAC.has(b.mat) || b.maxY < 2.6 || b.minY > .5) continue; const w = b.maxX - b.minX, d = b.maxZ - b.minZ; if (w < 2.5 && d < 2.5) continue;
+    for (const [side, len] of [['n', w], ['s', w], ['w', d], ['e', d]]) {
+      if (len < 2.4) continue; const n = Math.min(3, Math.floor(len / 4)); seed = Math.floor(Math.abs(b.minX * 73 + b.minZ * 31 + side.charCodeAt(0) * 7)) + 1;
+      for (let i = 0; i < n; i++) {
+        const u = (i + .5 + (rnd() - .5) * .5) / n; let x, z, ry, nx = 0, nz = 0;
+        if (side === 'n') { x = b.minX + u * w; z = b.minZ; ry = Math.PI; nz = -1; } else if (side === 's') { x = b.minX + u * w; z = b.maxZ; ry = 0; nz = 1; } else if (side === 'w') { x = b.minX; z = b.minZ + u * d; ry = -Math.PI / 2; nx = -1; } else { x = b.maxX; z = b.minZ + u * d; ry = Math.PI / 2; nx = 1; }
+        const top = Math.min(b.maxY, 4.2), r = rnd(), off = (dd) => [x + nx * dd, z + nz * dd];
+        if (r < .3 && top > 2.8) { const [px, pz] = off(.22); put('unit', new THREE.BoxGeometry(.8, .5, .4), px, top - .9, pz, ry); const [gx, gz] = off(.43); put('grill', new THREE.CylinderGeometry(.17, .17, .02, 16).rotateX(Math.PI / 2), gx, top - .9, gz, ry); }
+        else if (r < .55) { const [px, pz] = off(.09); put('pipe', new THREE.CylinderGeometry(.045, .045, top, 8), px, top / 2, pz, 0); put('pipe', new THREE.CylinderGeometry(.06, .06, .08, 8), px, top * .35, pz, 0); put('pipe', new THREE.CylinderGeometry(.06, .06, .08, 8), px, top * .75, pz, 0); }
+        else if (r < .72) { const [px, pz] = off(.08); put('box', new THREE.BoxGeometry(.42, .55, .14), px, 1.45, pz, ry); put('grill', new THREE.BoxGeometry(.3, .04, .02).translate(0, .12, .08), px, 1.45, pz, ry); }
+        else if (r < .88 && top > 2.6) { const [px, pz] = off(.28); put('lamp', new THREE.BoxGeometry(.08, .08, .5), px, top - .55, pz, ry); const [lx, lz] = off(.5); put('lamp', new THREE.BoxGeometry(.26, .08, .2), lx, top - .6, lz, ry); put('glow', new THREE.BoxGeometry(.2, .02, .14), lx, top - .65, lz, ry); }
+        else if (top > 2.6) { const [px, pz] = off(.05); put(rnd() < .5 ? 'sign' : 'sign2', new THREE.BoxGeometry(1.1, .45, .05), px, top - .5, pz, ry); }
+      }
+    }
+  }
+  for (const k in G2) { const geo = PCM.merge(G2[k]); geo.computeBoundingSphere(); const m = new THREE.Mesh(geo, FAC_MAT[k]); m.castShadow = k !== 'glow'; m.receiveShadow = true; worldGroup.add(m); for (const g of G2[k]) g.dispose(); }
 }
 
 /* ---------- Fundo Azul (casa de contenedores) ---------- */
@@ -776,7 +801,9 @@ function sShot(s, dist, pan, occ) {
     const p = panNode(pan); src.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); src.start(t, Math.random() * 1.5, s.dec + .05);
     if (dist < 1) { const o = AC.createOscillator(), og = AC.createGain(); o.type = 'square'; o.frequency.setValueAtTime(2400, t + .012); og.gain.setValueAtTime(vol * .12, t + .012); og.gain.exponentialRampToValueAtTime(.001, t + .04); o.connect(og); og.connect(OUT()); o.start(t + .012); o.stop(t + .05); }
     return; }
-  if (!AC || !s) return; const t = AC.currentTime; const far = clamp(dist / 90, 0, 1); const vol = s.vol * (dist < 1 ? 1 : clamp(1.5 / (1 + dist * .08), .04, 1)) * (occ ? .62 : 1);
+  if (!AC || !s) return; const t = AC.currentTime + Math.min(.28, Math.max(0, dist) / 343); const far = clamp(dist / 90, 0, 1);
+  if (dist < 1) { const c = AC.createBufferSource(); c.buffer = noiseBuf; const cf = AC.createBiquadFilter(); cf.type = 'highpass'; cf.frequency.value = 5200; const cg = AC.createGain(); cg.gain.setValueAtTime(s.vol * .35, t); cg.gain.exponentialRampToValueAtTime(.001, t + .02); c.connect(cf); cf.connect(cg); cg.connect(OUT()); c.start(t, Math.random(), .03); }
+  else if (dist > 25) { const r = AC.createBufferSource(); r.buffer = noiseBuf; const rf = AC.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 180; const rg = AC.createGain(); rg.gain.setValueAtTime(.0001, t); rg.gain.linearRampToValueAtTime(s.vol * .22 * (1 - far * .6), t + .05); rg.gain.exponentialRampToValueAtTime(.001, t + .9); const rp = panNode(pan * .6); r.connect(rf); rf.connect(rg); rg.connect(rp); rp.connect(OUT()); r.start(t, Math.random(), 1); } const vol = s.vol * (dist < 1 ? 1 : clamp(1.5 / (1 + dist * .08), .04, 1)) * (occ ? .62 : 1);
   const ek = (WORLD ? ECHO[WORLD.map.theme] || .15 : .15) * (roofedNow ? .55 : 1.25), tail = roofedNow ? .12 : .75; if (ek > 0 && (dist < 1 || dist > 14)) { const e = AC.createBufferSource(); e.buffer = noiseBuf; const ef = AC.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = occ ? 420 : 900; const eg = AC.createGain(); const d0 = t + .08 + Math.min(dist, 80) * .003; eg.gain.setValueAtTime(.0001, t); eg.gain.linearRampToValueAtTime(vol * ek, d0); eg.gain.exponentialRampToValueAtTime(.001, d0 + tail + ek); const ep = panNode(-pan * .5); e.connect(ef); ef.connect(eg); eg.connect(ep); ep.connect(OUT()); e.start(t, Math.random() * .6, 2); }
   const src = AC.createBufferSource(); src.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(s.cut * (1 - far * .75) * (occ ? .3 : 1), t); f.frequency.exponentialRampToValueAtTime(260, t + s.dec);
   const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + s.dec * (1 + far)); const p = panNode(pan);
@@ -807,7 +834,7 @@ function sStep(v, pan, surf) {
 // ¿bajo techo? (eco corto y seco) o al aire libre (cola larga)
 function roofed(x, y, z) { if (!WORLD) return false; for (const b of WORLD.colliders) if (b.mat !== 'perim' && b.minY > y + .3 && b.minY < y + 7 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true; return false; }
 let roofedNow = false, roofedT = 0;
-const sReload = (w) => { sNoise(.06, .35, 2200, 0); sNoise(.05, .3, 1500, w.reload * .45); sNoise(.07, .4, 2600, w.reload * .85); };
+const sReload = (w) => { const R = w.reload, rifle = w.slot === 1; sNoise(.05, .32, 2400, R * .12, 0, 3); sTone(780, .03, .08, 'square', 0, R * .14); sNoise(.12, .14, 900, R * .3, 0, .8); sNoise(.04, .42, 1700, R * .64, 0, 2.5); sTone(320, .05, .14, 'triangle', 0, R * .645); if (rifle) { sNoise(.08, .38, 2900, R * .84, 0, 2.2); sTone(1100, .04, .08, 'square', 0, R * .85); sNoise(.06, .32, 2200, R * .9, 0, 2.2); } else { sNoise(.06, .35, 3200, R * .86, 0, 2.5); sTone(1400, .03, .07, 'square', 0, R * .87); } };
 
 /* ================= ESTADO ================= */
 const G = { reveal: 0, drone: 0, state: 'menu', phase: 'buy', pt: 0, rd: 0, sc: [0, 0], s0: 'def', bomb: ['carried', 0, 0, 0, -1, 0, 0, 0, ''], roster: [], code: '', mapId: 'alcazaba', pub: true };
@@ -2750,12 +2777,12 @@ function updateLife(dt) {
     if (S.on && Math.random() < dt * 9) { const q = S.puffs[S.i++ % S.puffs.length]; q.life = 2.4; q.sp.visible = true; q.sp.position.set(S.x + rand(-.2, .2), .6, S.z + rand(-.2, .2)); q.sp.material.rotation = Math.random() * 6; }
     for (const q of S.puffs) if (q.life > 0) { q.life -= dt; const k = 1 - q.life / 2.4; q.sp.position.y += dt * (1.6 - k); q.sp.position.x += wx * dt * .6; q.sp.position.z += wz * dt * .6; q.sp.scale.setScalar(.8 + k * 4.2); q.sp.material.opacity = Math.sin(Math.min(1, k * 3) * Math.PI / 2) * (1 - k) * .75; if (q.life <= 0) q.sp.visible = false; } }
   for (const b of LIFE.beacons) { const a = t * 3.2 + b.ph, k = Math.pow(Math.max(0, Math.cos(a)), 6); b.sp.material.opacity = .25 + k * .95; b.sp.scale.setScalar(1.2 + k * 2.2); if (b.pl) b.pl.intensity = k * 2.4; }
-  if (LIFE.deb) { const { im, P } = LIFE.deb, cx = camera.position.x, cz = camera.position.z;
+  LIFE.half = !LIFE.half; if (LIFE.deb && LIFE.half) (dt => { const { im, P } = LIFE.deb, cx = camera.position.x, cz = camera.position.z;
     for (let i = 0; i < P.length; i++) { const q = P[i]; q.x += (wx * gust * q.s + Math.sin(t * 2 + q.ph) * .3) * dt; q.z += (wz * gust * q.s + Math.cos(t * 1.7 + q.ph) * .3) * dt;
       const lift = gust > 1.4 ? .9 : 0; q.vy += (lift * q.s - 1.2) * dt; q.y = Math.max(.02, Math.min(1.6, q.y + q.vy * dt)); if (q.y <= .02) q.vy = 0; q.r += dt * gust * 3 * q.s;
       if (Math.abs(q.x - cx) > 22 || Math.abs(q.z - cz) > 22) { q.x = cx - wx * 20 + rand(-14, 14); q.z = cz - wz * 20 + rand(-14, 14); q.y = rand(0, .3); }
       const gy = WORLD.groundAt ? WORLD.groundAt(q.x, q.z, q.y + 2) : 0; _lp.set(q.x, gy + q.y + .02, q.z); _le.set(q.y > .05 ? q.r : -Math.PI / 2, q.r * .7, q.y > .05 ? q.r * .5 : 0); _lq.setFromEuler(_le); _lm.compose(_lp, _lq, _ls); im.setMatrixAt(i, _lm); }
-    im.instanceMatrix.needsUpdate = true; }
+    im.instanceMatrix.needsUpdate = true; })(dt * 2);
   for (const f of LIFE.flags) { const a = f.m.geometry.attributes.position, B = f.base; for (let i = 0; i < a.count; i++) { const x = B[i * 3], y = B[i * 3 + 1], k = x / 1.5; a.array[i * 3 + 2] = Math.sin(x * 3.2 - t * 6 * (.6 + gust * .3) + f.ph) * .16 * k * gust + Math.sin(y * 4 + t * 3) * .03 * k; a.array[i * 3 + 1] = y - k * k * .12 * (1.6 - gust * .5); } a.needsUpdate = true; f.m.geometry.computeVertexNormals(); }
   for (const b of LIFE.birds) {
     if (b.st === 0) { b.ph += dt; b.m.position.y = b.home.y + (Math.sin(b.ph * 7) > .97 ? .02 : 0); if (Math.random() < dt * .2) b.m.rotation.y += rand(-1, 1); continue; }
@@ -2890,8 +2917,8 @@ function frame(now) {
     post.vmPass.enabled = showVm; const u = post.grade.uniforms; u.time.value = now * .001 % 100; u.sat.value = post.sat;
     u.dof.value = kcActive() || (G.state === 'playing' && !me.alive && me.deadT < 1.2) ? 1 : lerp(u.dof.value, 0, .2); u.px.value.set(1 / Math.max(1, innerWidth), 1 / Math.max(1, innerHeight));
     u.hurt.value = G.state === 'playing' && me.alive ? clamp((nowS() - (me.lastHurt || -9) < .4 ? .8 : 0) + (me.hp < 30 ? .35 : 0), 0, 1) : 0;
-    post.composer.render();
-  } else { renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
+    SHF = (SHF + 1) % 2; renderer.shadowMap.needsUpdate = prefs.gfx === 'ultra' || SHF === 0 || G.state !== 'playing'; post.composer.render();
+  } else { renderer.shadowMap.needsUpdate = true; renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
 }
 function updateSpecVM(dt) {
   const kcOn = kcActive(); let view = null, team = me.team;
@@ -2946,6 +2973,11 @@ $('#rvClose').onclick = stopReplay; $('#rvPlay').onclick = () => { const R = RV.
 $('#rvSeek').oninput = e => { RV.t = RV.r.frames[0].t + +e.target.value; RV.lastShot = RV.t; }; $('#rvView').onchange = e => { RV.view = e.target.value; };
 $('#rvSpeed').onchange = e => { RV.speed = +e.target.value; };
 $('#tpBtn').onclick = () => { sendMsg({ t: 'tpause' }); };
+const RET_COL = { rojo: 0xff2414, verde: 0x3dff6a, cian: 0x4fe3ff, ambar: 0xffb020, blanco: 0xf4f1e6 };
+function applyReticle() { const r = prefs.ret || {}; PCM.setReticle(r.s || 'holo', RET_COL[r.c] || RET_COL.rojo); for (const el of document.querySelectorAll('.retPick')) { el.querySelectorAll('[data-rs]').forEach(b => b.setAttribute('aria-pressed', (r.s || 'holo') === b.dataset.rs)); el.querySelectorAll('[data-rc]').forEach(b => b.setAttribute('aria-pressed', (r.c || 'rojo') === b.dataset.rc)); } }
+for (const el of document.querySelectorAll('.retPick')) el.innerHTML = `<div class="lbl small">Retícula de la mira</div><div class="seg">${[['holo', 'Holográfica'], ['punto', 'Punto'], ['circulo', 'Círculo'], ['cruz', 'Cruz'], ['chevron', 'Chevrón']].map(([k, n]) => `<button type="button" data-rs="${k}">${n}</button>`).join('')}</div><div class="retCols">${Object.keys(RET_COL).map(k => `<button type="button" data-rc="${k}" aria-label="Color ${k}" style="--c:#${RET_COL[k].toString(16).padStart(6, '0')}"></button>`).join('')}</div>`;
+document.addEventListener('click', e => { const b = e.target.closest('.retPick [data-rs], .retPick [data-rc]'); if (!b) return; const r = prefs.ret || (prefs.ret = {}); if (b.dataset.rs) r.s = b.dataset.rs; else r.c = b.dataset.rc; savePrefs(); applyReticle(); });
+applyReticle();
 document.addEventListener('click', e => { const b = e.target.closest('.outf'); if (!b) return; if (b.getAttribute('aria-disabled') === 'true') { toast('Se desbloquea al subir de nivel'); return; } prefs.outfit = b.dataset.outfit; savePrefs(); SHOW.key = ''; drawProfile(); toast('Atuendo listo: lo verán todos en tu próxima partida'); });
 { const pf = $('#perfChk'), vc = $('#voiceChk'); if (pf) { pf.checked = prefs.perf !== false; pf.onchange = () => { prefs.perf = pf.checked; savePrefs(); }; } if (vc) { vc.checked = !!prefs.voice; vc.onchange = () => { prefs.voice = vc.checked; savePrefs(); if (!vc.checked) voiceStop(true); toast(vc.checked ? 'Órdenes por voz activadas: mantén T y habla' : 'T abre el menú de órdenes'); }; } }
 drawProfile(); restoreSession();

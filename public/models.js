@@ -338,10 +338,18 @@ function gunParts(id) {
 }
 const toLocal = (p) => new T.Vector3(0, p[1], -p[0]);
 // retícula de mira holográfica: anillo de referencia, punto central y marcas cortas (dibujada una vez)
-const RETTEX = (() => { const [c, x] = cnv(256, 256); x.clearRect(0, 0, 256, 256); x.strokeStyle = '#fff'; x.fillStyle = '#fff'; x.shadowColor = '#fff'; x.shadowBlur = 6;
-  x.lineWidth = 6; x.beginPath(); x.arc(128, 128, 92, 0, 7); x.stroke(); x.beginPath(); x.arc(128, 128, 9, 0, 7); x.fill();
-  for (const [a, b, c2, d] of [[128, 20, 128, 44], [128, 212, 128, 236], [20, 128, 44, 128], [212, 128, 236, 128]]) { x.beginPath(); x.moveTo(a, b); x.lineTo(c2, d); x.stroke(); }
-  const t = new T.CanvasTexture(c); t.anisotropy = 4; return t; })();
+const RETCV = cnv(256, 256);
+function drawReticle(shape) {
+  const x = RETCV[1]; x.clearRect(0, 0, 256, 256); x.strokeStyle = '#fff'; x.fillStyle = '#fff'; x.shadowColor = '#fff'; x.shadowBlur = 6; x.lineCap = 'round';
+  const dot = r => { x.beginPath(); x.arc(128, 128, r, 0, 7); x.fill(); }, line = (a, b, c2, d, w) => { x.lineWidth = w; x.beginPath(); x.moveTo(a, b); x.lineTo(c2, d); x.stroke(); };
+  if (shape === 'punto') dot(11);
+  else if (shape === 'cruz') { for (const [a, b, c2, d] of [[128, 40, 128, 104], [128, 152, 128, 216], [40, 128, 104, 128], [152, 128, 216, 128]]) line(a, b, c2, d, 6); dot(6); }
+  else if (shape === 'chevron') { x.lineWidth = 7; x.beginPath(); x.moveTo(96, 156); x.lineTo(128, 120); x.lineTo(160, 156); x.stroke(); line(128, 172, 128, 224, 5); }
+  else if (shape === 'circulo') { x.lineWidth = 5; x.beginPath(); x.arc(128, 128, 70, 0, 7); x.stroke(); dot(8); }
+  else { x.lineWidth = 6; x.beginPath(); x.arc(128, 128, 92, 0, 7); x.stroke(); dot(9); for (const [a, b, c2, d] of [[128, 20, 128, 44], [128, 212, 128, 236], [20, 128, 44, 128], [212, 128, 236, 128]]) line(a, b, c2, d, 6); }
+  RETTEX.needsUpdate = true;
+}
+const RETTEX = new T.CanvasTexture(RETCV[0]); RETTEX.anisotropy = 4; drawReticle('holo');
 const RETMAT = new T.MeshBasicMaterial({ map: RETTEX, color: 0xff2414, transparent: true, opacity: .95, depthWrite: false, toneMapped: false });
 function buildGun(id, opt = {}) {
   const { meshes, info } = gunParts(id); const g = new T.Group();
@@ -652,7 +660,7 @@ function addCharm(gun, id) {
   gun.add(piv); gun.userData.charm = piv;
 }
 window.PCM = {
-  buildGun, buildSoldier, fpArms, setFpTeam, poseReload, tickCamo, addCharm, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
+  buildGun, buildSoldier, fpArms, setFpTeam, poseReload, tickCamo, addCharm, setReticle(shape, color) { drawReticle(shape); RETMAT.color.setHex(color); }, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setEnv(env) { for (const m of Object.values(MCAMO).concat(Object.values(MG))) if (m && m.isMeshStandardMaterial && m.metalness > .3) { m.envMap = env; m.envMapIntensity = .9; m.needsUpdate = true; } },
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };

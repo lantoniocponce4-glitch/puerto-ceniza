@@ -523,6 +523,10 @@ tr.dead td{opacity:.5}
 .outf[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--amber)}.outf[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 .outf:focus-visible{box-shadow:inset 0 0 0 2px #fff}
 @media (prefers-reduced-motion:reduce){#menu::before{animation:none;display:none}.go,.mapc{transition:none}}
+
+.retPick .seg{flex-wrap:wrap}.retCols{display:flex;gap:8px;margin-top:6px}
+.retCols button{all:unset;cursor:pointer;width:26px;height:26px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),0 0 8px var(--c)}
+.retCols button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink),0 0 0 4px #fff,0 0 10px var(--c)}.retCols button:focus-visible{box-shadow:0 0 0 3px #fff}
 </style>
 </head>
 <body>
@@ -630,6 +634,7 @@ tr.dead td{opacity:.5}
         </div>
         <div class="sec"><div class="lbl">Controles y HUD</div><button class="go ghost sm" id="hudEdit1" type="button">Configurar HUD</button></div>
         <div class="sec mctl" data-mctl="1" hidden></div>
+        <div class="sec retPick"></div>
         <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
         <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
@@ -708,6 +713,7 @@ tr.dead td{opacity:.5}
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <div class="sec mctl" data-mctl="2" hidden></div>
+      <div class="sec retPick"></div>
       <div class="sec"><label class="chk"><input type="checkbox" id="perfChk"> Mostrar FPS y ping</label><label class="chk"><input type="checkbox" id="voiceChk"> Órdenes por voz con T (usa el micrófono; en algunos audífonos baja la calidad del sonido)</label></div>
       <div class="sec" id="tpRow" hidden><div class="lbl small">Competitivo</div><button type="button" class="go ghost sm" id="tpBtn">Pedir pausa táctica (30 s)</button><span class="small"> · 2 por equipo; empieza con la próxima compra</span></div>
       <div class="sec" id="tmodeRow" hidden><button type="button" class="btn small" id="tmodeBtn">Usar controles táctiles</button></div>
@@ -818,9 +824,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=59"></script>
-<script src="/models.js?v=59"></script>
-<script src="/client.js?v=59"></script>
+<script src="/core.js?v=61"></script>
+<script src="/models.js?v=61"></script>
+<script src="/client.js?v=61"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
