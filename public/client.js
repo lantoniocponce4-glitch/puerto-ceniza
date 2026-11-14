@@ -1964,18 +1964,44 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
 
 /* ================= CONTROLES MÓVILES AVANZADOS ================= */
 // Giroscopio: girar el teléfono apunta (en horizontal); se calcula según hacia qué lado está girado
-let gyroOk = false;
+let gyroOk = false, gyroSeen = 0, gyroSrc = null, gyroPrev = null, gyroAsked = false;
+const gyroNeedsPerm = !!(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function');
+function gyroActive() { const m = prefs.mc; if (m.gyro === 'off' || !gyroOk || G.state !== 'playing' || !me.alive || !$('#pause').hidden || HE.on) return false; return m.gyro !== 'ads' || (me.adsK || 0) > .5 || me.scoped; }
+function gyroSign() { const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 90); return ang === 270 || ang === -90 ? -1 : 1; }
+// aplica un giro en grados: yawD = giro horizontal del teléfono, pitchD = inclinación hacia adelante/atrás
+function gyroApply(yawD, pitchD) { const m = prefs.mc, sg = gyroSign(), D = Math.PI / 180 * m.gyroS * .9; me.yaw += yawD * D * sg; me.pitch = clamp(me.pitch - pitchD * D * sg * (m.gyroInv ? -1 : 1), -1.5, 1.5); }
 addEventListener('devicemotion', e => {
-  const m = prefs.mc; if (m.gyro === 'off' || !gyroOk || G.state !== 'playing' || !me.alive || !$('#pause').hidden || HE.on) return;
-  if (m.gyro === 'ads' && !((me.adsK || 0) > .5 || me.scoped)) return;
-  const rr = e.rotationRate; if (!rr) return; const dt = Math.min(.05, (e.interval > 1 ? e.interval / 1000 : e.interval) || .016);
-  const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 90); const sg = ang === 270 || ang === -90 ? -1 : 1;
-  const D = Math.PI / 180 * dt * m.gyroS * .9; me.yaw += (rr.beta || 0) * D * sg; me.pitch = clamp(me.pitch - (rr.gamma || 0) * D * sg * (m.gyroInv ? -1 : 1), -1.5, 1.5);
+  const rr = e.rotationRate; if (!rr || (rr.beta == null && rr.gamma == null)) return;
+  if (!gyroSeen) { gyroSeen = performance.now(); gyroSrc = 'motion'; gyroOk = true; drawGyroState(); } if (gyroSrc !== 'motion' || !gyroActive()) return;
+  const dt = Math.min(.05, (e.interval > 1 ? e.interval / 1000 : e.interval) || .016); gyroApply((rr.beta || 0) * dt, (rr.gamma || 0) * dt);
 });
-async function enableGyro() {
-  try { if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') { const r = await DeviceMotionEvent.requestPermission(); gyroOk = r === 'granted'; if (!gyroOk) toast('Sin permiso de movimiento: el giroscopio no se puede usar'); } else gyroOk = !!window.DeviceMotionEvent; } catch (e) { gyroOk = false; toast('Este navegador no permite usar el giroscopio'); }
+// respaldo: teléfonos cuyo navegador solo entrega la orientación (sin velocidad de giro)
+addEventListener('deviceorientation', e => {
+  if (e.beta == null) return; if (!gyroSeen) setTimeout(() => { if (!gyroSrc) { gyroSrc = 'orient'; gyroSeen = performance.now(); gyroOk = true; drawGyroState(); } }, 600);
+  if (gyroSrc !== 'orient') return; const cur = { a: e.alpha || 0, b: e.beta, g: e.gamma || 0 }, p = gyroPrev; gyroPrev = cur; if (!p || !gyroActive()) return;
+  const wrap = d => ((d + 540) % 360) - 180; let dg = cur.g - p.g; if (Math.abs(dg) > 30) dg = 0; gyroApply(wrap(cur.a - p.a) * gyroSign(), -dg);
+});
+async function enableGyro(quiet) {
+  gyroAsked = true;
+  try {
+    if (gyroNeedsPerm) {
+      const r = await DeviceMotionEvent.requestPermission(); gyroOk = r === 'granted' || !!gyroSeen;
+      if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') DeviceOrientationEvent.requestPermission().catch(() => {});
+      if (!gyroOk) toast(/iPhone|iPad|iPod/.test(navigator.userAgent) ? 'Sin permiso de movimiento: actívalo en Ajustes › Safari › Movimiento y orientación' : 'El navegador bloqueó los sensores de movimiento: permítelos en la configuración del sitio');
+    } else gyroOk = !!(window.DeviceMotionEvent || window.DeviceOrientationEvent);
+  } catch (e) { gyroOk = false; if (!quiet) toast('Toca «Activar giroscopio» para dar el permiso de movimiento'); }
+  if (gyroOk) setTimeout(() => { if (!gyroSeen) toast('Este teléfono no envía datos del giroscopio al navegador'); drawGyroState(); }, 1500);
+  drawGyroState();
 }
-if (prefs.mc.gyro !== 'off' && !(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function')) gyroOk = true;
+function drawGyroState() {
+  for (const el of document.querySelectorAll('.gyst')) {
+    const m = prefs.mc; el.textContent = m.gyro === 'off' ? 'Apagado' : !gyroOk ? (gyroNeedsPerm ? 'Falta permiso: toca «Activar giroscopio»' : 'Sin sensor de movimiento') : gyroSeen ? 'Activo ✓' : 'Esperando al sensor…';
+    el.className = 'gyst small ' + (m.gyro !== 'off' && gyroOk && gyroSeen ? 'ok' : '');
+  }
+}
+if (prefs.mc.gyro !== 'off' && !gyroNeedsPerm) gyroOk = true;
+// iPhone olvida el permiso al recargar: se vuelve a pedir con el primer toque real en la pantalla
+addEventListener('touchend', () => { if (prefs.mc.gyro !== 'off' && !gyroOk && gyroNeedsPerm && !gyroAsked) enableGyro(true); }, { passive: true });
 function drawMctl() {
   if (!isTouch) return; const m = prefs.mc;
   for (const box of document.querySelectorAll('.mctl')) {
@@ -1985,8 +2011,11 @@ function drawMctl() {
       <label>Giroscopio<select data-mc="gyro" class="mcsel"><option value="off"${m.gyro === 'off' ? ' selected' : ''}>Apagado</option><option value="ads"${m.gyro === 'ads' ? ' selected' : ''}>Solo al apuntar</option><option value="always"${m.gyro === 'always' ? ' selected' : ''}>Siempre</option></select></label>
       <label>Sensibilidad del giroscopio <b>${m.gyroS.toFixed(2)}</b><input type="range" data-mc="gyroS" min="0.3" max="3" step="0.05" value="${m.gyroS}"></label>
       <label class="chk"><input type="checkbox" data-mc="gyroInv"${m.gyroInv ? ' checked' : ''}> Invertir giroscopio vertical</label>
+      <div class="gyrow"><button type="button" class="btn small gybtn">Activar giroscopio</button><span class="gyst small"></span></div>
       <label class="chk"><input type="checkbox" data-mc="autoFire"${m.autoFire ? ' checked' : ''}> Disparo automático al apuntar a un enemigo</label></div>`;
+    box.querySelector('.gybtn').onclick = () => { if (prefs.mc.gyro === 'off') { prefs.mc.gyro = 'always'; savePrefs(); } gyroAsked = false; enableGyro().then(drawMctl); };
   }
+  drawGyroState();
 }
 document.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type !== 'range') return; prefs.mc[k] = +e.target.value; savePrefs(); const b = e.target.parentElement.querySelector('b'); if (b) b.textContent = prefs.mc[k].toFixed(2); });
 document.addEventListener('change', async e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type === 'range') return; prefs.mc[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; savePrefs(); if (k === 'gyro' && prefs.mc.gyro !== 'off') await enableGyro(); drawMctl(); });
@@ -2479,6 +2508,6 @@ function updateVM(dt) {
   vm.flashT = (vm.flashT || 0) - dt; g.flash.visible = vm.flashT > 0; g.flash.material.rotation = Math.random() * 6; g.light.intensity = vm.flashT > 0 ? 3 : 0;
 }
 drawProfile(); restoreSession();
-if (/[?&]debug=1/.test(location.search)) window.__pc = { me, vm, applyCond, buildWorld, renderer, applyGfx, RG, rangeOnHit, rangeEnd, net, get kc() { return kc; } };
+if (/[?&]debug=1/.test(location.search)) window.__pc = { me, vm, applyCond, buildWorld, renderer, applyGfx, RG, rangeOnHit, rangeEnd, net, get kc() { return kc; }, gyro: () => ({ gyroOk, gyroSeen, gyroSrc, mode: prefs.mc.gyro, state: G.state, he: HE.on, act: gyroActive() }) };
 requestAnimationFrame(frame);
 })();
