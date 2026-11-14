@@ -893,7 +893,8 @@ function sendMsg(m) {
   if (net.mode === 'online') { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(m)); }
   else if (net.mode === 'offline' && net.room) net.room.message('local', m);
 }
-function joinOnline(join) {
+function joinOnline(join, reconnecting) {
+  if (!reconnecting) net.retry = 0;
   setBusy(true); $('#err').textContent = '';
   const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
   let ws; try { ws = new WebSocket(url); } catch (e) { setBusy(false); $('#err').textContent = 'No se pudo abrir la conexión. Prueba el modo sin conexión.'; return; }
@@ -902,7 +903,20 @@ function joinOnline(join) {
   ws.onopen = () => { clearTimeout(to); ws.send(JSON.stringify(join)); };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } onMsg(m); };
   net.joinTimer = to;
-  ws.onclose = () => { clearTimeout(to); if (net.ws !== ws) return; setBusy(false); if (G.state === 'menu' && !$('#err').textContent) $('#err').textContent = 'No se pudo conectar con el servidor. Puede estar despertando: intenta de nuevo en unos segundos.'; if (G.state !== 'menu') { leaveToMenu(); $('#err').textContent = 'Se perdió la conexión con el servidor. Vuelve a entrar con el código de la sala.'; } net.mode = null; };
+  ws.onclose = () => {
+    clearTimeout(to); if (net.ws !== ws) return; setBusy(false);
+    // conexión caída en plena partida: volver solos a la misma sala y al mismo bando (hasta 4 intentos)
+    if (G.state !== 'menu' && G.code && G.code !== 'LOCAL' && (net.retry || 0) < 4) {
+      const n = net.retry = (net.retry || 0) + 1; net.ws = null;
+      toast(n === 1 ? 'Se cortó la conexión. Reconectando…' : 'Reconectando… (intento ' + n + ' de 4)');
+      const side = me.team != null && G.s0 ? sideOf(me.team) : null;
+      net.retryT = setTimeout(() => { if (G.state !== 'menu' && !net.ws) joinOnline(Object.assign(baseJoin(), { mode: 'code', code: G.code, side, gm: undefined }), true); }, 700 * n * n);
+      return;
+    }
+    if (G.state === 'menu' && !$('#err').textContent) $('#err').textContent = 'No se pudo conectar con el servidor. Puede estar despertando: intenta de nuevo en unos segundos.';
+    if (G.state !== 'menu') { leaveToMenu(); $('#err').textContent = 'Se perdió la conexión con el servidor. Vuelve a entrar con el código de la sala.'; }
+    net.mode = null; net.retry = 0;
+  };
 }
 function startOffline(opt = {}) {
   if (auth.me && !opt.range) setTimeout(() => toast('En práctica sin conexión no se suma experiencia a tu cuenta'), 1500);
@@ -914,15 +928,16 @@ function startOffline(opt = {}) {
   onMsg(room.privateState(a)); onMsg(room.roster()); if (opt.range) rangeStart();
   net.timer = setInterval(() => room.tick(.05), 50);
 }
-function leaveNet() { clearTimeout(net.joinTimer); setBusy(false); if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch (e) { } } if (net.timer) clearInterval(net.timer); net.timer = null; net.room = null; net.mode = null; }
+function leaveNet() { clearTimeout(net.joinTimer); clearTimeout(net.retryT); setBusy(false); if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch (e) { } } if (net.timer) clearInterval(net.timer); net.timer = null; net.room = null; net.mode = null; }
 const cleanName = n => (String(n || '').replace(/[\p{Cf}\p{Cc}\u3164\u115F\u1160\u2800\uFFA0]/gu, '').replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14)) || 'Operador';
 function setBusy(b) { for (const id of ['#quick', '#create', '#joinBtn']) $(id).disabled = b; }
 
 function onMsg(m) {
   if (m.t === 'pg') { PERF.ping = Math.max(1, Math.round(performance.now() - m.c)); return; }
   switch (m.t) {
-    case 'err': setBusy(false); $('#err').textContent = m.msg; leaveNet(); break;
+    case 'err': { const wasRetry = net.retry > 0; setBusy(false); leaveNet(); net.retry = 0; if (G.state !== 'menu') leaveToMenu(); $('#err').textContent = wasRetry ? 'Se perdió la conexión y la sala ya no está disponible. Busca otra partida.' : m.msg; break; }
     case 'joined': {
+      if (net.retry) { toast('Reconectado a la sala ' + m.code); net.retry = 0; }
       setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm === 'comp' ? 'bomb' : m.gm || 'bomb'; G.comp = m.gm === 'comp' || (net.mode === 'offline' && prefs.gm === 'comp'); G.cond = m.cond || null; me.id = m.you; me.team = m.team;
       buildWorld(m.map); PCM.setFpTeam(me.team, myOutfit()); for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0;
       enterGame(); break;

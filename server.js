@@ -3,12 +3,15 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const PC = require('./shared/core.js');
 const { Accounts } = require('./accounts.js');
 const ACC = new Accounts();
 
 const PORT = process.env.PORT || 3000;
+const PROD = process.env.NODE_ENV === 'production' || !!process.env.RENDER;
 const TICK = 1 / 20;
 const PUBLIC = path.join(__dirname, 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
@@ -28,15 +31,44 @@ const server = http.createServer((req, res) => {
     const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: modeKey(r), diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8), teams: teamSlots(r), rules: r.rules })).sort((a, b) => b.players - a.players);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify(list));
   }
-  let file = url.pathname === '/' ? '/index.html' : url.pathname;
-  const full = file === '/core.js' ? path.join(__dirname, 'shared', 'core.js') : path.join(PUBLIC, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
-  if (!full.startsWith(PUBLIC) && !full.endsWith(path.join('shared', 'core.js'))) { res.writeHead(403); return res.end(); }
-  fs.readFile(full, (err, data) => {
-    if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('No encontrado'); }
-    res.writeHead(200, { 'content-type': TYPES[path.extname(full)] || 'application/octet-stream', 'cache-control': 'no-cache' });
-    res.end(data);
-  });
+  serveStatic(req, res, url.pathname);
 });
+
+/* ---------- Archivos estáticos: en memoria, comprimidos y con ETag ---------- */
+// Three.js r128 y sus extras se sirven desde node_modules en un solo archivo: no depende de CDNs externos
+const THREE_DIR = path.join(__dirname, 'node_modules', 'three');
+const THREE_PARTS = ['build/three.min.js', 'examples/js/shaders/CopyShader.js', 'examples/js/shaders/LuminosityHighPassShader.js', 'examples/js/shaders/FXAAShader.js', 'examples/js/postprocessing/EffectComposer.js', 'examples/js/postprocessing/RenderPass.js', 'examples/js/postprocessing/ShaderPass.js', 'examples/js/postprocessing/UnrealBloomPass.js', 'examples/js/math/SimplexNoise.js', 'examples/js/shaders/SSAOShader.js', 'examples/js/postprocessing/SSAOPass.js'];
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
+const staticCache = new Map();
+function staticEntry(key, readData, ext) {
+  let e = staticCache.get(key);
+  if (e) return e;
+  const data = readData(); if (!data) return null;
+  e = { data, type: TYPES[ext] || 'application/octet-stream', etag: '"' + crypto.createHash('sha1').update(data).digest('base64url').slice(0, 16) + '"' };
+  if (COMPRESSIBLE.has(ext) && data.length > 1024) { e.br = zlib.brotliCompressSync(data, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9 } }); e.gz = zlib.gzipSync(data, { level: 9 }); }
+  staticCache.set(key, e); return e;
+}
+const readOr = f => () => { try { return fs.readFileSync(f); } catch (e) { return null; } };
+function serveStatic(req, res, pathname) {
+  let e = null;
+  if (pathname === '/vendor/three-bundle.js') e = staticEntry(pathname, () => { try { return Buffer.from(THREE_PARTS.map(f => fs.readFileSync(path.join(THREE_DIR, f), 'utf8')).join('\n;\n')); } catch (err) { console.error('No se encontró three en node_modules: ejecuta npm install'); return null; } }, '.js');
+  else {
+    const file = pathname === '/' ? '/index.html' : pathname;
+    const full = file === '/core.js' ? path.join(__dirname, 'shared', 'core.js') : path.join(PUBLIC, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
+    if (!full.startsWith(PUBLIC + path.sep) && file !== '/core.js') { res.writeHead(403); return res.end(); }
+    // en desarrollo (sin NODE_ENV=production) se relee el archivo para ver los cambios al instante
+    if (!PROD) staticCache.delete(full);
+    e = staticEntry(full, readOr(full), path.extname(full));
+  }
+  if (!e) { res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); return res.end('No encontrado'); }
+  // Three.js lleva la versión en la URL y no cambia: se guarda un año. El resto se revalida con ETag (respuesta 304 sin cuerpo)
+  const headers = { 'content-type': e.type, 'etag': e.etag, 'cache-control': pathname.startsWith('/vendor/') ? 'public, max-age=31536000, immutable' : 'no-cache', 'vary': 'Accept-Encoding' };
+  if (req.headers['if-none-match'] === e.etag) { res.writeHead(304, headers); return res.end(); }
+  const ae = String(req.headers['accept-encoding'] || ''); let body = e.data;
+  if (e.br && /\bbr\b/.test(ae)) { body = e.br; headers['content-encoding'] = 'br'; } else if (e.gz && /\bgzip\b/.test(ae)) { body = e.gz; headers['content-encoding'] = 'gzip'; }
+  headers['content-length'] = body.length;
+  res.writeHead(200, headers); res.end(req.method === 'HEAD' ? undefined : body);
+}
 
 /* ---------- API de cuentas ---------- */
 // Render agrega la IP real al final de X-Forwarded-For; los valores iniciales los controla el cliente
@@ -223,7 +255,8 @@ wss.on('connection', ws => {
     sqLeave(cid);
     if (!room) return;
     room.removeHuman(cid); room.sockets.delete(cid); room.accts.delete(cid); if (acct) { acct.inRoom = Math.max(0, (acct.inRoom || 1) - 1); acct.lastUse = Date.now(); ACC.flush(); }
-    if (room.humanCount === 0) rooms.delete(room.code);
+    // la sala vacía se conserva 30 s para que quien perdió la conexión pueda volver (el ciclo de juego la borra después)
+    if (room.humanCount === 0) room.emptySince = Date.now();
   });
 });
 
@@ -235,7 +268,7 @@ let last = Date.now();
 setInterval(() => {
   const now = Date.now(); let dt = (now - last) / 1000; last = now;
   dt = Math.min(dt, .1);
-  for (const r of rooms.values()) { if (r.humanCount === 0 && Date.now() - (r.bornAt || 0) > 30000) { rooms.delete(r.code); continue; } try { r.tick(dt); } catch (e) { console.error('tick', r.code, e); } }
+  for (const r of rooms.values()) { if (r.humanCount === 0 && now - Math.max(r.bornAt || 0, r.emptySince || 0) > 30000) { rooms.delete(r.code); continue; } try { r.tick(dt); } catch (e) { console.error('tick', r.code, e); } }
 }, TICK * 1000);
 
 server.listen(PORT, () => console.log(`Puerto Ceniza escuchando en :${PORT}`));

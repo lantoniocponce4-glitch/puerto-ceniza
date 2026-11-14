@@ -5,6 +5,9 @@ Shooter táctico por rondas, 5 contra 5, en el navegador. Los atacantes plantan 
 - Mapas originales: **Alcazaba** (pueblo de adobe) y **Muelle 9** (terminal portuaria).
 - Economía y menú de compra, armas que se sueltan al morir, granadas HE, cegadoras y de humo.
 - Servidor autoritativo en Node.js con WebSockets (`ws`); el mismo núcleo (`shared/core.js`) corre en el servidor y en el modo sin conexión del navegador.
+- Three.js r128 se instala con `npm install` y el servidor lo entrega en un solo archivo (`/vendor/three-bundle.js`): no depende de CDNs externos. Los archivos se sirven comprimidos (brotli/gzip) y con ETag.
+- Después de la primera visita, la práctica contra bots y el campo de tiro abren sin internet (service worker en `public/sw.js`).
+- Si se corta la conexión en plena partida, el juego vuelve solo a la misma sala y al mismo bando; la sala vacía se guarda 30 segundos.
 
 ## Correr en local
 
