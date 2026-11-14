@@ -47,7 +47,7 @@ const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
 /* ---------- Preferencias ---------- */
 let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb', gfx: isTouch ? 'low' : 'high' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
-if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroInv: false, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high';
+if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high';
 if (isTouch && prefs.gfxV !== 2) { if (prefs.gfx === 'low') prefs.gfx = 'high'; prefs.gfxV = 2; try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } }
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
@@ -2360,18 +2360,56 @@ let gyroOk = false, gyroSeen = 0, gyroSrc = null, gyroPrev = null, gyroAsked = f
 const gyroNeedsPerm = !!(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function');
 function gyroActive() { const m = prefs.mc; if (m.gyro === 'off' || !gyroOk || G.state !== 'playing' || !me.alive || !$('#pause').hidden || HE.on) return false; return m.gyro !== 'ads' || (me.adsK || 0) > .5 || me.scoped; }
 function gyroSign() { if (FL.on) return 1; const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 90); return ang === 270 || ang === -90 ? -1 : 1; }
-// aplica un giro en grados: yawD = giro horizontal del teléfono, pitchD = inclinación hacia adelante/atrás
-function gyroApply(yawD, pitchD) { const m = prefs.mc, sg = gyroSign(), D = Math.PI / 180 * m.gyroS * .9; me.yaw += yawD * D * sg; me.pitch = clamp(me.pitch - pitchD * D * sg * (m.gyroInv ? -1 : 1), -1.5, 1.5); }
+/* Giroscopio estilo PUBG Mobile: el teléfono funciona como un visor. Girarlo a la derecha mira a la derecha;
+   inclinarlo hacia adelante (la parte de arriba se aleja) baja la mira, y hacia atrás la sube (así se compensa el retroceso).
+   Cada teléfono reporta los ejes a su manera (Safari de iPhone y algunos Android difieren): la calibración detecta
+   qué eje y qué signo usar girando el teléfono a la derecha y luego inclinándolo hacia arriba. */
+const GY_DEF = { y: ['x', 1], p: ['y', -1] }; // valores del estándar web: giro = eje x (beta), inclinación = eje y (gamma)
+const gyF = { x: 0, y: 0, z: 0 };
+function gyroApply(rates, dt) {
+  const m = prefs.mc, map = m.gyroMap || GY_DEF, sg = gyroSign();
+  // filtro suave contra el temblor y zona muerta pequeña para que la mira no se desplace sola
+  const k = 1 - Math.exp(-dt / .025); for (const a of ['x', 'y', 'z']) gyF[a] += (rates[a] - gyF[a]) * k;
+  const dz = v => { const a = Math.abs(v); return a < .6 ? 0 : Math.sign(v) * (a - .6); };
+  const yawRate = dz(gyF[map.y[0]]) * map.y[1] * (map.y[0] === 'z' ? 1 : sg), pitchRate = dz(gyF[map.p[0]]) * map.p[1] * (map.p[0] === 'z' ? 1 : sg);
+  const aim = (me.adsK || 0) > .5 || me.scoped; const D = Math.PI / 180 * m.gyroS * (aim ? m.gyroSA : 1) * .9;
+  me.yaw += yawRate * dt * D * (m.gyroInvX ? -1 : 1);
+  me.pitch = clamp(me.pitch + pitchRate * dt * D * (m.gyroInv ? -1 : 1), -1.5, 1.5);
+}
+// calibración: acumula el giro de cada eje mientras la persona mueve el teléfono
+const GCAL = { on: false, step: 0, acc: { x: 0, y: 0, z: 0 }, moved: 0, res: {} };
+function gcalFeed(r, dt) {
+  if (!GCAL.on) return; const mag = Math.hypot(r.x, r.y, r.z); for (const a of ['x', 'y', 'z']) GCAL.acc[a] += r[a] * dt;
+  if (mag > 25) GCAL.moved += dt; const tot = Math.max(Math.abs(GCAL.acc.x), Math.abs(GCAL.acc.y), Math.abs(GCAL.acc.z));
+  const bar = $('#gcalBar'); if (bar) bar.style.width = Math.min(100, tot / 35 * 100) + '%';
+  if (tot < 35 || GCAL.moved < .25) return;
+  const sg = gyroSign(), axes = ['x', 'y', 'z'].filter(a => GCAL.step === 0 || a !== GCAL.res.y[0]); let best = axes[0]; for (const a of axes) if (Math.abs(GCAL.acc[a]) > Math.abs(GCAL.acc[best])) best = a;
+  const sgn = Math.sign(GCAL.acc[best]) * (best === 'z' ? 1 : sg);
+  if (GCAL.step === 0) { GCAL.res.y = [best, -sgn]; GCAL.step = 1; GCAL.acc = { x: 0, y: 0, z: 0 }; GCAL.moved = 0; gcalDraw(); sTone(660, .08, .08, 'triangle'); return; } // a la derecha = el giro (yaw) baja
+  GCAL.res.p = [best, sgn]; prefs.mc.gyroMap = { y: GCAL.res.y, p: GCAL.res.p }; prefs.mc.gyroInv = false; prefs.mc.gyroInvX = false; savePrefs();
+  gcalClose(); sTone(880, .1, .1, 'triangle'); toast('Giroscopio calibrado: ahora responde como un visor (estilo PUBG)'); drawMctl();
+}
+function gcalDraw() {
+  let el = $('#gcal'); if (!el) { el = document.createElement('div'); el.id = 'gcal'; $('#app').appendChild(el); }
+  const st = GCAL.step === 0 ? ['Paso 1 de 2', 'Gira el teléfono hacia la <b>derecha</b>', 'Sostenlo en horizontal, como para jugar, y gíralo como si giraras el cuerpo hacia la derecha.']
+    : ['Paso 2 de 2', 'Inclínalo hacia <b>arriba</b>', 'Como si apuntaras la cámara al techo: la parte de arriba del teléfono se acerca a ti.'];
+  el.innerHTML = `<div class="gcIn"><div class="eyebrow">CALIBRAR GIROSCOPIO · ${st[0]}</div><h3>${st[1]}</h3><p class="small">${st[2]}</p><div class="gcB"><s id="gcalBar"></s></div><button type="button" class="go ghost sm" id="gcalX">Cancelar</button></div>`;
+  $('#gcalX').onclick = gcalClose;
+}
+function gcalClose() { GCAL.on = false; const el = $('#gcal'); if (el) el.remove(); }
+async function gcalStart() { if (!gyroOk) await enableGyro(); if (!gyroOk) return; GCAL.on = true; GCAL.step = 0; GCAL.acc = { x: 0, y: 0, z: 0 }; GCAL.moved = 0; GCAL.res = {}; gcalDraw(); }
 addEventListener('devicemotion', e => {
   const rr = e.rotationRate; if (!rr || (rr.beta == null && rr.gamma == null)) return;
-  if (!gyroSeen) { gyroSeen = performance.now(); gyroSrc = 'motion'; gyroOk = true; drawGyroState(); } if (gyroSrc !== 'motion' || !gyroActive()) return;
-  const dt = Math.min(.05, (e.interval > 1 ? e.interval / 1000 : e.interval) || .016); gyroApply((rr.beta || 0) * dt, (rr.gamma || 0) * dt);
+  if (!gyroSeen) { gyroSeen = performance.now(); gyroSrc = 'motion'; gyroOk = true; drawGyroState(); }
+  const dt = Math.min(.05, (e.interval > 1 ? e.interval / 1000 : e.interval) || .016), r = { x: rr.beta || 0, y: rr.gamma || 0, z: rr.alpha || 0 };
+  if (GCAL.on) { gcalFeed(r, dt); return; }
+  if (gyroSrc !== 'motion' || !gyroActive()) return; gyroApply(r, dt);
 });
 // respaldo: teléfonos cuyo navegador solo entrega la orientación (sin velocidad de giro)
 addEventListener('deviceorientation', e => {
   if (e.beta == null) return; if (!gyroSeen) setTimeout(() => { if (!gyroSrc) { gyroSrc = 'orient'; gyroSeen = performance.now(); gyroOk = true; drawGyroState(); } }, 600);
   if (gyroSrc !== 'orient') return; const cur = { a: e.alpha || 0, b: e.beta, g: e.gamma || 0 }, p = gyroPrev; gyroPrev = cur; if (!p || !gyroActive()) return;
-  const wrap = d => ((d + 540) % 360) - 180; let dg = cur.g - p.g; if (Math.abs(dg) > 30) dg = 0; gyroApply(wrap(cur.a - p.a) * gyroSign(), -dg);
+  const wrap = d => ((d + 540) % 360) - 180; let dg = cur.g - p.g; if (Math.abs(dg) > 30) dg = 0; const dt = .016; gyroApply({ x: wrap(cur.a - p.a) / dt, y: dg / dt, z: 0 }, dt);
 });
 async function enableGyro(quiet) {
   gyroAsked = true;
@@ -2402,19 +2440,23 @@ function drawMctl() {
     box.hidden = false;
     box.innerHTML = `<div class="lbl small">Controles táctiles</div><div class="mrow">
       <label>Sensibilidad táctil <b>${m.sensT.toFixed(2)}</b><input type="range" data-mc="sensT" min="0.3" max="2.5" step="0.05" value="${m.sensT}"></label>
-      <label>Giroscopio<select data-mc="gyro" class="mcsel"><option value="off"${m.gyro === 'off' ? ' selected' : ''}>Apagado</option><option value="ads"${m.gyro === 'ads' ? ' selected' : ''}>Solo al apuntar</option><option value="always"${m.gyro === 'always' ? ' selected' : ''}>Siempre</option></select></label>
+      <label>Giroscopio<select data-mc="gyro" class="mcsel"><option value="off"${m.gyro === 'off' ? ' selected' : ''}>Apagado</option><option value="ads"${m.gyro === 'ads' ? ' selected' : ''}>Solo con mira (como PUBG)</option><option value="always"${m.gyro === 'always' ? ' selected' : ''}>Siempre activo</option></select></label>
       <label>Sensibilidad del giroscopio <b>${m.gyroS.toFixed(2)}</b><input type="range" data-mc="gyroS" min="0.3" max="3" step="0.05" value="${m.gyroS}"></label>
-      <label class="chk"><input type="checkbox" data-mc="gyroInv"${m.gyroInv ? ' checked' : ''}> Invertir giroscopio vertical</label>
+      <label>Giroscopio al apuntar con mira <b>${m.gyroSA.toFixed(2)}</b><input type="range" data-mc="gyroSA" min="0.3" max="2" step="0.05" value="${m.gyroSA}"></label>
+      <div class="gyrow"><button type="button" class="btn small gycal">Calibrar (estilo PUBG)</button><span class="small" style="color:var(--dim)">${m.gyroMap ? 'Calibrado ✓' : 'Recomendado la primera vez'}</span></div>
+      <label class="chk"><input type="checkbox" data-mc="gyroInvX"${m.gyroInvX ? ' checked' : ''}> Invertir horizontal</label>
+      <label class="chk"><input type="checkbox" data-mc="gyroInv"${m.gyroInv ? ' checked' : ''}> Invertir vertical</label>
       <div class="gyrow"><button type="button" class="btn small gybtn">Activar giroscopio</button><span class="gyst small"></span></div>
       <label class="chk"><input type="checkbox" data-mc="autoFire"${m.autoFire ? ' checked' : ''}> Disparo automático al apuntar a un enemigo</label></div>
       <div class="gyrow"><button type="button" class="btn small pcmode">Usar mouse y teclado (modo PC)</button><span class="small" style="color:var(--dim)">Si estás en una computadora con pantalla táctil</span></div>`;
     box.querySelector('.pcmode').onclick = () => setInputMode('pc');
-    box.querySelector('.gybtn').onclick = () => { if (prefs.mc.gyro === 'off') { prefs.mc.gyro = 'always'; savePrefs(); } gyroAsked = false; enableGyro().then(drawMctl); };
+    box.querySelector('.gycal').onclick = () => { if (prefs.mc.gyro === 'off') { prefs.mc.gyro = 'ads'; savePrefs(); } gyroAsked = false; gcalStart(); };
+    box.querySelector('.gybtn').onclick = () => { if (prefs.mc.gyro === 'off') { prefs.mc.gyro = 'ads'; savePrefs(); } gyroAsked = false; enableGyro().then(() => { drawMctl(); if (gyroOk && !prefs.mc.gyroMap) gcalStart(); }); };
   }
   drawGyroState();
 }
 document.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type !== 'range') return; prefs.mc[k] = +e.target.value; savePrefs(); const b = e.target.parentElement.querySelector('b'); if (b) b.textContent = prefs.mc[k].toFixed(2); });
-document.addEventListener('change', async e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type === 'range') return; prefs.mc[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; savePrefs(); if (k === 'gyro' && prefs.mc.gyro !== 'off') await enableGyro(); drawMctl(); });
+document.addEventListener('change', async e => { const k = e.target.dataset && e.target.dataset.mc; if (!k || e.target.type === 'range') return; prefs.mc[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; savePrefs(); if (k === 'gyro' && prefs.mc.gyro !== 'off') { await enableGyro(); if (gyroOk && !prefs.mc.gyroMap) gcalStart(); } drawMctl(); });
 drawMctl();
 
 /* ================= EDITOR DEL HUD (celular y PC) ================= */

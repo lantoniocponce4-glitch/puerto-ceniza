@@ -354,6 +354,10 @@ tr.dead td{opacity:.5}
 /* Horizontal forzado (pantalla vertical sin poder bloquear la orientación): todo el juego se gira 90° */
 html.forceLand #app{inset:auto;top:0;left:0;width:var(--fw,100vh);height:var(--fh,100vw);transform-origin:0 0;transform:translateX(var(--fh,100vw)) rotate(90deg)}
 html.forceLand #rotate{display:none!important}
+#gcal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;background:rgba(9,11,13,.82);text-align:center;padding:16px}
+#gcal .gcIn{max-width:460px;padding:20px 22px;border:1px solid rgba(242,179,61,.45);background:#11161a;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+#gcal h3{font-family:var(--f-display);font-size:28px;text-transform:uppercase;margin:.3em 0}#gcal h3 b{color:var(--amber)}
+#gcal .gcB{height:8px;background:rgba(255,255,255,.08);margin:14px 0}#gcal .gcB s{display:block;height:100%;width:0;background:var(--amber);transition:width .1s}
 html.forceLand #radar{width:104px;height:104px} html.forceLand #zoneTag{display:none}
 html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #slots{display:none}
 .mctl .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 14px;margin-top:6px}.mctl label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}.mctl input[type=range]{accent-color:var(--amber);min-height:28px}.mctl .chk{flex-direction:row;align-items:center;gap:8px;color:var(--sand);font-size:13px;min-height:36px}.mctl .chk input{width:20px;height:20px;accent-color:var(--amber)}.mctl .gyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.mctl .gybtn{min-height:44px}.mctl .gyst{color:var(--dim)}.mctl .gyst.ok{color:#7fd88f}
