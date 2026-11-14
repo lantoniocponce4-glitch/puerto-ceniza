@@ -55,7 +55,7 @@ const MAXA = Math.min(16, (renderer.capabilities.getMaxAnisotropy && renderer.ca
 // Entorno de reflejos para metales (armas y acabados): cielo, horizonte cálido y suelo oscuro
 try { const [ec, ex] = [document.createElement('canvas'), null]; ec.width = 256; ec.height = 128; const x2 = ec.getContext('2d'); const gg = x2.createLinearGradient(0, 0, 0, 128); gg.addColorStop(0, '#9fb8d8'); gg.addColorStop(.46, '#f1e2c8'); gg.addColorStop(.52, '#6d6458'); gg.addColorStop(1, '#1e1d1b'); x2.fillStyle = gg; x2.fillRect(0, 0, 256, 128); x2.fillStyle = 'rgba(255,255,255,.9)'; x2.fillRect(60, 18, 40, 10); x2.fillRect(170, 26, 28, 8);
   const et = new THREE.CanvasTexture(ec); et.mapping = THREE.EquirectangularReflectionMapping; const pm = new THREE.PMREMGenerator(renderer); const env = pm.fromEquirectangular(et).texture; pm.dispose(); et.dispose(); if (window.PCM && PCM.setEnv) PCM.setEnv(env); } catch (e) { }
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.autoClear = false; renderer.shadowMap.autoUpdate = false; let SHF = 0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = isTouch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.autoClear = false; renderer.shadowMap.autoUpdate = false; let SHF = 0;
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0xd9cdb5, .0065);
 const camera = new THREE.PerspectiveCamera(74, 1, .05, 600); camera.rotation.order = 'YXZ'; scene.add(camera);
@@ -350,12 +350,35 @@ function mergeStatic(group) {
   }
 }
 function solidAt(x, z, y) { for (const b of WORLD.colliders) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && y > b.minY && y < b.maxY) return true; return false; }
+// Techo con textura propia (ya no un plano liso que se quema al sol) y detalles: tanques de agua, ventilaciones, claraboyas
+function roofTop(b, desert) {
+  const y = b.maxY + .14, W = b.maxX - b.minX, D = b.maxZ - b.minZ;
+  const mat = desert ? shMat('roofPl', () => std({ map: TX.plaster2, color: 0x9c8f7d, roughness: 1 })) : shMat('roofCor', () => std({ map: TX.roofDark, color: 0x8d9298, roughness: .62, metalness: .45 }));
+  boxAt(b.minX + .12, y - .02, b.minZ + .12, b.maxX - .12, y + .02, b.maxZ - .12, mat, desert ? 4 : 2.5, false);
+  if (prefs.gfx === 'low') return;
+  let seed = Math.abs(Math.floor(b.minX * 31 + b.minZ * 17)) + 1; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  if (desert) {
+    // tanque de agua sobre patas y una o dos chimeneas de ventilación
+    const tx = b.minX + W * (.25 + rnd() * .5), tz = b.minZ + D * (.25 + rnd() * .5);
+    const tank = shMat('wtank', () => std({ color: 0x2b2f33, roughness: .5, metalness: .3 }));
+    const c = new THREE.Mesh(geoCache.get('barrel') || (geoCache.set('barrel', new THREE.CylinderGeometry(1, 1, 1, 16)), geoCache.get('barrel')), tank); c.scale.set(.6, 1.1, .6); c.position.set(tx, y + .9, tz); c.castShadow = true; worldGroup.add(c);
+    for (const [dx, dz] of [[-.4, -.4], [.4, -.4], [-.4, .4], [.4, .4]]) boxAt(tx + dx - .04, y, tz + dz - .04, tx + dx + .04, y + .36, tz + dz + .04, MAT.dark, 0, false);
+    for (let i = 0; i < 1 + (rnd() < .5); i++) { const vx = b.minX + .8 + rnd() * (W - 1.6), vz = b.minZ + .8 + rnd() * (D - 1.6); boxAt(vx - .25, y, vz - .25, vx + .25, y + .7, vz + .25, MAT.cornice, 0, true); boxAt(vx - .32, y + .7, vz - .32, vx + .32, y + .78, vz + .32, MAT.dark, 0, false); }
+  } else {
+    // claraboyas en fila y extractores
+    const sky = shMat('skylight', () => std({ color: 0x9fb6c8, roughness: .15, metalness: .7 }));
+    const alongX = W > D, n = Math.max(1, Math.floor((alongX ? W : D) / 5));
+    for (let i = 0; i < n; i++) { const t = (i + .5) / n; const x = alongX ? b.minX + W * t : (b.minX + b.maxX) / 2, z = alongX ? (b.minZ + b.maxZ) / 2 : b.minZ + D * t; boxAt(x - (alongX ? .9 : .7), y, z - (alongX ? .7 : .9), x + (alongX ? .9 : .7), y + .16, z + (alongX ? .7 : .9), sky, 0, false); }
+    const fx = b.minX + 1 + rnd() * (W - 2), fz = b.minZ + 1 + rnd() * (D - 2); boxAt(fx - .4, y, fz - .4, fx + .4, y + .55, fz + .4, MAT.metalP || MAT.dark, 0, true);
+  }
+}
 function decorateBuilding(b, desert) {
   const h = b.maxY - b.minY;
   // zócalo y cornisa
   boxAt(b.minX - .05, 0, b.minZ - .05, b.maxX + .05, .7, b.maxZ + .05, desert ? MAT.stone : MAT.concrete, 3, false);
   boxAt(b.minX - .18, b.maxY - .1, b.minZ - .18, b.maxX + .18, b.maxY + .14, b.maxZ + .18, desert ? MAT.cornice : MAT.cornice2, 0, false);
   if (desert) { for (let x = b.minX + .6; x < b.maxX - .3; x += 1.6) addMesh(uvBox(.12, .5, .12, 0), MAT.cornice, x, b.maxY + .35, b.minZ + .05, false); }
+  roofTop(b, desert);
   // fachadas: ventanas, puertas, toldos
   const faces = [[b.minX, b.maxX, b.minZ, 0, -1], [b.minX, b.maxX, b.maxZ, 0, 1], [b.minZ, b.maxZ, b.minX, 1, -1], [b.minZ, b.maxZ, b.maxX, 1, 1]];
   let n = 0;
@@ -527,8 +550,44 @@ function specialBox(b) {
   if (m.startsWith('wagon:')) { wagonModel(b, MAT[m]); return true; }
   if (m === 'stoneC') { fountain(b); return true; }
   if (m === 'snowpile') { const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2; const s = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), MAT.snowpile); s.scale.set((b.maxX - b.minX) / 2 + .2, b.maxY, (b.maxZ - b.minZ) / 2 + .2); s.position.set(cx, 0, cz); s.castShadow = s.receiveShadow = true; worldGroup.add(s); return true; }
+  if (m === 'sandbag') { sandbags(b); return true; }
+  if (m === 'barrel') { barrels(b); return true; }
   if (m === 'tarp') { boxAt(b.minX, 0, b.minZ, b.maxX, b.maxY, b.maxZ, MAT.tarp, 0); const j = boxAt(b.minX + .3, b.maxY, b.minZ + .3, b.minX + .75, b.maxY + .32, b.minZ + .62, std({ color: 0xd8261c, roughness: .4 }), 0); return true; }
   return false;
+}
+// Muro de sacos de arena: hileras trabadas de sacos aplastados, cada uno con su leve giro
+function sandbags(b) {
+  const mats = [shMat('bag', () => std({ map: TX.sand, color: 0xa69a80, roughness: 1 })), shMat('bag2', () => std({ map: TX.sand, color: 0x8f8268, roughness: 1 }))], core = shMat('bagCore', () => std({ color: 0x5c4c36, roughness: 1 }));
+  const geo = geoCache.get('bag') || (geoCache.set('bag', new THREE.SphereGeometry(.5, 12, 7)), geoCache.get('bag'));
+  const alongX = (b.maxX - b.minX) >= (b.maxZ - b.minZ), L = alongX ? b.maxX - b.minX : b.maxZ - b.minZ, D = alongX ? b.maxZ - b.minZ : b.maxX - b.minX, H = b.maxY - b.minY;
+  const rows = Math.max(3, Math.round(H / .23)), bh = H / rows, lanes = D > 1.1 ? 2 : 1, cols = Math.max(2, Math.round(L / .66)), bl = L / cols;
+  let seed = Math.abs(Math.floor(b.minX * 13 + b.minZ * 7)) + 3; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let r = 0; r < rows; r++) for (let ln = 0; ln < lanes; ln++) {
+    const off = r % 2 ? bl / 2 : 0, n = cols + (r % 2 ? -1 : 0);
+    for (let c = 0; c < n; c++) {
+      const u = -L / 2 + bl / 2 + off + c * bl, v = -D / 2 + (ln + .5) * (D / lanes), y = b.minY + bh * (r + .5);
+      const o = new THREE.Mesh(geo, mats[(r + c + ln) % 2]); const sl = bl * 1.12, sd = D / lanes * 1.06;
+      o.scale.set(alongX ? sl : sd, bh * 1.55, alongX ? sd : sl);
+      o.position.set((b.minX + b.maxX) / 2 + (alongX ? u : v), y, (b.minZ + b.maxZ) / 2 + (alongX ? v : u)); o.rotation.y = (rnd() - .5) * .18;
+      o.castShadow = o.receiveShadow = true; worldGroup.add(o);
+    }
+  }
+  boxAt(b.minX + .18, b.minY, b.minZ + .18, b.maxX - .18, b.maxY - bh * .7, b.maxZ - .18, core, 0, false);
+}
+// Grupo de barriles metálicos (2 a 4 según el espacio), algunos con tapa de otro color
+function barrels(b) {
+  const cols = [0x8c2a1e, 0x2b4f7a, 0x3d6448, 0x8a7a2a];
+  const W = b.maxX - b.minX, D = b.maxZ - b.minZ, H = b.maxY - b.minY, r = Math.min(.42, Math.min(W, D) / 4);
+  const nx = Math.max(1, Math.floor(W / (r * 2.1))), nz = Math.max(1, Math.floor(D / (r * 2.1))); let k = Math.abs(Math.floor(b.minX + b.minZ * 3));
+  const geo = geoCache.get('barrel') || (geoCache.set('barrel', new THREE.CylinderGeometry(1, 1, 1, 16)), geoCache.get('barrel'));
+  const rim = shMat('barrelRim', () => std({ color: 0x2a2c2e, roughness: .5, metalness: .7 }));
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+    const c = cols[k++ % cols.length], mat = shMat('barrel' + c, () => std({ color: c, roughness: .45, metalness: .55 }));
+    const x = b.minX + (i + .5) * W / nx, z = b.minZ + (j + .5) * D / nz;
+    const o = new THREE.Mesh(geo, mat); o.scale.set(r, H, r); o.position.set(x, b.minY + H / 2, z); o.castShadow = o.receiveShadow = true; worldGroup.add(o);
+    for (const yy of [.3, .7]) { const ring = new THREE.Mesh(geo, rim); ring.scale.set(r * 1.03, .04, r * 1.03); ring.position.set(x, b.minY + H * yy, z); worldGroup.add(ring); }
+    const lid = new THREE.Mesh(geo, rim); lid.scale.set(r * .98, .02, r * .98); lid.position.set(x, b.maxY + .01, z); worldGroup.add(lid);
+  }
 }
 // Materiales compartidos entre objetos repetidos (autos, ruedas): menos llamadas de dibujo y nada que liberar al cambiar de mapa
 const SHM = {}; const shMat = (k, make) => SHM[k] || (SHM[k] = make());
@@ -1017,7 +1076,7 @@ function handleEvent(e) {
     case 'live': announce('En marcha', G.mode === 'elim' ? 'Sin carga: gana el bando que elimine al otro' : sideOf(me.team) === 'atk' ? 'Planta la carga en A o B' : 'Que no planten la carga', 1.6); sTone(660, .12, .12, 'square'); break;
     case 'shot': onShotEvent(e); break;
     case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
-    case 'hit': { { const V = actors[e.v]; if (V && V.alive) { V.flinchT = .22; V.flinchH = e.z === 'h'; } }
+    case 'hit': { { const V = actors[e.v]; if (V && V.alive) { V.flinchT = .22; V.flinchH = e.z === 'h'; } } if (e.v === me.id && e.a !== me.id) me.tagT = e.z === 'h' ? .5 : .35;
       if (e.a === me.id) { showHit(e.z === 'h', e.x); if (e.z === 'h') { me.heads++; sTone(e.x ? 2600 : 2100, .06, .2, 'square'); } else sTone(1500, .04, .15, 'square'); me.hits++; }
       if (e.v === me.id) { const a = actors[e.a]; if (a) addDmgDir(a.pos); sNoise(.12, .35, 300); me.lastHurt = t; if (e.z === 'h') sTone(3200, .25, .12, 'sine', 2600); }
       const v = actors[e.v]; if (v && e.v !== me.id) burst({ x: v.pos.x, y: v.pos.y + (e.z === 'h' ? v.h - .15 : v.h * .6), z: v.pos.z }, [0, .3, 0], [.5, .06, .04], 2.2, 7);
@@ -1256,7 +1315,7 @@ function inaccuracy(w) {
   const spd = Math.hypot(me.vel.x, me.vel.z); const max = w.speed || 4.6; const mf = clamp((spd - max * .34) / (max * .5), 0, 1);
   let base = me.crouch ? w.crouch : w.stand; if (w.scope) base = me.scoped && me.scopeK > .9 ? w.scoped : w.stand;
   const ak = me.adsK || 0;
-  return base * (1 - .4 * ak) + w.run * mf * (1 - .2 * ak) + (!me.grounded ? w.jump : 0) + (w.auto ? 0 : Math.min(me.sprayI, 5) * w.kick * .08);
+  return base * (1 - .4 * ak) + w.run * mf * (1 - .2 * ak) + (!me.grounded ? w.jump : (me.landT || 0) * w.jump * .6) + (w.auto ? 0 : Math.min(me.sprayI, 5) * w.kick * .08);
 }
 function resetAim() { me.scoped = false; me.altScope = false; me.rescopeT = 0; me.scopeK = 0; me.adsK = 0; me.adsToggle = false; me.nadeArm = false; me.fireHeld = false; me.altHeld = false; $('#bAds').classList.remove('on'); }
 function canAct() { return me.alive && G.phase !== 'buy' && $('#buy').hidden && !chatOpen; }
@@ -1291,9 +1350,13 @@ function updateLocal(dt) {
   sp *= 1 - .3 * me.adsK;
   if (me.crouch) sp *= .34; else if (me.walkHeld) sp *= .52;
   sp *= 1 - .35 * Math.abs(me.lean || 0);
+  // frenado al recibir balas
+  if (me.tagT > 0) { me.tagT -= dt; sp *= .5; }
   if (frozen) sp = 0;
   const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
-  let tx = (-sy * fw + cy * st) * sp, tz = (-cy * fw - sy * st) * sp; let acc = me.grounded ? 15 : 2;
+  let tx = (-sy * fw + cy * st) * sp, tz = (-cy * fw - sy * st) * sp; // frenar es más rápido que acelerar: soltar la tecla (o tocar la contraria) deja el arma precisa casi al instante
+  const curSp = Math.hypot(me.vel.x, me.vel.z), wantSp = Math.hypot(tx, tz), opp = me.vel.x * tx + me.vel.z * tz < 0;
+  let acc = me.grounded ? (wantSp < curSp - .2 || opp ? 24 : 11) : 2;
   if (me.slideT > 0) { me.slideT -= dt; const k = Math.max(0, me.slideT / .8); const v = frozen ? 0 : 3 + 4.4 * k; tx = me.slideDir[0] * v; tz = me.slideDir[1] * v; acc = 30; } me.vel.x = lerp(me.vel.x, tx, 1 - Math.exp(-acc * dt)); me.vel.z = lerp(me.vel.z, tz, 1 - Math.exp(-acc * dt));
   if (me.jumpReq && me.grounded && !frozen) { me.vel.y = 5.2; me.grounded = false; } me.jumpReq = false;
   me.h = lerp(me.h, me.crouch ? 1.22 : 1.8, 1 - Math.exp(-dt * (me.slideT > 0 ? 22 : 12)));
@@ -2835,20 +2898,21 @@ const GradeShader = {
     'c+=mix(vec3(-.012,.0,.022),vec3(.022,.012,-.012),smoothstep(.15,.85,l));float d=distance(vUv,vec2(.5));c*=1.-vig*smoothstep(.42,.9,d);' +
     'c=mix(c,c*vec3(1.25,.55,.5),hurt*smoothstep(.3,.8,d));float n=fract(sin(dot(vUv*vec2(12.9898,78.233)+time,vec2(1.,1.)))*43758.5453);c+=(n-.5)*grain;gl_FragColor=vec4(clamp(c,0.,1.),1.);}'
 };
+const perf = { acc: 0, n: 0, slow: 0, fast: 0, level: 0 };
 function disposePost() {
   const c = post.composer; if (!c) return; post.composer = null;
   try { c.renderTarget1.dispose(); c.renderTarget2.dispose(); for (const p of c.passes) { if (p.dispose) p.dispose(); if (p.material && p.material.dispose) p.material.dispose(); } } catch (e) { }
 }
 function setupPost() {
   disposePost();
-  if (prefs.gfx === 'low' || !THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass || !THREE.UnrealBloomPass) return;
+  if (prefs.gfx === 'low' || perf.level >= 2 || !THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass || !THREE.UnrealBloomPass) return;
   try {
     let rt = null; const pr = renderer.getPixelRatio();
     if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(Math.max(1, Math.floor(innerWidth * pr)), Math.max(1, Math.floor(innerHeight * pr)), { format: THREE.RGBAFormat }); rt.samples = isTouch ? 2 : 4; }
     const c = new THREE.EffectComposer(renderer, rt || undefined); post.fxaa = null;
     // Ultra: la pasada de oclusión ambiental dibuja la escena ella misma (reemplaza a la pasada normal)
     post.ao = null;
-    if (prefs.gfx === 'ultra' && THREE.SSAOPass) { try { const ao = new THREE.SSAOPass(scene, camera, innerWidth, innerHeight); ao.kernelRadius = .6; ao.minDistance = .0008; ao.maxDistance = .04; ao.output = THREE.SSAOPass.OUTPUT.Default; c.addPass(ao); post.ao = ao; } catch (e) { post.ao = null; } }
+    if (prefs.gfx === 'ultra' && !(perf.level >= 1) && !isTouch && THREE.SSAOPass) { try { const ao = new THREE.SSAOPass(scene, camera, innerWidth, innerHeight); ao.kernelRadius = .6; ao.minDistance = .0008; ao.maxDistance = .04; ao.output = THREE.SSAOPass.OUTPUT.Default; c.addPass(ao); post.ao = ao; } catch (e) { post.ao = null; } }
     if (!post.ao) c.addPass(new THREE.RenderPass(scene, camera));
     const vp = new THREE.RenderPass(vmScene, vmCam); vp.clear = false; vp.clearDepth = true; c.addPass(vp); post.vmPass = vp;
     post.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .28, .45, .93); c.addPass(post.bloom);
@@ -2862,11 +2926,13 @@ function resizePost() {
   if (post.fxaa) post.fxaa.material.uniforms.resolution.value.set(1 / (innerWidth * pr), 1 / (innerHeight * pr));
 }
 function applyGfx() {
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, prefs.gfx !== 'low' ? (isTouch ? 1.5 : 2) : 1));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, prefs.gfx !== 'low' ? (isTouch ? (prefs.gfx === 'ultra' ? 1.5 : 1.25) : 2) : isTouch ? .9 : 1)); perf.level = 0; perf.slow = perf.fast = 0;
   const sm = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' && !isTouch ? 2048 : 1024; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   resize(); setupPost(); applyNormals(prefs.gfx !== 'low'); scene.environment = prefs.gfx === 'low' ? null : envTex; vmScene.environment = scene.environment;
 }
 
+// para pruebas automatizadas: ?debug=1 expone el estado del jugador
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer }; } };
 /* ================= CICLO ================= */
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); resize();
@@ -2881,20 +2947,30 @@ function perfTick(now) {
   const pc = PERF.fps >= 55 ? 'ok' : PERF.fps >= 30 ? 'mid' : 'low', ping = net.mode === 'online' ? (PERF.ping === null ? '— ms' : PERF.ping + ' ms') : 'local', qc = PERF.ping === null ? '' : PERF.ping < 80 ? 'ok' : PERF.ping < 160 ? 'mid' : 'low';
   el.innerHTML = `<b class="${pc}">${PERF.fps}</b> FPS · <b class="${qc}">${ping}</b>`;
 }
-// Resolución adaptable: si los cuadros por segundo caen, baja la resolución interna; si sobra margen, la sube
-const perf = { acc: 0, n: 0, slow: 0, fast: 0, level: 0 };
-const PR_STEPS = [2, 1.75, 1.5, 1.25, 1];
+// Calidad adaptable: si los cuadros por segundo caen, primero baja la resolución interna;
+// si aun así no alcanza, apaga efectos caros por escalones (sombras menos seguidas, posproceso, sombras fijas). Si sobra margen, sube de nuevo.
+const PR_STEPS = [2, 1.75, 1.5, 1.25, 1, .85, .75, .65];
+function prMin() { return isTouch ? (prefs.gfx === 'low' ? .65 : .75) : 1; }
 function adaptRes(dtReal) {
-  if (prefs.gfx === 'low' || G.state !== 'playing' || document.hidden) return;
+  if (G.state !== 'playing' || document.hidden) return;
   perf.acc += dtReal; perf.n++; if (perf.acc < 1) return;
   const fps = perf.n / perf.acc; perf.acc = 0; perf.n = 0;
-  if (fps < 48) { perf.slow++; perf.fast = 0; } else if (fps > 58) { perf.fast++; perf.slow = 0; } else { perf.slow = perf.fast = 0; }
-  const maxPr = Math.min(devicePixelRatio || 1, isTouch ? 1.5 : 2); let idx = -1;
-  if (perf.slow >= 2) idx = 1; else if (perf.fast >= 8) idx = -1; else return;
+  const target = isTouch ? 40 : 48;
+  if (fps < target) { perf.slow++; perf.fast = 0; } else if (fps > target + 12) { perf.fast++; perf.slow = 0; } else { perf.slow = perf.fast = 0; }
+  let dir = 0; if (perf.slow >= (fps < target * .6 ? 1 : 2)) dir = 1; else if (perf.fast >= 8) dir = -1; else return;
   perf.slow = perf.fast = 0;
-  const cur = renderer.getPixelRatio(); const list = PR_STEPS.filter(v => v <= maxPr + 1e-6); let i = list.findIndex(v => Math.abs(v - cur) < .01); if (i < 0) i = 0;
-  const ni = clamp(i + idx, 0, list.length - 1); if (ni === i) return;
-  renderer.setPixelRatio(list[ni]); resize();
+  const maxPr = Math.min(devicePixelRatio || 1, prefs.gfx === 'low' ? 1 : isTouch ? (prefs.gfx === 'ultra' ? 1.5 : 1.25) : 2);
+  const cur = renderer.getPixelRatio(); const list = PR_STEPS.filter(v => v <= maxPr + 1e-6 && v >= prMin() - 1e-6); let i = list.findIndex(v => Math.abs(v - cur) < .01); if (i < 0) i = 0;
+  // subir: primero se recuperan los efectos, después la resolución
+  if (dir < 0 && perf.level > 0) { setPerfLevel(perf.level - 1); return; }
+  const ni = clamp(i + dir, 0, list.length - 1);
+  if (ni !== i) { renderer.setPixelRatio(list[ni]); resize(); return; }
+  if (dir > 0 && perf.level < 3) setPerfLevel(perf.level + 1);
+}
+// 0 normal · 1 sombras cada 3 cuadros y sin oclusión ambiental · 2 sin posproceso (resplandor) · 3 sombras congeladas
+function setPerfLevel(l) {
+  const prev = perf.level; perf.level = l;
+  if ((l >= 2) !== (prev >= 2) || (l >= 1) !== (prev >= 1)) { if (l >= 2) disposePost(), post.composer = null; else setupPost(); }
 }
 function frame(now) {
   requestAnimationFrame(frame); perfTick(now); const dtReal = (now - last) / 1000; const dt = Math.min(.05, dtReal); last = now; if (dtReal > 0 && dtReal < .5) adaptRes(dtReal);
@@ -2928,6 +3004,7 @@ function frame(now) {
         } else { camera.position.set(me.pos.x, me.pos.y + lerp(1.6, .4, k), me.pos.z); camera.rotation.set(me.pitch * (1 - k) - .2 * k, me.yaw, .5 * k); camYaw = me.yaw; }
       }
     }
+    if (window.PCDBG && PCDBG.cam) { const c = PCDBG.cam; camera.position.set(c[0], c[1], c[2]); camera.rotation.set(c[4] || -.15, c[3], 0); vm.group.visible = false; }
     if (shake > 0) { shake = Math.max(0, shake - dt * 2); camera.rotation.x += gauss() * shake * .03; camera.rotation.y += gauss() * shake * .03; }
     const w = WEAPONS[me.cur]; const adsF = w && w.auto ? 58 : 64; const fovT = w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
     if (me.alive && me.scopeK > .5) { const tt = nowS(), mv = Math.min(1, Math.hypot(me.vel.x, me.vel.z) / 3); camera.rotation.x += Math.sin(tt * 1.3) * .0012 * (1 + mv * 4); camera.rotation.y += Math.sin(tt * .9) * .0014 * (1 + mv * 4); }
@@ -2947,8 +3024,15 @@ function frame(now) {
     post.vmPass.enabled = showVm; const u = post.grade.uniforms; u.time.value = now * .001 % 100; u.sat.value = post.sat;
     u.dof.value = kcActive() || (G.state === 'playing' && !me.alive && me.deadT < 1.2) ? 1 : lerp(u.dof.value, 0, .2); u.px.value.set(1 / Math.max(1, innerWidth), 1 / Math.max(1, innerHeight));
     u.hurt.value = G.state === 'playing' && me.alive ? clamp((nowS() - (me.lastHurt || -9) < .4 ? .8 : 0) + (me.hp < 30 ? .35 : 0), 0, 1) : 0;
-    SHF = (SHF + 1) % 2; renderer.shadowMap.needsUpdate = prefs.gfx === 'ultra' || SHF === 0 || G.state !== 'playing'; post.composer.render();
-  } else { renderer.shadowMap.needsUpdate = true; renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
+    SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); post.composer.render();
+  } else { SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
+}
+// cada cuántos cuadros se recalculan las sombras: Ultra en todos, normal cada 2, celular lento cada 3; en el nivel 3 casi nunca
+function shadowDue() {
+  if (G.state !== 'playing') return SHF % 2 === 0;
+  if (perf.level >= 3) return SHF === 0 && Math.random() < .15;
+  if (perf.level >= 1 || (isTouch && prefs.gfx !== 'ultra')) return SHF % 3 === 0;
+  return prefs.gfx === 'ultra' || SHF % 2 === 0;
 }
 function updateSpecVM(dt) {
   const kcOn = kcActive(); let view = null, team = me.team;

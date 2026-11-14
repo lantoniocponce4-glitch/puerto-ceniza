@@ -248,11 +248,11 @@
         for (const [x, z] of [[-36, 10], [-36, 16], [-36, 22], [-31, 28]]) b.push([x - .18, z - .18, x + .18, z + .18, 2.2, 'trunk']);
         return b;
       })(),
-      spawns: { atk: [[-6, 30], [-3, 31], [0, 30], [3, 31], [6, 30]], def: [[-6, -30], [-3, -31], [0, -30], [3, -31], [6, -30]] },
-      buy: { atk: [-16, 24, 16, 34], def: [-16, -34, 16, -26] },
+      spawns: { atk: [[-6, 27.5], [-3, 28.5], [0, 27.5], [3, 28.5], [6, 27.5]], def: [[-6, -30], [-3, -31], [0, -30], [3, -31], [6, -30]] },
+      buy: { atk: [-16, 22, 16, 34], def: [-16, -34, 16, -26] },
       sites: { A: { r: [-5, -9.8, 5, 3.5], c: [0, -7] }, B: { r: [-24, -8, -12, 5], c: [-19, 2.5] } },
       routes: {
-        A: [[[0, 22], [0, 8], [0, -6]], [[18, 22], [19, 4], [11, -12.5], [0, -12.5], [0, -8]]],
+        A: [[[0, 22], [-3.2, 7.2], [0, -6]], [[18, 22], [19, 4], [11, -12.5], [0, -12.5], [0, -8]]],
         B: [[[-12, 22], [-14, 10], [-19, 2.5]], [[-30, 22], [-30, 6], [-22, 2.5]]]
       },
       holds: { A: [[-3.5, -8.8, Math.PI], [3.5, -8.8, Math.PI], [0, -12.5, 0]], B: [[-23, -7, Math.PI * .85], [-12.5, -7.5, Math.PI], [-26, 4, -Math.PI / 2]] },
@@ -501,6 +501,79 @@
     sites: { A: { r: [-13, -43, -12, -42], c: [-12.5, -42.5] }, B: { r: [12, -43, 13, -42], c: [12.5, -42.5] } },
     routes: { A: [[[0, 2], [-12, -42]]], B: [[[0, 2], [12, -42]]] }, holds: { A: [[-12.5, -42.5, 0]], B: [[12.5, -42.5, 0]] }, labels: []
   };
+  // Rediseño: más coberturas en sitios y rutas, y sin líneas de visión de spawn a spawn.
+  // sandbag = muro de sacos de arena (no se atraviesa) · barrel = grupo de barriles
+  const MAP_EXTRA = {
+    alcazaba: [
+      // medio: pozo de piedra que corta la línea larga y zigzag en la entrada de los defensores
+      [-1.3, 12.6, 1.3, 15.2, 2.3, 'stone'], [.8, -21.6, 4, -20.8, 1.15, 'sandbag'], [-4, 19.2, -2.6, 20.6, 1.2, 'crate'], [2.6, 2.6, 4, 4, 1.2, 'barrel'], [-3, -24.8, 1.6, -24.2, 2.3, 'bld2'],
+      // sitio A: bloque central para jugar alrededor, sacos en la entrada larga y barriles al fondo
+      [28.6, -12.8, 31.2, -10.2, 1.3, 'stone'], [28.6, -12.8, 29.9, -11.5, 1.1, 'stone', 1.3], [36.4, -5.2, 39.6, -4.4, 1.15, 'sandbag'], [37, -16, 38.8, -14.2, 1.2, 'barrel'], [21.2, -9.6, 22.6, -8.2, 1.2, 'crate'],
+      // calle larga hacia A
+      [37.6, .8, 39.6, 2.8, 1.2, 'barrel'], [30.4, 18, 32.8, 18.8, 1.15, 'sandbag'], [30.5, -3.5, 31.9, -2.1, 1.2, 'crate'],
+      // sitio B
+      [-34, -19.6, -31, -18.8, 1.15, 'sandbag'], [-22.8, -21.8, -21, -20, 1.2, 'barrel'], [-37.8, -17.4, -36.4, -16, 1.2, 'crate'], [-26.6, -11.8, -25.2, -10.4, 1.2, 'crate'], [-33.6, -4.2, -32.2, -2.8, 1.2, 'crate']
+    ],
+    muelle: [
+      // carril central: contenedor que corta la vista entre spawns y sacos del lado defensor
+      [-6, 1.6, 0, 3.9, 2.6, 'cont:orange'], [18.6, 1.8, 21.6, 2.6, 1.15, 'sandbag'], [4.4, -1.4, 6, 1, 2.2, 'stone'], [-21.6, -3.6, -20.2, -2.2, 1.2, 'barrel'],
+      // sitio A
+      [17.6, -16.6, 18.9, -15.3, 1.2, 'crate'], [18.6, -20.8, 21.2, -20, 1.15, 'sandbag'], [23, -27.8, 24.8, -26, 1.2, 'barrel'], [7.6, -27.6, 10, -25.2, 1.3, 'stone'],
+      // sitio B
+      [12, 23.4, 13.3, 24.7, 1.2, 'crate'], [14.4, 26.8, 17.6, 27.6, 1.15, 'sandbag'], [23, 26, 24.8, 27.8, 1.2, 'barrel'], [7.6, 20.4, 10, 22.8, 1.3, 'stone'],
+      // carriles exteriores y conector
+      [-5, -24.6, -3.7, -23.3, 1.2, 'crate'], [-24.2, -27.6, -22.4, -25.8, 1.2, 'barrel'], [-5, 23.3, -3.7, 24.6, 1.2, 'crate'], [-24.2, 25.8, -22.4, 27.6, 1.2, 'barrel'],
+      [3.4, -9.2, 4.7, -7.9, 1.2, 'crate'], [1.4, 7.9, 2.7, 9.2, 1.2, 'crate']
+    ],
+    fundo: [
+      // huerto sur: pircas de piedra, fardos y un auto viejo para cruzar el campo abierto
+      [-8, 10, -4, 10.6, 1.1, 'stone'], [4, 8, 8, 8.6, 1.1, 'stone'], [-21, 13, -17, 13.6, 1.1, 'stone'], [10.6, 15.6, 12.4, 20, 1.5, 'car:silver'],
+      [-31.6, 3.6, -28.4, 4.4, 1.15, 'sandbag'], [-15.6, 7.8, -12.4, 8.6, 1.15, 'sandbag'], [24, 17, 25.4, 18.4, 1.2, 'crate'], [-2.6, 20.6, -1.2, 22, 1.2, 'barrel'],
+      // sitio B y su entrada
+      [-14.8, .6, -13.4, 2, 1.2, 'crate'], [-23.4, 6.4, -20.6, 7.2, 1.15, 'sandbag'], [-27.6, -6.6, -26.2, -5.2, 1.2, 'barrel'],
+      // lado defensor: muros bajos entre los frutales
+      [-10, -13.6, -6.5, -13, 1.1, 'stone'], [-6.2, 20.6, -4.6, 21.4, 2, 'stone'], [4.6, 20.6, 6.2, 21.4, 2, 'stone'], [-4.6, 5.2, -1.8, 6, 1.15, 'sandbag'], [2.2, 4.6, 5, 5.4, 1.15, 'sandbag'], [-1.4, -22.4, 1.4, -21.8, 2, 'stone'], [15, -17.8, 18.5, -17.2, 1.1, 'stone'], [-22, -18, -19.6, -17.2, 1.15, 'sandbag']
+    ],
+    distrito: [
+      // avenida: más autos, barreras y un contenedor de basura para no cruzar al descubierto
+      [-37.6, -1, -33.2, .8, 1.45, 'car:navy'], [24, -1.6, 28.4, .2, 1.5, 'car:red'], [-24, 1.4, -21, 2, .95, 'barrier'], [20, -6.6, 23, -6, .95, 'barrier'], [-1.2, -6.4, .3, -4.4, 1.3, 'dumpster'], [-.8, -17, .8, -15, 2.6, 'kiosk'],
+      // plaza (B)
+      [-33.2, -17.2, -31.8, -14.6, .9, 'planter'], [-38.6, -17, -36.8, -12.6, 1.45, 'car:silver'], [-22, -21.6, -19.6, -20.8, 1.15, 'sandbag'],
+      // estacionamiento (A)
+      [27, -15.8, 30, -15.2, .95, 'barrier'], [35.4, -23.6, 36.9, -21.6, 1.3, 'dumpster'], [22.4, -21.8, 24.2, -20, 1.2, 'barrel'],
+      // callejones y salida de los defensores
+      [-19.6, 19, -18.4, 20.2, 1.2, 'crate'], [24.6, 17, 25.8, 18.2, 1.2, 'crate'], [-18, -28.6, -15.6, -27.4, 1.2, 'crate'], [16, -29, 19, -28.2, 1.15, 'sandbag'], [-24, -27.6, -21, -26.8, 1.15, 'sandbag']
+    ],
+    boreal: [
+      // vías: casetas de señales y cajas que cortan las líneas largas entre vagones
+      [-25, -10.3, -22.6, -6.8, 2.4, 'concrete2'], [-2, -.2, .4, 2.4, 2.4, 'concrete2'], [-8, 12, -5.6, 14.4, 2.4, 'concrete2'], [8, -9.8, 9.4, -8.4, 1.2, 'crate'], [19, -7.4, 21.4, -5, 2.4, 'concrete2'],
+      [-30, 1.2, -28.6, 2.6, 1.2, 'crate'], [-10, 3.6, -7.6, 6, 2.4, 'concrete2'], [20, 1, 21.4, 2.4, 1.2, 'crate'], [28.6, 2.6, 30, 4, 1.2, 'barrel'],
+      [-28, -17, -26.6, -15.6, 1.2, 'crate'], [27, -17.2, 28.4, -15.8, 1.2, 'barrel'], [-32, 10.6, -29.6, 11.4, 1.15, 'sandbag'], [26.5, 10.4, 29.5, 11.2, 1.15, 'sandbag'],
+      // patio de carga (B)
+      [12.6, 25.2, 15, 26, 1.15, 'sandbag'], [1.2, 14, 2.6, 15.4, 1.2, 'barrel'],
+      // andén (A)
+      [3, -22.6, 4.4, -21.2, 1.2, 'crate'], [20.4, -23.8, 22.2, -22, 1.2, 'barrel']
+    ],
+    refineria: [
+      // patio central: tuberías bajas, barriles y sacos para no cruzar la explanada al descubierto
+      [-20, -6, -16, -5.2, 1.15, 'sandbag'], [-2, -1.2, 4, 1.2, 2.6, 'cont:gray'], [-1.6, 1.6, 1.8, 4.2, 2.4, 'concrete2'], [-1, -4.4, 1.6, -1.4, 2.4, 'concrete2'], [-15, -4.2, -12.6, -1.8, 2.4, 'concrete2'], [9, 6.4, 11.4, 8.8, 2.4, 'concrete2'], [-24, 1.6, -22.2, 3.4, 1.2, 'barrel'], [-6, -3, -4.6, -1.6, 1.2, 'crate'], [8, -.2, 12, .6, 1.15, 'sandbag'],
+      [20, -8, 21.8, -6.2, 1.2, 'barrel'], [22, 4, 23.4, 5.4, 1.2, 'crate'], [-28, -12, -25, -11.2, 1.15, 'sandbag'], [-27, 9.6, -24.6, 10.4, 1.15, 'sandbag'],
+      [26.5, -2.6, 29, -.2, 2.6, 'concrete2'], [-10, 10.4, -8.6, 11.8, 1.2, 'crate'], [14, 8.6, 15.8, 10.4, 1.2, 'barrel'],
+      // sitio A
+      [3.6, -27, 5, -25.6, 1.2, 'crate'], [9, -19.4, 12, -18.6, 1.15, 'sandbag'], [24.4, -27.6, 26.2, -25.8, 1.2, 'barrel'],
+      // sitio B
+      [3.6, 13, 5, 14.4, 1.2, 'crate'], [9, 21.6, 12, 22.4, 1.15, 'sandbag'], [25.6, 13.4, 27.4, 15.2, 1.2, 'barrel']
+    ],
+    villa: [
+      // calles entre las casas: muros de sacos, barriles y carretas
+      [-24, -10, -21, -9.2, 1.15, 'sandbag'], [-1.4, -2, 1.4, 1.8, 2.2, 'stone'], [-14, 6, -12.6, 7.4, 1.2, 'crate'], [5, -1.4, 6.8, .4, 1.2, 'barrel'], [12, -12, 15, -11.2, 1.15, 'sandbag'],
+      [20, 2, 21.4, 3.4, 1.2, 'crate'], [27, 6.6, 29.6, 7.4, 1.15, 'sandbag'], [-30, 0, -27, .8, 1.15, 'sandbag'], [-2, 13, .4, 15.4, 1.3, 'stone'],
+      [-8, -22, -6.2, -20.2, 1.2, 'barrel'], [8, 18, 9.4, 19.4, 1.2, 'crate'], [32.6, -4, 34.4, -2.2, 1.2, 'barrel'], [-26, -27, -23, -26.2, 1.15, 'sandbag'],
+      // sitio A
+      [27, -26.8, 28.4, -25.4, 1.2, 'crate'], [30, -18.4, 31.8, -16.6, 1.2, 'barrel']
+    ]
+  };
+  for (const k in MAP_EXTRA) if (MAPS[k]) MAPS[k].boxes.push(...MAP_EXTRA[k]);
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
   const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
@@ -662,9 +735,11 @@
   const BOT_STYLE = ['rush', 'flank', 'steady'];
   const BOT_RANGE = { k11: [3, 12], pump: [2, 8], bp9: [9, 26], dmr: [15, 45], ax50: [22, 80], b3: [5, 16], knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
   const DIFF = {
-    recluta: { react: .7, err: .07, turn: 4.5 },
-    veterano: { react: .42, err: .045, turn: 7 },
-    elite: { react: .27, err: .028, turn: 10 }
+    // react: segundos para reaccionar · err: dispersión de la puntería · turn: giro (rad/s) · hs: probabilidad de apuntar a la cabeza
+    // fov: coseno del campo de visión (más alto = ven menos hacia los lados) · spray: control del retroceso (1 = perfecto)
+    recluta: { react: .72, err: .072, turn: 4.2, hs: .08, fov: .62, spray: .35 },
+    veterano: { react: .45, err: .046, turn: 6.8, hs: .17, fov: .5, spray: .6 },
+    elite: { react: .29, err: .03, turn: 9.5, hs: .3, fov: .38, spray: .85 }
   };
   // ojo con inclinación lateral (asomarse): hasta 32 cm hacia el lado
   const eyeOf = a => { const l = (a.lean || 0) * .32; return [a.pos.x + Math.cos(a.yaw) * l, a.pos.y + a.h - .14 - Math.abs(a.lean || 0) * .04, a.pos.z - Math.sin(a.yaw) * l]; };
@@ -1153,7 +1228,7 @@
       if (this.mode === 'waves' && att && att.dmgMul && att.team !== this.teamOfSide('def')) dmg *= att.dmgMul;
       if (!v.alive || this.phase === 'over' || this.now < (v.protectUntil || 0)) return;
       const real = Math.min(v.hp, dmg); if (att && att !== v && att.team !== v.team) this.ms(att).dmg += real;
-      v.hp -= dmg; v.lastHit = this.now; v.damagers.set(att.id, (v.damagers.get(att.id) || 0) + real); att.dmgRound += real;
+      v.hp -= dmg; v.lastHit = this.now; v.tagUntil = this.now + (zone === 'h' ? .5 : .35); v.damagers.set(att.id, (v.damagers.get(att.id) || 0) + real); att.dmgRound += real;
       if (!v.human) { v.alertUntil = this.now + 1.8; if (!v.target) { v.lastKnown = V(att.pos.x, att.pos.y, att.pos.z); v.lastKnownT = this.now; } }
       const kill = v.hp <= 0;
       this.ev({ k: 'hit', a: att.id, v: v.id, z: zone, x: kill ? 1 : 0, d: Math.round(real) });
@@ -1356,10 +1431,13 @@
     botBuy(b) {
       const side = this.side(b.team); let m = b.money;
       const buy = (i) => this.buy(b, i);
-      const eco = m < 2000 && this.round !== 1 && this.round !== this.R.half + 1;
+      const pistolRound = this.round === 1 || this.round === this.R.half + 1;
+      // economía de equipo: si el equipo no junta para comprar fusiles, todos ahorran juntos (salvo una pistola mejor)
+      const team = this.actors.filter(o => o.team === b.team), avg = team.reduce((t, o) => t + o.money, 0) / (team.length || 1);
+      const eco = !pistolRound && (m < 2000 || (avg < 3400 && m < 4500 && (this.lossStreak[side] || 0) < 3));
       if (!b.inv.p) {
         if (m >= 4750 + 1000 && Math.random() < .18) buy('sr');
-        else if (m >= 2700 + 650) buy('ar');
+        else if (!eco && m >= 2700 + 650) buy('ar');
         else if (!eco && m >= 1250 + 650 && Math.random() < .7) buy('smg');
       }
       if (!b.inv.p) {
@@ -1389,8 +1467,10 @@
       defs.forEach((b, i) => { const site = i % 2 === 0 ? 'A' : 'B'; const hs = this.M.holds[site]; b.holdSite = site; b.hold = hs[(i >> 1) % hs.length]; b.route = null; });
       const site = this.plan.site; const routes = this.M.routes[site];
       atks.forEach((b, i) => { b.route = routes[i % routes.length]; b.ri = 0; b.hold = null; b.holdSite = site; b.lurk = Math.random() < .2; b.staged = false; });
-      this.execGo = false; this.stageAt = 0;
+      this.execGo = false; this.stageAt = 0; this.rot = null;
     }
+    // equilibrio dinámico (salvo en competitivo): los bots del equipo que va ganando por mucho fallan un poco más y los del que pierde, un poco menos
+    botSkill(b) { if (this.comp || this.mode === 'waves') return 1; const s = this.scores || [0, 0]; const diff = (s[b.team] || 0) - (s[1 - b.team] || 0); return clamp(1 + diff * .05, .85, 1.25); }
     perceive(b) {
       const D = this.D; const e = eyeOf(b); let best = null, bd = 1e9;
       const fx = -Math.sin(b.yaw), fz = -Math.cos(b.yaw); const alert = this.now < b.alertUntil;
@@ -1398,10 +1478,16 @@
         if (t.team === b.team || !t.alive) continue;
         const dx = t.pos.x - b.pos.x, dz = t.pos.z - b.pos.z; const dist = Math.hypot(dx, dz); if (dist > (this.cond.night ? 38 : this.cond.weather ? 46 : 80)) continue;
         const dot = (dx * fx + dz * fz) / (dist || 1);
-        if (!(alert || dist < 5 || dot > .45)) continue;
+        if (!(alert || dist < 5 || dot > D.fov)) continue;
         if (this.W.visible(e, [t.pos.x, t.pos.y + t.h * .72, t.pos.z], this.smokes) || this.W.visible(e, [t.pos.x, t.pos.y + t.h - .15, t.pos.z], this.smokes)) { const s = dist * (t === b.target ? .6 : 1); if (s < bd) { bd = s; best = t; } }
       }
-      if (best) { if (best !== b.target) { if (!b.target && this.now > this.teamRadio[b.team] && this.phase === 'live') { this.teamRadio[b.team] = this.now + 7; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); this.ev({ k: 'ping', v: b.id, tm: b.team, p: [r2(best.pos.x), r2(best.pos.y + 1), r2(best.pos.z)], e: best.id }); } b.target = best; b.seenT = 0; b.react = D.react * rand(.8, 1.3); } b.lastKnown = V(best.pos.x, best.pos.y, best.pos.z); b.lastKnownT = this.now; }
+      if (best) { if (best !== b.target) { if (!b.target && this.now > this.teamRadio[b.team] && this.phase === 'live') { this.teamRadio[b.team] = this.now + 7; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); this.ev({ k: 'ping', v: b.id, tm: b.team, p: [r2(best.pos.x), r2(best.pos.y + 1), r2(best.pos.z)], e: best.id }); } b.target = best; b.seenT = 0;
+          // reacción realista: tarda más con objetivos lejanos, que caminan o están agachados, o que aparecen por el costado de la vista
+          { const dx = best.pos.x - b.pos.x, dz = best.pos.z - b.pos.z, dist = Math.hypot(dx, dz) || 1, dot = (dx * fx + dz * fz) / dist, sp = Math.hypot(best.vel.x, best.vel.z);
+            b.react = D.react * rand(.85, 1.25) + Math.min(.25, dist * .005) + (best.h < 1.5 ? .08 : 0) + (sp > .3 && sp < 3 ? .06 : 0) + (dot < .8 && !alert ? .14 : 0) - (alert ? .08 : 0); b.react *= this.botSkill(b); } } b.lastKnown = V(best.pos.x, best.pos.y, best.pos.z); b.lastKnownT = this.now;
+        // defensor que ve rivales cerca de un sitio: pide rotación (los del otro sitio acuden tras unos segundos)
+        if ((this.mode === 'bomb' || this.mode === 'elim') && this.phase === 'live' && !this.rot && this.side(b.team) === 'def') for (const k in this.M.sites) { const c = this.M.sites[k].c; if (Math.hypot(best.pos.x - c[0], best.pos.z - c[1]) < 18) { let n = 0; for (const o of this.actors) if (o.alive && o.team === best.team && Math.hypot(o.pos.x - c[0], o.pos.z - c[1]) < 22) n++; if (n >= 2) { this.rot = { site: k, at: this.now + rand(1.5, 3.5), team: b.team }; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); } break; } }
+      }
       else b.target = null;
     }
     goTo(b, x, z, key) {
@@ -1454,8 +1540,24 @@
       if (side === 'atk') {
         if (B.st === 'dropped') { const atks = this.actors.filter(a => a.alive && !a.human && this.side(a.team) === 'atk'); atks.sort((p, q) => Math.hypot(p.pos.x - B.x, p.pos.z - B.z) - Math.hypot(q.pos.x - B.x, q.pos.z - B.z)); if (atks[0] === b) { this.goTo(b, B.x, B.z, 'bomb'); return; } }
         if (B.st === 'planted') {
-          if (!b.post) { const ang = Math.random() * Math.PI * 2; let px = B.x + Math.cos(ang) * rand(3, 7), pz = B.z + Math.sin(ang) * rand(3, 7); const k = this.W.nearestWalk(this.W.cIdx(px, pz)); if (k >= 0) { px = this.W.GX0 + (k % this.W.GW) + .5; pz = this.W.GZ0 + ((k / this.W.GW) | 0) + .5; } b.post = [px, pz]; }
-          if (this.goTo(b, b.post[0], b.post[1], 'post')) this.lookAround(b, Math.atan2(-(b.pos.x - B.x), -(b.pos.z - B.z)));
+          // alguien desactiva: todos los atacantes vivos se enteran (lo oyen) y van a impedirlo
+          if (B.defuser >= 0) { b.alertUntil = this.now + 1.5; this.goTo(b, B.x, B.z, 'stopdef'); return; }
+          // después de plantar: buscar una posición a cubierto con vista a la carga y aguantar agachado
+          if (!b.post) {
+            let best = null, bs = -1;
+            for (let i = 0; i < 14; i++) {
+              const ang = Math.random() * Math.PI * 2, r = rand(4, 11); const k = this.W.nearestWalk(this.W.cIdx(B.x + Math.cos(ang) * r, B.z + Math.sin(ang) * r)); if (k < 0) continue;
+              const px = this.W.GX0 + (k % this.W.GW) + .5, pz = this.W.GZ0 + ((k / this.W.GW) | 0) + .5;
+              if (!this.W.visible([px, 1.2, pz], [B.x, B.y + .3, B.z])) continue;
+              // preferir lugares con algo sólido cerca (cobertura) y que no repitan el de un compañero
+              let cover = 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const q = this.W.cIdx(px + dx * 1.2, pz + dz * 1.2); if (q >= 0 && !this.W.walk[q]) cover++; }
+              let crowd = 0; for (const o of this.actors) if (o !== b && o.post && Math.hypot(o.post[0] - px, o.post[1] - pz) < 4) crowd++;
+              const sc = cover * 2 - crowd * 3 + Math.random();
+              if (sc > bs) { bs = sc; best = [px, pz]; }
+            }
+            b.post = best || [B.x + rand(-3, 3), B.z + rand(-3, 3)];
+          }
+          if (this.goTo(b, b.post[0], b.post[1], 'post')) { b.walkSpeed = 0; b.crouch = this.diffKey !== 'recluta'; this.lookAround(b, Math.atan2(-(B.x - b.pos.x), -(B.z - b.pos.z))); }
           return;
         }
         b.post = null;
@@ -1486,6 +1588,7 @@
           if (this.goTo(b, B.x, B.z, 'defuse')) { if (!b.target) b.planting = true; }
           return;
         }
+        if (this.rot && this.rot.team === b.team && this.now > this.rot.at && b.holdSite !== this.rot.site && !b.order) { const hs = this.M.holds[this.rot.site]; b.holdSite = this.rot.site; b.hold = hs[b.id % hs.length]; b.goalKey = ''; b.walkSpeed = 5; }
         if (b.lastKnown && this.now - b.lastKnownT < 6 && b.hold && Math.hypot(b.lastKnown.x - b.hold[0], b.lastKnown.z - b.hold[1]) < 14) { this.goTo(b, b.lastKnown.x, b.lastKnown.z, 'lk' + Math.round(b.lastKnownT)); return; }
         if (this.mode === 'elim' && this.now - this.liveStart > 60) {
           let n = null, nd = 1e9; for (const t of this.actors) { if (t.alive && t.team !== b.team) { const d = d2(t.pos, b.pos); if (d < nd) { nd = d; n = t; } } }
@@ -1567,6 +1670,8 @@
       if (b.reloadT > 0) { b.reloadT -= dt; if (b.reloadT <= 0) b.ammo = w.mag; }
       if (b.planting) { b.mx = 0; b.mz = 0; }
       sp *= w.speed / 4.6;
+      // frenado al recibir balas (como en los shooters tácticos clásicos)
+      if (this.now < (b.tagUntil || 0)) sp *= .5;
       b.vel.x = lerp(b.vel.x, b.mx * sp, 1 - Math.exp(-dt * 10)); b.vel.z = lerp(b.vel.z, b.mz * sp, 1 - Math.exp(-dt * 10));
       b.h = lerp(b.h, b.crouch ? 1.22 : 1.8, 1 - Math.exp(-dt * 10));
       this.W.moveActor(b, dt);
@@ -1578,8 +1683,8 @@
       b.burst--; if (b.burst <= 0) b.burstPause = this.now + (w.burst ? w.gap + rand(.1, .4) : w.auto ? rand(.2, .45) : rand(.3, .8));
       b.lastShot = this.now; b.ammo--; if (!w.sup) b.firedAt = this.now; b.sprayI = (b.sprayI || 0) + 1;
       const e = eyeOf(b); const tsp = Math.hypot(t.vel.x, t.vel.z);
-      let err = (b.errMul || 1) * this.D.err * (b.seenT < b.react + .5 ? 1.6 : 1) * (1 + tsp * .07) * (b.crouch ? .85 : 1) + (w.scope ? .002 : w.stand) + Math.min(b.sprayI, 10) * w.kick * .12;
-      const head = Math.random() < (w.scope ? .1 : .22); const aimY = t.pos.y + (head ? t.h - .17 : t.h * .62);
+      let err = (b.errMul || 1) * this.botSkill(b) * this.D.err * (b.seenT < b.react + .5 ? 1.6 : 1) * (1 + tsp * .07) * (b.crouch ? .85 : 1) + (w.scope ? .002 : w.stand) + Math.min(b.sprayI, 10) * w.kick * .12 * (1.4 - this.D.spray);
+      const head = Math.random() < (w.scope ? this.D.hs * .5 : this.D.hs) / this.botSkill(b); const aimY = t.pos.y + (head ? t.h - .17 : t.h * .62);
       const dx = t.pos.x - e[0], dy = aimY - e[1], dz = t.pos.z - e[2]; const L = Math.hypot(dx, dy, dz);
       const n0 = w.pellets || 1;
       for (let p = 0; p < n0; p++) {
