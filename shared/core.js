@@ -911,11 +911,11 @@
           }
         }
         if (!w.melee) { const tr = this.W.traceShot(o, d, Math.min(tt + .06, 200)); for (const h of tr.through) this.dmgBox(h.b, w.dmg * .8); if (tr.stop && tr.t <= tt + .06) this.dmgBox(tr.stop, w.dmg * .8); }
-        if (ok) { const pf = (this.W.seeThrough(o, end) || 1) * (v.team === a.team ? .5 : 1); const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt) * pf; if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
+        if (ok) { const st = this.W.seeThrough(o, end) || 1, pf = st * (v.team === a.team ? .5 : 1); const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; if (st < .999) cur.wb = true; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt) * pf; if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
         if (!first) first = { end, n: !ok && Array.isArray(r.n) ? [num(r.n[0]), num(r.n[1]), num(r.n[2])] : 0, hit: ok };
       }
       if (!w.melee) { const m = this.ms(a), ws = this.msW(a, wid); m.s++; ws[0]++; if (dmgBy.size) { m.hi++; ws[1]++; } }
-      for (const [v, x] of dmgBy) this.damage(v, a, x.dmg, x.zone, wid);
+      for (const [v, x] of dmgBy) { this._wb = !!x.wb; this.damage(v, a, x.dmg, x.zone, wid); this._wb = false; }
       if (!first) return;
       if (!w.melee) { this.ev({ k: 'shot', s: a.id, w: wid, e: first.end.map(r2), n: first.n, hit: first.hit ? 1 : 0 }); this.alert(a, 40); }
       else this.ev({ k: 'slash', s: a.id, hit: first.hit ? 1 : 0 });
@@ -966,7 +966,7 @@
       const gun = v.inv.p || (v.inv.s && v.inv.s !== 'p9' ? v.inv.s : null);
       if (gun) this.dropWeapon(v, gun);
       if (this.bomb.st === 'carried' && this.bomb.by === v.id) this.dropBomb(v);
-      this.ev({ k: 'kill', a: att ? att.id : -1, v: v.id, h: head ? 1 : 0, w: wid, ast, dist: att ? Math.round(d2(att.pos, v.pos)) : 0 });
+      this.ev({ k: 'kill', a: att ? att.id : -1, v: v.id, h: head ? 1 : 0, w: wid, ast, dist: att ? Math.round(d2(att.pos, v.pos)) : 0, wb: this._wb ? 1 : 0 });
       this.rosterDirty = true; v.pdirty = true;
     }
     /* --- rachas de bajas: 3 radar, 5 blindaje y munición, 7 dron --- */
@@ -1383,7 +1383,7 @@
       const end = [o[0] + d[0] * hitT, o[1] + d[1] * hitT, o[2] + d[2] * hitT];
       if (!silent) this.ev({ k: 'shot', s: sh.id, w: w.id, e: end.map(r2), n: hitA ? 0 : (wt.n || 0), hit: hitA ? 1 : 0 });
       if (!silent) { const m = this.ms(sh); m.s++; if (hitA) m.hi++; }
-      if (hitA) this.damage(hitA, sh, weaponDamage(w, hitT, zone, hitA) * pf, zone, w.id);
+      if (hitA) { this._wb = pf < .999; this.damage(hitA, sh, weaponDamage(w, hitT, zone, hitA) * pf, zone, w.id); this._wb = false; }
       this.alert(sh, 40);
     }
 

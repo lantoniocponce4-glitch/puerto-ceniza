@@ -434,6 +434,21 @@ tr.dead td{opacity:.5}
 .wst i b{display:block;height:100%;background:linear-gradient(90deg,var(--amber),#f4d38a);border-radius:3px}
 .wst em{font-style:normal;color:var(--sand);text-align:right;font-variant-numeric:tabular-nums}
 .wprice{margin-top:2px}
+
+.vit,#ammoBox{position:relative}
+.bar{position:absolute;left:10px;right:10px;bottom:3px;height:4px;background:rgba(255,255,255,.08);transform:skewX(-24deg);overflow:hidden;display:block}
+.bar u{display:block;height:100%;width:100%;transform-origin:left center;transition:transform .25s ease-out;background:linear-gradient(90deg,#e9dcc0,#fff4dc);box-shadow:0 0 8px rgba(255,240,210,.45)}
+.arb u{background:linear-gradient(90deg,#5cc8e0,#a6ecff);box-shadow:0 0 8px rgba(92,200,224,.45)}
+.amb u{background:linear-gradient(90deg,#f2b33d,#ffd98a);box-shadow:0 0 8px rgba(242,179,61,.4)}
+.bar.low u{background:#ff4d3a;box-shadow:0 0 10px rgba(255,77,58,.7);animation:lowp .8s ease-in-out infinite}
+@keyframes lowp{50%{opacity:.35}}
+#xh i{transition:background .08s}
+#xh.hh i{background:#fff}#xh.hk i{background:var(--bad)}
+.kf .wi{width:44px;height:14px;fill:var(--sand);opacity:.92;flex:none}
+.kf.me .wi{fill:#fff}
+.kf .hs{display:inline-flex}.kf .ki{width:14px;height:14px;color:var(--amber)}
+.kf .wb .ki{color:#9fd8ff;width:16px}
+@media (prefers-reduced-motion:reduce){.bar.low u{animation:none}.bar u{transition:none}}
 </style>
 </head>
 <body>
@@ -469,11 +484,11 @@ tr.dead td{opacity:.5}
       <div id="money">$800<small>en mano</small></div>
       <div id="streakBox" hidden></div>
       <button type="button" id="rangeBtn" hidden>Empezar desafío · Enter</button>
-      <div id="vitals"><div class="vit"><b id="hpN">100</b><span class="lbl">Salud</span></div><div class="vit"><b id="arN">0</b><span class="lbl" id="arL">Blindaje</span></div></div>
+      <div id="vitals"><div class="vit"><b id="hpN">100</b><span class="lbl">Salud</span><i class="bar hpb"><u id="hpBar"></u></i></div><div class="vit"><b id="arN">0</b><span class="lbl" id="arL">Blindaje</span><i class="bar arb"><u id="arBar"></u></i></div></div>
     </div>
     <div id="rightbot">
       <div id="slots"></div>
-      <div id="ammoBox"><span id="ammoN">13</span><span id="ammoR">/ 52</span></div>
+      <div id="ammoBox"><span id="ammoN">13</span><span id="ammoR">/ 52</span><i class="bar amb"><u id="amBar"></u></i></div>
     </div>
     <div id="spec" hidden><div class="small lbl">Observando</div><b id="specName">—</b><div class="small" id="specHint">Clic para cambiar de compañero</div></div>
     <div id="roomChip"><span id="netDot"></span><span class="lbl">Sala</span><b id="roomCode">—</b><span id="mapName"></span></div>
@@ -705,9 +720,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=51"></script>
-<script src="/models.js?v=51"></script>
-<script src="/client.js?v=51"></script>
+<script src="/core.js?v=52"></script>
+<script src="/models.js?v=52"></script>
+<script src="/client.js?v=52"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
