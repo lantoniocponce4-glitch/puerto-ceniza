@@ -536,6 +536,25 @@ html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #s
 .retPick .seg{flex-wrap:wrap}.retCols{display:flex;gap:8px;margin-top:6px}
 .retCols button{all:unset;cursor:pointer;width:26px;height:26px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),0 0 8px var(--c)}
 .retCols button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink),0 0 0 4px #fff,0 0 10px var(--c)}.retCols button:focus-visible{box-shadow:0 0 0 3px #fff}
+
+/* ---------- HUD táctil v2 (ideas de shooters móviles: íconos, armas tocables abajo, comunicación agrupada) ---------- */
+#touch .tb{background:radial-gradient(circle at 50% 38%,rgba(30,36,42,.5),rgba(8,10,12,.42));border:1.5px solid rgba(240,232,214,.32);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.25);transition:transform .07s,background .1s,border-color .1s;flex-direction:column;gap:1px}
+#touch .tb svg{width:46%;height:46%;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+#touch .tb small{font-size:8px;letter-spacing:.08em;opacity:.8;line-height:1;pointer-events:none}
+#touch .tb:active{background:rgba(242,179,61,.3);border-color:rgba(242,179,61,.9)}
+#touch #bFire,#touch #bFireL{border-color:rgba(239,106,69,.85);color:#ffd9cc;background:radial-gradient(circle at 50% 38%,rgba(239,106,69,.32),rgba(60,16,10,.35))}
+#touch #bFire svg{width:52%;height:52%}
+#touch #bAct{border-color:var(--amber);color:var(--amber)}
+#touch #bPing{width:50px;height:50px;border-radius:50%;border-color:rgba(242,179,61,.6)}
+#touch #bBoard,#touch #bPause,#touch #bMore{width:40px;height:40px;border-radius:10px}
+#touch #bMore.on{border-color:var(--amber);color:var(--amber)}
+#touch .cg{width:46px;height:46px;border-radius:12px}
+#app:not(.hudedit) #touch:not(.cgOpen) .cg{display:none}
+#wslots{position:absolute;display:flex;gap:6px;pointer-events:auto}
+#wslots button{all:unset;box-sizing:border-box;min-width:76px;height:44px;padding:4px 10px;display:flex;flex-direction:column;justify-content:center;gap:2px;background:linear-gradient(180deg,rgba(20,25,30,.62),rgba(8,10,12,.55));border:1.5px solid rgba(240,232,214,.22);color:var(--sand);font-family:var(--f-display);text-transform:uppercase;letter-spacing:.05em;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);touch-action:none}
+#wslots button b{font-size:12px;font-weight:700;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+#wslots button span{font-size:9px;color:var(--dim)}
+#wslots button.cur{border-color:var(--amber);background:linear-gradient(180deg,rgba(242,179,61,.28),rgba(40,30,8,.5))}#wslots button.cur span{color:var(--amber)}
 </style>
 </head>
 <body>
@@ -607,13 +626,15 @@ html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #s
     <div class="tb" id="bBuy" aria-label="Comprar">$</div>
     <div class="tb" id="bBoard" aria-label="Marcador">Tabla</div>
     <div class="tb" id="bPause" aria-label="Menú">II</div>
-    <div class="tb" id="bRadio" aria-label="Radio rápida">Radio</div>
+    <div class="tb cg" id="bRadio" aria-label="Radio rápida">Radio</div>
     <div class="tb" id="bPing" aria-label="Marcar">Marcar</div>
-    <div class="tb" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
-    <div class="tb" id="bChat" aria-label="Chat de equipo">Chat</div>
-    <div class="tb" id="bVoice" aria-label="Órdenes por voz a los bots">Voz</div>
+    <div class="tb cg" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
+    <div class="tb cg" id="bChat" aria-label="Chat de equipo">Chat</div>
+    <div class="tb cg" id="bVoice" aria-label="Órdenes por voz a los bots">Voz</div>
     <div class="tb" id="bLeanL" aria-label="Asomarse a la izquierda">◀</div>
     <div class="tb" id="bLeanR" aria-label="Asomarse a la derecha">▶</div>
+    <div class="tb" id="bMore" aria-label="Más acciones: radio, chat, voz e inspeccionar">Más</div>
+    <div id="wslots" aria-label="Armas"></div>
   </div>
 
   <div id="loadCard" hidden aria-live="polite"><div class="lcArt"></div><div class="lcIn"><div class="eyebrow">DESPLIEGUE</div><h2 id="lcMap"></h2><p id="lcBlurb" class="small"></p><div class="lcTip"><b>Consejo</b><span id="lcTip"></span></div></div></div>
@@ -645,6 +666,7 @@ html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #s
         <div class="sec mctl" data-mctl="1" hidden></div>
         <div class="sec retPick"></div>
         <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+        <div class="sec"><div class="lbl">Cuadros por segundo</div><div class="seg" id="fpsSeg"><button type="button" data-v="max">Máximo</button><button type="button" data-v="60">60 · equilibrado</button><button type="button" data-v="30">30 · ahorro de batería</button></div></div>
         <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
         <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       </div>
@@ -720,6 +742,7 @@ html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #s
       <p class="lead">La ronda sigue corriendo mientras estás aquí.</p>
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+        <div class="sec"><div class="lbl small">Cuadros por segundo</div><div class="seg" id="fpsSeg2"><button type="button" data-v="max">Máximo</button><button type="button" data-v="60">60 · equilibrado</button><button type="button" data-v="30">30 · ahorro de batería</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <div class="sec mctl" data-mctl="2" hidden></div>
       <div class="sec retPick"></div>

@@ -47,7 +47,7 @@ const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
 /* ---------- Preferencias ---------- */
 let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb', gfx: isTouch ? 'low' : 'high' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
-if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high';
+if (!MAPS[prefs.map]) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high'; if (!['max', '60', '30'].includes(prefs.fps)) prefs.fps = 'max';
 if (isTouch && prefs.gfxV !== 2) { if (prefs.gfx === 'low') prefs.gfx = 'high'; prefs.gfxV = 2; try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } }
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
@@ -68,7 +68,7 @@ if (isTouch) $('#keysHelp').innerHTML = '<span>Joystick a la izquierda para move
 
 /* ================= RENDER ================= */
 const canvas = $('#c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isTouch ? 1.25 : 2));
 const MAXA = Math.min(16, (renderer.capabilities.getMaxAnisotropy && renderer.capabilities.getMaxAnisotropy()) || 4); if (window.PCM) PCM.setAniso(MAXA);
 // Entorno de reflejos para metales (armas y acabados): cielo, horizonte cálido y suelo oscuro
@@ -1096,6 +1096,7 @@ function handleEvent(e) {
     case 'shot': onShotEvent(e); break;
     case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
     case 'hit': { { const V = actors[e.v]; if (V && V.alive) { V.flinchT = .22; V.flinchH = e.z === 'h'; } } if (e.v === me.id && e.a !== me.id) me.tagT = e.z === 'h' ? .5 : .35;
+      if (e.a === me.id) buzz(e.x ? 28 : 10); else if (e.v === me.id) buzz(18);
       if (e.a === me.id) { showHit(e.z === 'h', e.x); if (e.z === 'h') { me.heads++; sTone(e.x ? 2600 : 2100, .06, .2, 'square'); } else sTone(1500, .04, .15, 'square'); me.hits++; }
       if (e.v === me.id) { const a = actors[e.a]; if (a) addDmgDir(a.pos); sNoise(.12, .35, 300); me.lastHurt = t; if (e.z === 'h') sTone(3200, .25, .12, 'sine', 2600); }
       const v = actors[e.v]; if (v && e.v !== me.id) burst({ x: v.pos.x, y: v.pos.y + (e.z === 'h' ? v.h - .15 : v.h * .6), z: v.pos.z }, [0, .3, 0], [.5, .06, .04], 2.2, 7);
@@ -1320,6 +1321,33 @@ tapBtn($('#bPause'), () => openPause());
 tapBtn($('#bRadio'), () => toggleWheel());
 tapBtn($('#bPing'), () => doPing());
 tapBtn($('#bChat'), () => openChat());
+/* íconos de los botones táctiles */
+const ICO = {
+  fire: '<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
+  ads: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3"/>',
+  reload: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
+  jump: '<path d="M6 14l6-6 6 6"/><path d="M6 20l6-6 6 6"/>',
+  crouch: '<path d="M6 6l6 6 6-6"/><path d="M5 19h14"/>',
+  nade: '<circle cx="12" cy="14" r="6"/><path d="M10 8V5h4v3M14 5l3-2"/>',
+  act: '<path d="M12 3v4M7 7l2 2M17 7l-2 2"/><rect x="6" y="11" width="12" height="9" rx="2"/>',
+  ping: '<path d="M12 21s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2"/>',
+  leanL: '<path d="M14 5l-7 7 7 7"/><path d="M19 5v14"/>', leanR: '<path d="M10 5l7 7-7 7"/><path d="M5 5v14"/>',
+  board: '<path d="M5 6h14M5 12h14M5 18h14"/>', pause: '<path d="M9 5v14M15 5v14"/>', more: '<circle cx="6" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="18" cy="12" r="1.3" fill="currentColor"/>',
+  radio: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>', voice: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  insp: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', buy: '<path d="M12 3v18M16 7c0-1.7-1.8-3-4-3s-4 1.3-4 3 1.8 2.6 4 3 4 1.3 4 3-1.8 3-4 3-4-1.3-4-3"/>'
+};
+if (isTouch) {
+  const lab = { bFire: ['fire'], bFireL: ['fire'], bAds: ['ads', 'Mira'], bReload: ['reload'], bJump: ['jump', 'Salto'], bCrouch: ['crouch', 'Agachar'], bNade: ['nade', 'Granada'], bAct: ['act', 'Acción'], bPing: ['ping', 'Marcar'], bLeanL: ['leanL'], bLeanR: ['leanR'], bBoard: ['board'], bPause: ['pause'], bMore: ['more'], bRadio: ['radio', 'Radio'], bChat: ['chat', 'Chat'], bVoice: ['voice', 'Voz'], bInsp: ['insp', 'Ver'], bBuy: ['buy'] };
+  for (const id in lab) { const el = document.getElementById(id); if (el) el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[lab[id][0]]}</svg>` + (lab[id][1] ? `<small>${lab[id][1]}</small>` : ''); }
+  const bw = $('#bWeap'); if (bw) bw.remove(); // reemplazado por las armas tocables
+}
+const closeComms = () => { $('#touch').classList.remove('cgOpen'); $('#bMore').classList.remove('on'); };
+tapBtn($('#bMore'), el => { const open = $('#touch').classList.toggle('cgOpen'); el.classList.toggle('on', open); });
+for (const id of ['bRadio', 'bChat', 'bVoice', 'bInsp']) $('#' + id).addEventListener('pointerup', () => setTimeout(closeComms, 150));
+$('#wslots').addEventListener('pointerdown', e => { const b = e.target.closest('button[data-w]'); if (!b || HE.on) return; e.preventDefault(); e.stopPropagation(); initAudio(); if (b.dataset.w !== me.cur) setCur(b.dataset.w); if (navigator.vibrate) try { navigator.vibrate(8); } catch (_) { } });
+// vibración breve (Android) al acertar, eliminar o recibir un impacto
+const buzz = ms => { if (isTouch && prefs.vib !== false && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) { } };
 
 /* ================= JUGADOR LOCAL ================= */
 let shake = 0, flashT = 0, bombBeepT = 0;
@@ -1612,6 +1640,7 @@ function addFeed(e) {
   const f = $('#feed'); f.prepend(d); while (f.children.length > 6) f.lastChild.remove(); setTimeout(() => d.remove(), 7000);
 }
 function drawSlots() {
+  if (isTouch) { const el = $('#wslots'); if (el) { const l = [me.inv.p, me.inv.s, 'knife'].filter(Boolean); const html = l.map(w => `<button type="button" data-w="${w}" class="${w === me.cur ? 'cur' : ''}"><b>${esc(WEAPONS[w].name)}</b><span>${w === 'knife' ? 'Cuerpo a cuerpo' : esc(WEAPONS[w].cls || '')}</span></button>`).join(''); if (el._h !== html) { el.innerHTML = html; el._h = html; } } }
   const l = slotList(); const lbl = { knife: 'Cuchillo', he: 'Granada HE', fl: 'Cegadora', sm: 'Humo', in: 'Incendiaria', de: 'Señuelo' };
   $('#slots').innerHTML = l.map(w => { const key = w === me.inv.p ? 1 : w === me.inv.s ? 2 : w === 'knife' ? 3 : 4; const n = NADES[w] ? ' ×' + me.inv.n[w] : ''; return `<div class="slot${w === me.cur ? ' cur' : ''}"><span>${esc((WEAPONS[w] && WEAPONS[w].name) || lbl[w])}${n}</span><kbd>${key}</kbd></div>`; }).join('') + ((G.bomb[0] === 'carried' && G.bomb[4] === me.id) ? '<div class="slot"><span class="bombTag">CARGA</span><kbd>E</kbd></div>' : '');
 }
@@ -1808,7 +1837,7 @@ function drawMaps() {
 }
 drawMaps();
 $('#maps').addEventListener('click', e => { const b = e.target.closest('.mapc'); if (!b) return; prefs.map = b.dataset.m; savePrefs(); drawMaps(); buildWorld(prefs.map); });
-for (const [sel, key] of [['#sideSeg', 'side'], ['#gmSeg', 'gm'], ['#gfxSeg', 'gfx'], ['#gfxSeg2', 'gfx']]) { document.querySelectorAll(sel + ' button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === prefs[key]); b.onclick = () => { prefs[key] = b.dataset.v; savePrefs(); if (key === 'gm' && typeof SQ !== 'undefined' && SQ.st && SQ.st.lead) sqSendMsg({ t: 'sq_mode', gm: prefs.gm }); document.querySelectorAll(sel + ' button').forEach(x => x.setAttribute('aria-pressed', x === b)); if (key === 'gfx') { for (const s2 of ['#gfxSeg', '#gfxSeg2']) document.querySelectorAll(s2 + ' button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === prefs.gfx)); const m = CURMAP; CURMAP = null; buildWorld(m); applyGfx(); if (G.state === 'playing') applyCond(G.cond); } }; }); }
+for (const [sel, key] of [['#sideSeg', 'side'], ['#gmSeg', 'gm'], ['#gfxSeg', 'gfx'], ['#gfxSeg2', 'gfx'], ['#fpsSeg', 'fps'], ['#fpsSeg2', 'fps']]) { document.querySelectorAll(sel + ' button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === prefs[key]); b.onclick = () => { prefs[key] = b.dataset.v; savePrefs(); if (key === 'gm' && typeof SQ !== 'undefined' && SQ.st && SQ.st.lead) sqSendMsg({ t: 'sq_mode', gm: prefs.gm }); document.querySelectorAll(sel + ' button').forEach(x => x.setAttribute('aria-pressed', x === b)); if (key === 'gfx') { for (const s2 of ['#gfxSeg', '#gfxSeg2']) document.querySelectorAll(s2 + ' button').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === prefs.gfx)); const m = CURMAP; CURMAP = null; buildWorld(m); applyGfx(); if (G.state === 'playing') applyCond(G.cond); } }; }); }
 document.querySelectorAll('#diff button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.d === prefs.diff); b.onclick = () => { prefs.diff = b.dataset.d; savePrefs(); document.querySelectorAll('#diff button').forEach(x => x.setAttribute('aria-pressed', x === b)); }; });
 const nameEl = $('#pname'); nameEl.value = prefs.name || ''; nameEl.oninput = () => { prefs.name = nameEl.value; savePrefs(); };
 function drawMix() { document.querySelectorAll('.mix input').forEach(el => { el.value = prefs.vol[el.dataset.k]; el.nextElementSibling.textContent = Math.round(prefs.vol[el.dataset.k] * 100) + ' %'; }); }
@@ -2461,10 +2490,12 @@ drawMctl();
 
 /* ================= EDITOR DEL HUD (celular y PC) ================= */
 // Disposición táctil por defecto (centro en % de la pantalla): nada se superpone
-const HUD_TOUCH = { bFire: [86, 60], bAds: [76, 73], bReload: [78, 46], bJump: [94, 82], bCrouch: [86, 88], bWeap: [77, 90], bNade: [68, 88], bAct: [67, 62], bLeanL: [83, 29], bLeanR: [90, 29], bBoard: [96, 44], bPause: [96, 56], bFireL: [31, 68], bRadio: [4, 52], bPing: [10, 52], bInsp: [16, 52], bChat: [22, 52], bVoice: [28, 52], bBuy: [34, 52], rightbot: [57, 91], roomChip: [50, 21] };
-const HUD_PANELS = ['radar', 'topbar', 'feed', 'leftbot', 'rightbot', 'chatBox', 'roomChip'];
+// Distribución táctil por defecto (v2): derecha = disparo, mira, recarga, salto y agacharse al alcance del pulgar;
+// izquierda = joystick libre y segundo disparo; arriba = asomarse (como en PUBG); armas tocables abajo al centro.
+const HUD_TOUCH = { bFire: [87, 58], bAds: [76, 70], bReload: [77, 46], bJump: [94, 79], bCrouch: [86, 89], bNade: [72, 88], bAct: [66, 57], bPing: [94, 41], bLeanL: [19, 29], bLeanR: [26, 29], bFireL: [9, 42], bBoard: [90, 9], bPause: [96, 9], bMore: [84, 9], bInsp: [66, 22], bRadio: [72, 22], bChat: [78, 22], bVoice: [84, 22], bBuy: [31, 79], wslots: [42, 92], rightbot: [61, 92], roomChip: [50, 28] };
+const HUD_PANELS = ['radar', 'topbar', 'feed', 'leftbot', 'rightbot', 'chatBox', 'roomChip'].concat(isTouch ? ['wslots'] : []);
 const HE = { on: false, sel: null, drag: null, work: null };
-const hudKey = () => isTouch ? 't' : 'd';
+const hudKey = () => isTouch ? 't2' : 'd'; // 't2': la distribución táctil nueva reemplaza a la anterior
 function hudIds() { return HUD_PANELS.concat(isTouch ? [...document.querySelectorAll('#touch .tb')].map(e => e.id) : []); }
 function hudLayout() { const saved = (prefs.hudL || {})[hudKey()] || {}; const out = { op: saved.op || 1, el: {} }; for (const id of hudIds()) { const d = isTouch && HUD_TOUCH[id] ? [HUD_TOUCH[id][0], HUD_TOUCH[id][1], 1] : null; out.el[id] = saved.el && saved.el[id] ? saved.el[id] : d; } return out; }
 function placeEl(el, v) {
@@ -2966,7 +2997,7 @@ function disposePost() {
 }
 function setupPost() {
   disposePost();
-  if (prefs.gfx === 'low' || perf.level >= 2 || !THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass || !THREE.UnrealBloomPass) return;
+  if (prefs.gfx === 'low' || (isTouch && prefs.gfx !== 'ultra') || perf.level >= 2 || !THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass || !THREE.UnrealBloomPass) return;
   try {
     let rt = null; const pr = renderer.getPixelRatio();
     if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(Math.max(1, Math.floor(VW() * pr)), Math.max(1, Math.floor(VH() * pr)), { format: THREE.RGBAFormat }); rt.samples = isTouch ? 2 : 4; }
@@ -2993,7 +3024,7 @@ function applyGfx() {
 }
 
 // para pruebas automatizadas: ?debug=1 expone el estado del jugador
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
@@ -3016,8 +3047,8 @@ function adaptRes(dtReal) {
   if (G.state !== 'playing' || document.hidden) return;
   perf.acc += dtReal; perf.n++; if (perf.acc < 1) return;
   const fps = perf.n / perf.acc; perf.acc = 0; perf.n = 0;
-  const target = isTouch ? 40 : 48;
-  if (fps < target) { perf.slow++; perf.fast = 0; } else if (fps > target + 12) { perf.fast++; perf.slow = 0; } else { perf.slow = perf.fast = 0; }
+  const goal = Math.min(frameCap() || FRM.hz, 120), target = goal * (isTouch ? .8 : .82);
+  if (fps < target) { perf.slow++; perf.fast = 0; } else if (fps >= goal * .95) { perf.fast++; perf.slow = 0; } else { perf.slow = perf.fast = 0; }
   let dir = 0; if (perf.slow >= (fps < target * .6 ? 1 : 2)) dir = 1; else if (perf.fast >= 8) dir = -1; else return;
   perf.slow = perf.fast = 0;
   const maxPr = Math.min(devicePixelRatio || 1, prefs.gfx === 'low' ? 1 : isTouch ? (prefs.gfx === 'ultra' ? 1.5 : 1.25) : 2);
@@ -3033,8 +3064,18 @@ function setPerfLevel(l) {
   const prev = perf.level; perf.level = l;
   if ((l >= 2) !== (prev >= 2) || (l >= 1) !== (prev >= 1)) { if (l >= 2) disposePost(), post.composer = null; else setupPost(); }
 }
+// Límite de cuadros: en los menús de celular basta con 30 (no hay nada que apuntar) y el jugador puede elegir 60 o 30 para que el teléfono no se caliente.
+// También se mide la frecuencia real de la pantalla (60, 90, 120 Hz) para fijar la meta de la calidad adaptable.
+const FRM = { lastDraw: 0, d: [], hz: 60, prevRaw: 0 };
+function frameCap() {
+  if (G.state !== 'playing' && !RV.on) return isTouch ? 30 : 60;
+  return prefs.fps === '30' ? 30 : prefs.fps === '60' ? 60 : 0;
+}
 function frame(now) {
-  requestAnimationFrame(frame); perfTick(now); const dtReal = (now - last) / 1000; const dt = Math.min(.05, dtReal); last = now; if (dtReal > 0 && dtReal < .5) adaptRes(dtReal);
+  requestAnimationFrame(frame);
+  { const raw = now - FRM.prevRaw; FRM.prevRaw = now; if (raw > 4 && raw < 40) { FRM.d.push(raw); if (FRM.d.length > 90) { const m = FRM.d.slice().sort((a, b) => a - b)[45]; FRM.hz = [60, 90, 120, 144].reduce((b, h) => Math.abs(1000 / h - m) < Math.abs(1000 / b - m) ? h : b, 60); FRM.d.length = 0; } } }
+  const cap = frameCap(); if (cap && cap < FRM.hz - 5 && now - FRM.lastDraw < 1000 / cap - 2) return; FRM.lastDraw = now;
+  perfTick(now); const dtReal = (now - last) / 1000; const dt = Math.min(.05, dtReal); last = now; if (dtReal > 0 && dtReal < .5) adaptRes(dtReal);
   if (G.state === 'playing' && WORLD) {
 
     updateWeather(dt);
