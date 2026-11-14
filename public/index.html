@@ -351,6 +351,11 @@ tr.dead td{opacity:.5}
 #app.hudedit .tb[hidden]{display:flex!important;opacity:.5}
 #rotate{display:none;position:fixed;inset:0;z-index:99;background:#0d1013;color:var(--sand);align-items:center;justify-content:center;text-align:center;font-family:var(--f-display)}#rotate b{display:block;font-size:26px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}#rotate span{font-family:var(--f-body);font-size:14px;color:var(--dim)}
 @media (orientation:portrait) and (pointer:coarse){#app.playing ~ #rotate{display:flex}}
+/* Horizontal forzado (pantalla vertical sin poder bloquear la orientación): todo el juego se gira 90° */
+html.forceLand #app{inset:auto;top:0;left:0;width:var(--fw,100vh);height:var(--fh,100vw);transform-origin:0 0;transform:translateX(var(--fh,100vw)) rotate(90deg)}
+html.forceLand #rotate{display:none!important}
+html.forceLand #radar{width:104px;height:104px} html.forceLand #zoneTag{display:none}
+html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #slots{display:none}
 .mctl .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 14px;margin-top:6px}.mctl label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}.mctl input[type=range]{accent-color:var(--amber);min-height:28px}.mctl .chk{flex-direction:row;align-items:center;gap:8px;color:var(--sand);font-size:13px;min-height:36px}.mctl .chk input{width:20px;height:20px;accent-color:var(--amber)}.mctl .gyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.mctl .gybtn{min-height:44px}.mctl .gyst{color:var(--dim)}.mctl .gyst.ok{color:#7fd88f}
 .endMore{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px}@media (max-width:640px){.endMore{grid-template-columns:1fr}}
 .endMvp{border-radius:3px;border:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:3px;min-height:74px;justify-content:center;background:linear-gradient(110deg,#2a2f35,#14171b)}.endMvp .lbl{color:#fff;opacity:.85}.endMvp b{font-family:var(--f-display);font-size:22px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}.endMvp span{font-size:12px;color:#fff;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.7)}
@@ -804,7 +809,6 @@ tr.dead td{opacity:.5}
       <div class="btns"><button class="go" id="rgAgain" type="button">Repetir desafío</button><button class="go ghost" id="rgApply" type="button" hidden>Aplicar sensibilidad sugerida</button><button class="go ghost" id="rgQuit" type="button">Volver al menú</button></div>
     </div>
   </div>
-</div>
 <div id="hudBar" hidden role="dialog" aria-label="Configurar HUD">
   <div class="hbT"><b>Configurar HUD</b><span id="hbHint">Arrastra cualquier botón o elemento para moverlo. Toca uno para elegirlo y cambiar su tamaño.</span></div>
   <div class="hbC">
@@ -812,6 +816,7 @@ tr.dead td{opacity:.5}
     <label>Opacidad de los botones<input id="hbOp" type="range" min="0.2" max="1" step="0.05" value="1"></label>
     <div class="hbB"><button type="button" class="go ghost sm" id="hbMove" aria-label="Mover esta barra arriba o abajo">Barra ⇅</button><button type="button" class="go ghost sm" id="hbReset">Restablecer</button><button type="button" class="go ghost sm" id="hbCancel">Cancelar</button><button type="button" class="go sm" id="hbSave">Guardar</button></div>
   </div>
+</div>
 </div>
 <script src="/vendor/three-bundle.js?r=128"></script>
 <script src="/core.js?v=62"></script>

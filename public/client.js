@@ -17,6 +17,25 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const INPUT_OVR = (() => { try { return JSON.parse(localStorage.getItem('pc2_prefs') || '{}').input || 'auto'; } catch (e) { return 'auto'; } })();
 const isTouch = INPUT_OVR === 'pc' ? false : INPUT_OVR === 'touch' ? true
   : matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0 && !matchMedia('(any-pointer: fine)').matches);
+/* ---------- Siempre horizontal ----------
+   Android: al primer toque se pide pantalla completa y se bloquea la orientación horizontal.
+   Donde no se puede bloquear (Safari de iPhone, o el teléfono con la rotación bloqueada), si la pantalla queda vertical
+   el juego se dibuja girado 90° para verse horizontal; los toques y el giroscopio se corrigen. */
+const FL = { on: false };
+const VW = () => FL.on ? window.innerHeight : window.innerWidth, VH = () => FL.on ? window.innerWidth : window.innerHeight;
+const px = e => FL.on ? e.clientY : e.clientX, py = e => FL.on ? window.innerWidth - e.clientX : e.clientY;
+function updateForceLand() {
+  const on = isTouch && window.innerHeight > window.innerWidth * 1.05;
+  const root = document.documentElement; root.style.setProperty('--fw', window.innerHeight + 'px'); root.style.setProperty('--fh', window.innerWidth + 'px');
+  if (on === FL.on) return false; FL.on = on; root.classList.toggle('forceLand', on); return true;
+}
+updateForceLand();
+async function lockLandscape() {
+  if (!isTouch || lockLandscape.done) return; lockLandscape.done = true;
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen && !/iPhone|iPad|iPod/.test(navigator.userAgent)) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) { }
+  try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { }
+}
+addEventListener('pointerdown', () => { lockLandscape(); }, { capture: true, passive: true });
 const nowS = () => performance.now() / 1000;
 const TEAMC = ['#5cc8e0', '#ef6a45'], TEAMN = ['Halcón', 'Cobra'];
 const SIDE_N = { atk: 'Terroristas', def: 'Antiterroristas' }, SIDE_L = { atk: 'terroristas', def: 'antiterroristas' };
@@ -1246,7 +1265,7 @@ addEventListener('wheel', e => { if (MK.on) { MK.sel = (MK.sel + (e.deltaY > 0 ?
 addEventListener('mousemove', e => {
   if (G.state !== 'playing' || isTouch || uiOpen()) return;
   if (locked) { look.dx += e.movementX * .0021; look.dy += e.movementY * .0021; }
-  else if (lockFailed) { if (lastMX !== null) { look.dx += (e.clientX - lastMX) * .0035; look.dy += (e.clientY - lastMY) * .0035; } lastMX = e.clientX; lastMY = e.clientY; }
+  else if (lockFailed) { if (lastMX !== null) { look.dx += (px(e) - lastMX) * .0035; look.dy += (py(e) - lastMY) * .0035; } lastMX = px(e); lastMY = py(e); }
 });
 canvas.addEventListener('mousedown', e => {
   if (G.state !== 'playing' || isTouch) return; initAudio();
@@ -1270,17 +1289,17 @@ TL.addEventListener('pointerdown', e => {
   if (e.target !== TL) return; e.preventDefault(); initAudio();
   if (kcActive()) { stopKillcam(); return; }
   if (!me.alive) { me.specIdx++; return; }
-  if (e.clientX < innerWidth * .42 && joy.id === null) { joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px'; joyEl.style.opacity = 1; }
-  else lookPtr.set(e.pointerId, [e.clientX, e.clientY]);
+  if (px(e) < VW() * .42 && joy.id === null) { joy.id = e.pointerId; joy.ox = px(e); joy.oy = py(e); joyEl.style.left = px(e) + 'px'; joyEl.style.top = py(e) + 'px'; joyEl.style.opacity = 1; }
+  else lookPtr.set(e.pointerId, [px(e), py(e)]);
   try { TL.setPointerCapture(e.pointerId); } catch (_) { }
 }, { passive: false });
 TL.addEventListener('pointermove', e => {
-  if (e.pointerId === joy.id) { let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const L = Math.hypot(dx, dy), R = 56; if (L > R) { dx = dx / L * R; dy = dy / L * R; } joy.vx = dx / R; joy.vy = dy / R; joy.mag = Math.min(1, L / R); knob.style.transform = `translate(${dx}px,${dy}px)`; }
-  else if (lookPtr.has(e.pointerId)) { const p = lookPtr.get(e.pointerId); const k = .005 * (prefs.mc.sensT / (prefs.sens || 1)); look.dx += (e.clientX - p[0]) * k; look.dy += (e.clientY - p[1]) * k; p[0] = e.clientX; p[1] = e.clientY; }
+  if (e.pointerId === joy.id) { let dx = px(e) - joy.ox, dy = py(e) - joy.oy; const L = Math.hypot(dx, dy), R = 56; if (L > R) { dx = dx / L * R; dy = dy / L * R; } joy.vx = dx / R; joy.vy = dy / R; joy.mag = Math.min(1, L / R); knob.style.transform = `translate(${dx}px,${dy}px)`; }
+  else if (lookPtr.has(e.pointerId)) { const p = lookPtr.get(e.pointerId); const k = .005 * (prefs.mc.sensT / (prefs.sens || 1)); look.dx += (px(e) - p[0]) * k; look.dy += (py(e) - p[1]) * k; p[0] = px(e); p[1] = py(e); }
 });
 function endPtr(e) { if (e.pointerId === joy.id) { joy.id = null; joy.vx = joy.vy = joy.mag = 0; knob.style.transform = ''; joyEl.style.opacity = 0; } lookPtr.delete(e.pointerId); if (firePtrs.has(e.pointerId)) { firePtrs.delete(e.pointerId); if (!firePtrs.size) { me.fireHeld = false; $('#bFire').classList.remove('on'); $('#bFireL').classList.remove('on'); } } }
 TL.addEventListener('pointerup', endPtr); TL.addEventListener('pointercancel', endPtr);
-function fireBtn(el) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); initAudio(); firePtrs.add(e.pointerId); lookPtr.set(e.pointerId, [e.clientX, e.clientY]); me.fireHeld = true; el.classList.add('on'); try { TL.setPointerCapture(e.pointerId); } catch (_) { } }); }
+function fireBtn(el) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); initAudio(); firePtrs.add(e.pointerId); lookPtr.set(e.pointerId, [px(e), py(e)]); me.fireHeld = true; el.classList.add('on'); try { TL.setPointerCapture(e.pointerId); } catch (_) { } }); }
 fireBtn($('#bFire')); fireBtn($('#bFireL'));
 function tapBtn(el, fn, up) { el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); initAudio(); fn(el); }); if (up) { el.addEventListener('pointerup', () => up(el)); el.addEventListener('pointercancel', () => up(el)); el.addEventListener('pointerleave', () => up(el)); } }
 tapBtn($('#bAds'), el => { const w = WEAPONS[me.cur]; if (w && w.scope) onAlt(); else if (canAds()) { me.adsToggle = !me.adsToggle; } el.classList.toggle('on', !!(me.scoped || me.adsToggle)); });
@@ -1664,7 +1683,7 @@ function updateHUD(dt) {
   const xh = $('#xh'); const scoped = me.alive && me.scopeK > .5 && !!(w && w.scope);
   $('#scope').classList.toggle('on', scoped); if (me.alive && !(kc && kc.cine && kcActive())) vm.group.visible = !scoped;
   const hideXh = !me.alive || scoped || (w && w.scope) || NADES[me.cur] || (me.adsK || 0) > .35; xh.style.opacity = hideXh ? 0 : 1;
-  if (w && !hideXh) { const inacc = inaccuracy(w); const gap = 3 + inacc * (innerHeight / 2) / Math.tan(camera.fov * Math.PI / 360) * .9 + me.sprayI * .6; xh.children[0].style.top = (-gap - 7) + 'px'; xh.children[1].style.top = gap + 'px'; xh.children[2].style.left = (-gap - 7) + 'px'; xh.children[3].style.left = gap + 'px'; }
+  if (w && !hideXh) { const inacc = inaccuracy(w); const gap = 3 + inacc * (VH() / 2) / Math.tan(camera.fov * Math.PI / 360) * .9 + me.sprayI * .6; xh.children[0].style.top = (-gap - 7) + 'px'; xh.children[1].style.top = gap + 'px'; xh.children[2].style.left = (-gap - 7) + 'px'; xh.children[3].style.left = gap + 'px'; }
   // punto central al apuntar: referencia de tiro siempre visible, también con miras de hierro
   $('#adsDot').style.opacity = 0;
   if (hitT > 0) { hitT -= dt; $('#hit').style.opacity = clamp(hitT / .1, 0, 1); } else $('#hit').style.opacity = 0; setCls('#xh', hitT > 0 ? ($('#hit').className === 'kill' ? 'hk' : 'hh') : '');
@@ -1698,7 +1717,7 @@ function updateHUD(dt) {
     const droned = G.drone > t && a.team !== me.team;
     let show = a.alive && (a.team === me.team || a === aim || droned) && !(!me.alive && specTarget() === a);
     el.classList.toggle('dron', droned && a !== aim);
-    if (show) { _p.set(a.pos.x, a.pos.y + a.h + .3, a.pos.z).project(camera); if (_p.z > 1 || _p.z < -1) show = false; else { el.style.transform = `translate(${(_p.x * .5 + .5) * innerWidth}px,${(-_p.y * .5 + .5) * innerHeight}px) translate(-50%,-100%)`; const txt = (a.clanTag ? '[' + a.clanTag + '] ' : '') + a.name + (a.flags & 4 ? ' ◆' : ''); if (el._t !== txt) { el.textContent = txt; el._t = txt; } el.style.color = TEAMC[a.team]; } }
+    if (show) { _p.set(a.pos.x, a.pos.y + a.h + .3, a.pos.z).project(camera); if (_p.z > 1 || _p.z < -1) show = false; else { el.style.transform = `translate(${(_p.x * .5 + .5) * VW()}px,${(-_p.y * .5 + .5) * VH()}px) translate(-50%,-100%)`; const txt = (a.clanTag ? '[' + a.clanTag + '] ' : '') + a.name + (a.flags & 4 ? ' ◆' : ''); if (el._t !== txt) { el.textContent = txt; el._t = txt; } el.style.color = TEAMC[a.team]; } }
     el.style.display = show ? 'block' : 'none';
   }
   drawPings(t);
@@ -2106,9 +2125,9 @@ function rvRender(dt) {
   if (camera.fov !== 70) { camera.fov = 70; camera.updateProjectionMatrix(); }
 }
 // controles del visor: arrastrar para girar, rueda para acercar, WASD para mover la cámara libre
-renderer.domElement.addEventListener('pointerdown', e => { if (RV.on) RV.drag = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerdown', e => { if (RV.on) RV.drag = [px(e), py(e)]; });
 addEventListener('pointerup', () => { RV.drag = null; });
-addEventListener('pointermove', e => { if (!RV.on || !RV.drag) return; RV.yaw -= (e.clientX - RV.drag[0]) * .006; RV.pitch = clamp(RV.pitch - (e.clientY - RV.drag[1]) * .005, -1.45, -.15); RV.drag = [e.clientX, e.clientY]; });
+addEventListener('pointermove', e => { if (!RV.on || !RV.drag) return; RV.yaw -= (px(e) - RV.drag[0]) * .006; RV.pitch = clamp(RV.pitch - (py(e) - RV.drag[1]) * .005, -1.45, -.15); RV.drag = [px(e), py(e)]; });
 addEventListener('wheel', e => { if (RV.on) RV.dist = clamp(RV.dist * (e.deltaY > 0 ? 1.1 : .9), 6, 90); }, { passive: true });
 addEventListener('keydown', e => { if (!RV.on) return; const s = 2.2, f = [-Math.sin(RV.yaw), -Math.cos(RV.yaw)]; if (e.code === 'KeyW') { RV.tgt[0] += f[0] * s; RV.tgt[1] += f[1] * s; } if (e.code === 'KeyS') { RV.tgt[0] -= f[0] * s; RV.tgt[1] -= f[1] * s; } if (e.code === 'KeyA') { RV.tgt[0] += f[1] * s; RV.tgt[1] -= f[0] * s; } if (e.code === 'KeyD') { RV.tgt[0] -= f[1] * s; RV.tgt[1] += f[0] * s; } if (e.code === 'Space') { RV.play = !RV.play; e.preventDefault(); } if (e.code === 'Escape') stopReplay(); });
 
@@ -2269,7 +2288,7 @@ function drawPings(t) {
     pg.el.style.display = vis ? 'block' : 'none'; if (!vis) continue;
     const d = Math.round(Math.hypot(q.x - camera.position.x, q.z - camera.position.z)); const txt = ({ enemy: 'Enemigo · ', go: 'Voy · ', hold: 'Cubre · ', dead: (actors[pg.by] ? actors[pg.by].name : 'Compañero') + ' cayó · ', killer: 'Lo eliminó · ' }[pg.kind] || '') + d + ' m';
     if (pg.el._t !== txt) { pg.el._t = txt; pg.el.lastChild.textContent = txt; }
-    pg.el.style.transform = `translate(${(_p.x * .5 + .5) * innerWidth}px,${(-_p.y * .5 + .5) * innerHeight}px) translate(-50%,-100%)`; pg.el.style.opacity = Math.min(1, (pg.until - t) / .8);
+    pg.el.style.transform = `translate(${(_p.x * .5 + .5) * VW()}px,${(-_p.y * .5 + .5) * VH()}px) translate(-50%,-100%)`; pg.el.style.opacity = Math.min(1, (pg.until - t) / .8);
   }
 }
 
@@ -2340,7 +2359,7 @@ $('#rank').addEventListener('pointerdown', e => { if (e.target === $('#rank')) $
 let gyroOk = false, gyroSeen = 0, gyroSrc = null, gyroPrev = null, gyroAsked = false;
 const gyroNeedsPerm = !!(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function');
 function gyroActive() { const m = prefs.mc; if (m.gyro === 'off' || !gyroOk || G.state !== 'playing' || !me.alive || !$('#pause').hidden || HE.on) return false; return m.gyro !== 'ads' || (me.adsK || 0) > .5 || me.scoped; }
-function gyroSign() { const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 90); return ang === 270 || ang === -90 ? -1 : 1; }
+function gyroSign() { if (FL.on) return 1; const ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 90); return ang === 270 || ang === -90 ? -1 : 1; }
 // aplica un giro en grados: yawD = giro horizontal del teléfono, pitchD = inclinación hacia adelante/atrás
 function gyroApply(yawD, pitchD) { const m = prefs.mc, sg = gyroSign(), D = Math.PI / 180 * m.gyroS * .9; me.yaw += yawD * D * sg; me.pitch = clamp(me.pitch - pitchD * D * sg * (m.gyroInv ? -1 : 1), -1.5, 1.5); }
 addEventListener('devicemotion', e => {
@@ -2436,16 +2455,16 @@ function hudSelect(el) {
   el.classList.add('sel'); $('#hbSize').disabled = false; const v = HE.work.el[el.id]; $('#hbSize').value = v ? v[2] || 1 : 1;
   $('#hbSel').textContent = '· ' + (HUD_NAMES[el.id] || el.getAttribute('aria-label') || el.textContent.trim());
 }
-function hudCenter(el) { const r = el.getBoundingClientRect(); return [(r.left + r.width / 2) / innerWidth * 100, (r.top + r.height / 2) / innerHeight * 100]; }
+function hudCenter(el) { const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2; return FL.on ? [cy / VW() * 100, (window.innerWidth - cx) / VH() * 100] : [cx / VW() * 100, cy / VH() * 100]; }
 // arrastre: se captura antes que los controles, así no disparan, saltan ni recargan mientras editas
 document.addEventListener('pointerdown', e => {
   if (!HE.on) return; const el = e.target.closest && e.target.closest('.hed'); if (!el || e.target.closest('#hudBar')) return;
   e.preventDefault(); e.stopPropagation(); hudSelect(el); const c = HE.work.el[el.id] ? HE.work.el[el.id].slice(0, 2) : hudCenter(el);
-  HE.drag = { el, id: el.id, sx: e.clientX, sy: e.clientY, cx: c[0], cy: c[1] };
+  HE.drag = { el, id: el.id, sx: px(e), sy: py(e), cx: c[0], cy: c[1] };
 }, true);
 document.addEventListener('pointermove', e => {
   if (!HE.on || !HE.drag) return; const d = HE.drag; e.preventDefault();
-  const x = clamp(d.cx + (e.clientX - d.sx) / innerWidth * 100, 2, 98), y = clamp(d.cy + (e.clientY - d.sy) / innerHeight * 100, 2, 98);
+  const x = clamp(d.cx + (px(e) - d.sx) / VW() * 100, 2, 98), y = clamp(d.cy + (py(e) - d.sy) / VH() * 100, 2, 98);
   const s = HE.work.el[d.id] ? HE.work.el[d.id][2] || 1 : 1; HE.work.el[d.id] = [+x.toFixed(2), +y.toFixed(2), s]; placeEl(d.el, HE.work.el[d.id]);
 }, true);
 document.addEventListener('pointerup', () => { HE.drag = null; }, true);
@@ -2538,7 +2557,7 @@ addEventListener('keydown', e => { if (!$('#pass').hidden && e.key === 'Escape')
 /* ================= INVENTARIO DE SKINS ================= */
 // Vitrina del menú: tu soldado con tu arma y camuflaje, con luz de estudio, a la derecha del menú
 const SHOW = { m: null, key: '', g: null, t: 0 };
-function showcaseOn() { return G.state === 'menu' && !$('#menu').hidden && innerWidth >= 900 && innerWidth / innerHeight > 1.2 && $('#inv').hidden; }
+function showcaseOn() { return G.state === 'menu' && !$('#menu').hidden && VW() >= 900 && VW() / VH() > 1.2 && $('#inv').hidden; }
 function showPose() { const ex = prefs.extras || []; return prefs.pose && prefs.pose !== 'listo' && ex.includes('pose:' + prefs.pose) ? prefs.pose : null; }
 function myCharm() { const ex = prefs.extras || []; return prefs.charm && ex.includes('charm:' + prefs.charm) ? prefs.charm : null; }
 function updateShowcase(dt) {
@@ -2551,7 +2570,7 @@ function updateShowcase(dt) {
     const disc = new THREE.Mesh(new THREE.CircleGeometry(.62, 40), new THREE.MeshBasicMaterial({ map: TX.hole, transparent: true, opacity: .55, depthWrite: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = .01; g.add(disc);
     const ring = new THREE.Mesh(new THREE.RingGeometry(.66, .69, 64), new THREE.MeshBasicMaterial({ color: team ? 0xef6a45 : 0x5cc8e0, transparent: true, opacity: .7, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.y = .012; g.add(ring);
   }
-  SHOW.t += dt; const a = innerWidth / innerHeight; SHOW.g.visible = true; SHOW.g.position.set(Math.min(1.8, .95 * a), -1.5, -3.3);
+  SHOW.t += dt; const a = VW() / VH(); SHOW.g.visible = true; SHOW.g.position.set(Math.min(1.8, .95 * a), -1.5, -3.3);
   SHOW.g.rotation.set(.05, Math.PI - 1.05 + Math.sin(SHOW.t * .25) * .35, 0); SHOW.m.upper.rotation.x = -.05 + Math.sin(SHOW.t * 1.6) * .012; SHOW.m.head.rotation.y = Math.sin(SHOW.t * .4) * .15;
   if (vmCam.fov !== 60) { vmCam.fov = 60; vmCam.updateProjectionMatrix(); } return true;
 }
@@ -2572,7 +2591,7 @@ function invBuildGun() {
 }
 function renderInv(now) {
   // se dibuja en la esquina del lienzo principal y se copia al lienzo del inventario antes del cuadro normal
-  const el = $('#invView'); if (!el || !INV.gun) return; const r = el.getBoundingClientRect(); const cw0 = renderer.domElement.clientWidth, H = renderer.domElement.clientHeight;
+  const el = $('#invView'); if (!el || !INV.gun) return; const r = { width: el.clientWidth, height: el.clientHeight }; const cw0 = renderer.domElement.clientWidth, H = renderer.domElement.clientHeight;
   const w = Math.min(r.width, cw0), h = Math.min(r.height, H); if (w < 10 || h < 10) return;
   const pr = renderer.getPixelRatio(), pw = Math.floor(w * pr), ph = Math.floor(h * pr); if (el.width !== pw || el.height !== ph) { el.width = pw; el.height = ph; }
   if (INV.auto && !INV.drag) INV.rot += .006; INV.gun.rotation.set(.18, INV.rot + Math.PI / 2, 0);
@@ -2620,8 +2639,8 @@ $('#invEquip').onclick = async () => { const sel = INV.sel === undefined ? invSk
 $('#invAll').onclick = async () => { const ids = INV_GROUPS.flatMap(g => g[1]).filter(id => invSkinOf(id) !== null); for (const id of ids) if (!(await invSave(id, null))) return; INV.sel = undefined; drawInv(); toast('Todas tus armas usan ahora el camuflaje general'); };
 $('#invClose').onclick = () => closeInv();
 $('#inv').addEventListener('pointerdown', e => { if (e.target === $('#inv')) closeInv(); });
-$('#invView').addEventListener('pointerdown', e => { INV.drag = { x: e.clientX, r: INV.rot }; INV.auto = false; $('#invView').setPointerCapture(e.pointerId); });
-$('#invView').addEventListener('pointermove', e => { if (INV.drag) INV.rot = INV.drag.r + (e.clientX - INV.drag.x) * .012; });
+$('#invView').addEventListener('pointerdown', e => { INV.drag = { x: px(e), r: INV.rot }; INV.auto = false; $('#invView').setPointerCapture(e.pointerId); });
+$('#invView').addEventListener('pointermove', e => { if (INV.drag) INV.rot = INV.drag.r + (px(e) - INV.drag.x) * .012; });
 $('#invView').addEventListener('pointerup', () => { INV.drag = null; });
 addEventListener('keydown', e => { if (INV.open && e.key === 'Escape') closeInv(); });
 
@@ -2908,22 +2927,22 @@ function setupPost() {
   if (prefs.gfx === 'low' || perf.level >= 2 || !THREE.EffectComposer || !THREE.RenderPass || !THREE.ShaderPass || !THREE.UnrealBloomPass) return;
   try {
     let rt = null; const pr = renderer.getPixelRatio();
-    if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(Math.max(1, Math.floor(innerWidth * pr)), Math.max(1, Math.floor(innerHeight * pr)), { format: THREE.RGBAFormat }); rt.samples = isTouch ? 2 : 4; }
+    if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) { rt = new THREE.WebGLMultisampleRenderTarget(Math.max(1, Math.floor(VW() * pr)), Math.max(1, Math.floor(VH() * pr)), { format: THREE.RGBAFormat }); rt.samples = isTouch ? 2 : 4; }
     const c = new THREE.EffectComposer(renderer, rt || undefined); post.fxaa = null;
     // Ultra: la pasada de oclusión ambiental dibuja la escena ella misma (reemplaza a la pasada normal)
     post.ao = null;
-    if (prefs.gfx === 'ultra' && !(perf.level >= 1) && !isTouch && THREE.SSAOPass) { try { const ao = new THREE.SSAOPass(scene, camera, innerWidth, innerHeight); ao.kernelRadius = .6; ao.minDistance = .0008; ao.maxDistance = .04; ao.output = THREE.SSAOPass.OUTPUT.Default; c.addPass(ao); post.ao = ao; } catch (e) { post.ao = null; } }
+    if (prefs.gfx === 'ultra' && !(perf.level >= 1) && !isTouch && THREE.SSAOPass) { try { const ao = new THREE.SSAOPass(scene, camera, VW(), VH()); ao.kernelRadius = .6; ao.minDistance = .0008; ao.maxDistance = .04; ao.output = THREE.SSAOPass.OUTPUT.Default; c.addPass(ao); post.ao = ao; } catch (e) { post.ao = null; } }
     if (!post.ao) c.addPass(new THREE.RenderPass(scene, camera));
     const vp = new THREE.RenderPass(vmScene, vmCam); vp.clear = false; vp.clearDepth = true; c.addPass(vp); post.vmPass = vp;
-    post.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .28, .45, .93); c.addPass(post.bloom);
+    post.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(VW(), VH()), .28, .45, .93); c.addPass(post.bloom);
     post.grade = new THREE.ShaderPass(GradeShader); c.addPass(post.grade);
     if (!rt && THREE.FXAAShader) { post.fxaa = new THREE.ShaderPass(THREE.FXAAShader); c.addPass(post.fxaa); }
     post.composer = c; resizePost();
   } catch (e) { post.composer = null; }
 }
 function resizePost() {
-  if (!post.composer) return; const pr = renderer.getPixelRatio(); post.composer.setPixelRatio(pr); post.composer.setSize(innerWidth, innerHeight);
-  if (post.fxaa) post.fxaa.material.uniforms.resolution.value.set(1 / (innerWidth * pr), 1 / (innerHeight * pr));
+  if (!post.composer) return; const pr = renderer.getPixelRatio(); post.composer.setPixelRatio(pr); post.composer.setSize(VW(), VH());
+  if (post.fxaa) post.fxaa.material.uniforms.resolution.value.set(1 / (VW() * pr), 1 / (VH() * pr));
 }
 function applyGfx() {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, prefs.gfx !== 'low' ? (isTouch ? (prefs.gfx === 'ultra' ? 1.5 : 1.25) : 2) : isTouch ? .9 : 1)); perf.level = 0; perf.slow = perf.fast = 0;
@@ -2934,8 +2953,8 @@ function applyGfx() {
 // para pruebas automatizadas: ?debug=1 expone el estado del jugador
 if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer }; } };
 /* ================= CICLO ================= */
-function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
-addEventListener('resize', resize); resize();
+function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
+addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
 buildWorld(prefs.map); applyGfx();
 let last = performance.now(), menuT = 0;
 // rendimiento: cuadros por segundo y latencia con el servidor (se puede ocultar en el menú)
@@ -3022,7 +3041,7 @@ function frame(now) {
   if (post.composer) {
     skyU.time.value = now * .001;
     post.vmPass.enabled = showVm; const u = post.grade.uniforms; u.time.value = now * .001 % 100; u.sat.value = post.sat;
-    u.dof.value = kcActive() || (G.state === 'playing' && !me.alive && me.deadT < 1.2) ? 1 : lerp(u.dof.value, 0, .2); u.px.value.set(1 / Math.max(1, innerWidth), 1 / Math.max(1, innerHeight));
+    u.dof.value = kcActive() || (G.state === 'playing' && !me.alive && me.deadT < 1.2) ? 1 : lerp(u.dof.value, 0, .2); u.px.value.set(1 / Math.max(1, VW()), 1 / Math.max(1, VH()));
     u.hurt.value = G.state === 'playing' && me.alive ? clamp((nowS() - (me.lastHurt || -9) < .4 ? .8 : 0) + (me.hp < 30 ? .35 : 0), 0, 1) : 0;
     SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); post.composer.render();
   } else { SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
