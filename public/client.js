@@ -767,7 +767,7 @@ const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
   { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
-  roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); }
+  roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); setReverb(roofedNow ? 'indoor' : (WORLD && WORLD.map.theme) || 'open'); }
   if (ambNode) { ambT -= dt; if (ambT <= 0) { ambT = rand(4, 11); ambOneShot(); } } else if (AC && WORLD && G.state === 'playing' && bus.amb) startAmbience();
   for (const t of fx.tracers) if (t.life > 0) { t.life -= dt; t.l.material.opacity = Math.max(0, t.life / .05) * .8; if (t.life <= 0) t.l.visible = false; }
   for (let k = 0; k < PN; k++) if (pLife[k] > 0) { pLife[k] -= dt; pVel[k * 3 + 1] -= 9 * dt; pPos[k * 3] += pVel[k * 3] * dt; pPos[k * 3 + 1] += pVel[k * 3 + 1] * dt; pPos[k * 3 + 2] += pVel[k * 3 + 2] * dt; if (pLife[k] <= 0 || pPos[k * 3 + 1] < 0) { pPos[k * 3 + 1] = -999; pLife[k] = 0; } }
@@ -875,9 +875,35 @@ function initAudio() {
     AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = .55;
     const comp = AC.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 6; master.connect(comp); comp.connect(AC.destination);
     for (const k of ['fx', 'amb', 'ui']) { bus[k] = AC.createGain(); bus[k].connect(master); } applyVol();
+    // reverberación por convolución (respuesta generada según el entorno) y filtro para el sonido apagado con poca vida
+    REV.node = AC.createConvolver(); REV.send = AC.createGain(); REV.send.gain.value = .9; REV.send.connect(REV.node); REV.node.connect(bus.fx);
+    MUF.f = AC.createBiquadFilter(); MUF.f.type = 'lowpass'; MUF.f.frequency.value = 20000; bus.fx.disconnect(); bus.fx.connect(MUF.f); MUF.f.connect(master); setReverb(REV.key || 'open');
     noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 340; const g = AC.createGain(); g.gain.value = .05; src.connect(f); f.connect(g); g.connect(bus.amb); src.start();
   } catch (e) { AC = null; }
+}
+/* ---------- Diseño de sonido ----------
+   REV: reverberación por convolución. La respuesta al impulso se genera (ruido estéreo con caída exponencial y reflexiones tempranas)
+   según el lugar: al aire libre es larga y difusa, bajo techo corta y densa. Los disparos y explosiones mandan una parte a ella.
+   VOICES: límite de sonidos simultáneos (los lejanos se omiten si hay demasiados) para no saturar el procesador del celular. */
+const REV = { node: null, send: null, key: null, cache: {} }, MUF = { f: null, k: 0 }, VOICES = { n: 0, max: 24 };
+const REV_DEF = { open: [1.6, .26, .02], indoor: [.55, .5, .006], city: [1.9, .3, .025], port: [2.1, .28, .03], refinery: [2.2, .32, .03], desert: [1.4, .22, .02], snow: [1.1, .18, .015], rural: [1.0, .16, .015] };
+function makeIR(dur, early, pre) {
+  const n = Math.floor(AC.sampleRate * dur), b = AC.createBuffer(2, n, AC.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); const p0 = Math.floor(pre * AC.sampleRate);
+    for (let i = p0; i < n; i++) { const t = (i - p0) / (n - p0); d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.2) * (1 - early * .5); }
+    for (let k = 0; k < 6; k++) { const at = p0 + Math.floor((.004 + Math.random() * .045) * AC.sampleRate); if (at < n) d[at] += (Math.random() < .5 ? -1 : 1) * early * (1 - k / 7); } }
+  return b;
+}
+function setReverb(key) { REV.key = key; if (!AC || !REV.node) return; const D = REV_DEF[key] || REV_DEF.open; if (!REV.cache[key]) REV.cache[key] = makeIR(D[0], D[1], D[2]); if (REV.node.buffer !== REV.cache[key]) REV.node.buffer = REV.cache[key]; }
+function revSend(node, amt) { if (REV.send && amt > 0) { const g = AC.createGain(); g.gain.value = amt; node.connect(g); g.connect(REV.send); } }
+function voice(dur) { if (VOICES.n >= VOICES.max) return false; VOICES.n++; setTimeout(() => { VOICES.n--; }, (dur + .1) * 1000); return true; }
+// sonido apagado y latido con poca vida
+let heartT = 0;
+function updateHealthAudio(dt) {
+  if (!AC || !MUF.f) return; const low = G.state === 'playing' && me.alive && me.hp > 0 && me.hp < 30;
+  MUF.k += ((low ? 1 : 0) - MUF.k) * Math.min(1, dt * 2.5); MUF.f.frequency.value = 20000 - MUF.k * 17500;
+  if (low) { heartT -= dt; if (heartT <= 0) { heartT = .55 + me.hp / 60; uiSound(() => { sTone(58, .12, .32 * MUF.k, 'sine', 40); sTone(52, .1, .22 * MUF.k, 'sine', 38, .16); }); } }
 }
 class Pan { constructor(v, rel) { this.v = v; this.rel = rel; } valueOf() { return this.v; } }
 function panNode(pan) {
@@ -892,19 +918,19 @@ function sShot(s, dist, pan, occ) {
     const p = panNode(pan); src.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); src.start(t, Math.random() * 1.5, s.dec + .05);
     if (dist < 1) { const o = AC.createOscillator(), og = AC.createGain(); o.type = 'square'; o.frequency.setValueAtTime(2400, t + .012); og.gain.setValueAtTime(vol * .12, t + .012); og.gain.exponentialRampToValueAtTime(.001, t + .04); o.connect(og); og.connect(OUT()); o.start(t + .012); o.stop(t + .05); }
     return; }
-  if (!AC || !s) return; const t = AC.currentTime + Math.min(.28, Math.max(0, dist) / 343); const far = clamp(dist / 90, 0, 1);
+  if (!AC || !s) return; if (dist > 3 && !voice(s.dec * 2)) return; const t = AC.currentTime + Math.min(.28, Math.max(0, dist) / 343); const far = clamp(dist / 90, 0, 1); const vr = .93 + Math.random() * .14;
   if (dist < 1) { const c = AC.createBufferSource(); c.buffer = noiseBuf; const cf = AC.createBiquadFilter(); cf.type = 'highpass'; cf.frequency.value = 5200; const cg = AC.createGain(); cg.gain.setValueAtTime(s.vol * .35, t); cg.gain.exponentialRampToValueAtTime(.001, t + .02); c.connect(cf); cf.connect(cg); cg.connect(OUT()); c.start(t, Math.random(), .03); }
   else if (dist > 25) { const r = AC.createBufferSource(); r.buffer = noiseBuf; const rf = AC.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 180; const rg = AC.createGain(); rg.gain.setValueAtTime(.0001, t); rg.gain.linearRampToValueAtTime(s.vol * .22 * (1 - far * .6), t + .05); rg.gain.exponentialRampToValueAtTime(.001, t + .9); const rp = panNode(pan * .6); r.connect(rf); rf.connect(rg); rg.connect(rp); rp.connect(OUT()); r.start(t, Math.random(), 1); } const vol = s.vol * (dist < 1 ? 1 : clamp(1.5 / (1 + dist * .08), .04, 1)) * (occ ? .62 : 1);
-  const ek = (WORLD ? ECHO[WORLD.map.theme] || .15 : .15) * (roofedNow ? .55 : 1.25), tail = roofedNow ? .12 : .75; if (ek > 0 && (dist < 1 || dist > 14)) { const e = AC.createBufferSource(); e.buffer = noiseBuf; const ef = AC.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = occ ? 420 : 900; const eg = AC.createGain(); const d0 = t + .08 + Math.min(dist, 80) * .003; eg.gain.setValueAtTime(.0001, t); eg.gain.linearRampToValueAtTime(vol * ek, d0); eg.gain.exponentialRampToValueAtTime(.001, d0 + tail + ek); const ep = panNode(-pan * .5); e.connect(ef); ef.connect(eg); eg.connect(ep); ep.connect(OUT()); e.start(t, Math.random() * .6, 2); }
-  const src = AC.createBufferSource(); src.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(s.cut * (1 - far * .75) * (occ ? .3 : 1), t); f.frequency.exponentialRampToValueAtTime(260, t + s.dec);
+  const ek = (WORLD ? ECHO[WORLD.map.theme] || .15 : .15) * (roofedNow ? .55 : 1.25), tail = roofedNow ? .12 : .75; if (!REV.node && ek > 0 && (dist < 1 || dist > 14)) { const e = AC.createBufferSource(); e.buffer = noiseBuf; const ef = AC.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = occ ? 420 : 900; const eg = AC.createGain(); const d0 = t + .08 + Math.min(dist, 80) * .003; eg.gain.setValueAtTime(.0001, t); eg.gain.linearRampToValueAtTime(vol * ek, d0); eg.gain.exponentialRampToValueAtTime(.001, d0 + tail + ek); const ep = panNode(-pan * .5); e.connect(ef); ef.connect(eg); eg.connect(ep); ep.connect(OUT()); e.start(t, Math.random() * .6, 2); }
+  const src = AC.createBufferSource(); src.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(s.cut * vr * (1 - far * .75) * (occ ? .3 : 1), t); f.frequency.exponentialRampToValueAtTime(260, t + s.dec);
   const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + s.dec * (1 + far)); const p = panNode(pan);
-  src.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); src.start(t, Math.random() * 1.5, s.dec * 2 + .1);
-  const o = AC.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(s.thump, t); o.frequency.exponentialRampToValueAtTime(35, t + .14); const og = AC.createGain(); og.gain.setValueAtTime(vol * (1 - far) * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(og); og.connect(p); o.start(t); o.stop(t + .2);
+  src.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); src.start(t, Math.random() * 1.5, s.dec * 2 + .1); revSend(g, ek * (dist < 1 ? .9 : 1.6) * (roofedNow ? 1.4 : 1));
+  const o = AC.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(s.thump * (2 - vr), t); o.frequency.exponentialRampToValueAtTime(35, t + .14); const og = AC.createGain(); og.gain.setValueAtTime(vol * (1 - far) * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(og); og.connect(p); o.start(t); o.stop(t + .2);
 }
 function killSound(head) { sNoise(.09, .45, 160, 0, 0, .8); sTone(620, .09, .16, 'triangle', 0, .02); sTone(930, .14, .16, 'triangle', 0, .08); sTone(1240, .22, .12, 'sine', 0, .14); if (head) { sTone(3100, .35, .1, 'sine', 2900, .05); sNoise(.12, .25, 5200, .05, 0, 4); } }
 function sTone(freq, dur, vol, type = 'sine', slide, delay = 0) { if (!AC) return; const t = AC.currentTime + delay; const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(OUT()); o.start(t); o.stop(t + dur + .02); }
 function sNoise(dur, vol, freq, delay = 0, pan = 0, q = 1.2) { if (!AC) return; const t = AC.currentTime + delay; const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); const p = panNode(pan); s.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); s.start(t, Math.random(), dur + .05); }
-function sBoom(dist, big) { if (!AC) return; const t = AC.currentTime; const vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1); const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(big ? 1600 : 2200, t); f.frequency.exponentialRampToValueAtTime(80, t + (big ? 2 : 1)); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + (big ? 2.4 : 1.2)); s.connect(f); f.connect(g); g.connect(OUT()); s.start(t, 0, 2.5); const o = AC.createOscillator(); o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(25, t + .6); const og = AC.createGain(); og.gain.setValueAtTime(vol * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .8); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9); }
+function sBoom(dist, big) { if (!AC) return; const t = AC.currentTime; const vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1); const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(big ? 1600 : 2200, t); f.frequency.exponentialRampToValueAtTime(80, t + (big ? 2 : 1)); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + (big ? 2.4 : 1.2)); s.connect(f); f.connect(g); g.connect(OUT()); revSend(g, roofedNow ? .9 : .6); s.start(t, 0, 2.5); const o = AC.createOscillator(); o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(25, t + .6); const og = AC.createGain(); og.gain.setValueAtTime(vol * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .8); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9); }
 function surfAtFeet(x, z, y) {
   if (!WORLD) return 'stone'; let best = null; for (const b of WORLD.colliders) if (b.mat !== 'perim' && x > b.minX - .05 && x < b.maxX + .05 && z > b.minZ - .05 && z < b.maxZ + .05 && Math.abs(b.maxY - y) < .2) { best = b; break; }
   if (best) { const k = SURF_OF[best.mat]; return k === 'metal' || best.mat === 'metalP' ? 'metal' : k === 'wood' ? 'wood' : k === 'snow' ? 'snow' : 'stone'; }
@@ -1094,7 +1120,7 @@ function handleEvent(e) {
     case 'tpauseon': announce('Pausa táctica', (e.tm === me.team ? 'Tu equipo' : 'El rival') + ' tiene 30 segundos más para hablar y comprar', 3, 'var(--t' + e.tm + ')'); break;
     case 'live': announce('En marcha', G.mode === 'elim' ? 'Sin carga: gana el bando que elimine al otro' : sideOf(me.team) === 'atk' ? 'Planta la carga en A o B' : 'Que no planten la carga', 1.6); sTone(660, .12, .12, 'square'); break;
     case 'shot': onShotEvent(e); break;
-    case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
+    case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id && a.model && a.model.act) a.model.act('slash'); if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
     case 'hit': { { const V = actors[e.v]; if (V && V.alive) { V.flinchT = .22; V.flinchH = e.z === 'h'; } } if (e.v === me.id && e.a !== me.id) me.tagT = e.z === 'h' ? .5 : .35;
       if (e.a === me.id) buzz(e.x ? 28 : 10); else if (e.v === me.id) buzz(18);
       if (e.a === me.id) { showHit(e.z === 'h', e.x); if (e.z === 'h') { me.heads++; sTone(e.x ? 2600 : 2100, .06, .2, 'square'); } else sTone(1500, .04, .15, 'square'); me.hits++; }
@@ -1123,7 +1149,7 @@ function handleEvent(e) {
     case 'dshot': decoyShots(e); break;
     case 'smhole': { const sm = smokes.get(e.id); if (sm) sm.hole = nowS() + 2.2; break; }
     case 'smoke': makeSmoke(e.id, e.p[0], e.p[1], e.p[2], e.d); { const p = posAudio(e.p[0], e.p[2]); sNoise(1.8, .25 * clamp(1 - p.d / 40, .05, 1), 900, 0, p.pan, .5); } break;
-    case 'throw': { const a = actors[e.s]; if (a && e.s !== me.id && sideOf(a.team) === sideOf(me.team)) { const msg = { he: 'Granada', fl: 'Cegadora', sm: 'Humo', in: 'Incendiaria', de: 'Señuelo' }[e.g]; toast(nameOf(e.s) + ': ¡' + msg + ' va!'); } break; }
+    case 'throw': { const a = actors[e.s]; if (a && e.s !== me.id && a.model && a.model.act) a.model.act('throw'); if (a && e.s !== me.id && sideOf(a.team) === sideOf(me.team)) { const msg = { he: 'Granada', fl: 'Cegadora', sm: 'Humo', in: 'Incendiaria', de: 'Señuelo' }[e.g]; toast(nameOf(e.s) + ': ¡' + msg + ' va!'); } break; }
     case 'bounce': { const p = posAudio(e.p[0], e.p[2]); if (p.d < 25) sTone(2400 + rand(-300, 300), .04, .12 * (1 - p.d / 25), 'triangle'); break; }
     case 'rend': {
       const mine = e.w === me.team; const why = { elim: 'Eliminaron al bando rival', time: G.mode === 'elim' ? 'Se acabó el tiempo · más jugadores en pie' : 'Se acabó el tiempo', bomb: 'La carga explotó', defuse: 'Desactivaron la carga' }[e.why];
@@ -1178,7 +1204,7 @@ function handleEvent(e) {
 }
 function onShotEvent(e) {
   if (e.s === me.id) return;
-  const a = actors[e.s]; if (!a || !a.model) return; const w = WEAPONS[e.w];
+  const a = actors[e.s]; if (!a || !a.model) return; const w = WEAPONS[e.w]; if (a.model.act) a.model.act('fire');
   const mw = new THREE.Vector3(); a.model.muzzle.getWorldPosition(mw);
   const end = new THREE.Vector3(e.e[0], e.e[1], e.e[2]); a.flashT = w && w.sup ? 0 : .05; if (w && Math.hypot(a.pos.x - camera.position.x, a.pos.z - camera.position.z) < 16 && (!w.pellets || Math.random() < .5)) ejectFrom(a, w); if (!(w && w.sup)) lifeShot(a.pos.x, a.pos.z);
   if (!me.alive && !kcActive() && me.deadT > 1.2 && specTarget() === a && vm.spec) { vm.kick = 1; vm.flashT = .05; tracer(vmMuzzleWorld(), end); } else tracer(mw, end);
@@ -1362,7 +1388,7 @@ function inaccuracy(w) {
   const spd = Math.hypot(me.vel.x, me.vel.z); const max = w.speed || 4.6; const mf = clamp((spd - max * .34) / (max * .5), 0, 1);
   let base = me.crouch ? w.crouch : w.stand; if (w.scope) base = me.scoped && me.scopeK > .9 ? w.scoped : w.stand;
   const ak = me.adsK || 0;
-  return base * (1 - .4 * ak) + w.run * mf * (1 - .2 * ak) + (!me.grounded ? w.jump : (me.landT || 0) * w.jump * .6) + (w.auto ? 0 : Math.min(me.sprayI, 5) * w.kick * .08);
+  return base * (1 - (w.adsAcc || .4) * ak) + w.run * mf * (1 - .2 * ak) + (!me.grounded ? w.jump : (me.landT || 0) * w.jump * .6) + (w.auto ? 0 : Math.min(me.sprayI, 5) * w.kick * .08);
 }
 function resetAim() { me.scoped = false; me.altScope = false; me.rescopeT = 0; me.scopeK = 0; me.adsK = 0; me.adsToggle = false; me.nadeArm = false; me.fireHeld = false; me.altHeld = false; $('#bAds').classList.remove('on'); }
 function canAct() { return me.alive && G.phase !== 'buy' && $('#buy').hidden && !chatOpen; }
@@ -1592,7 +1618,7 @@ function updateRemotes(dt) {
     if (!a.alive) { a.deadT += dt; const dur = a.fallH ? .32 : .55, k = Math.min(1, a.deadT / dur), e2 = k * k * (3 - 2 * k), bounce = k >= 1 ? Math.max(0, Math.sin(Math.min(1, (a.deadT - dur) / .25) * Math.PI)) * .04 : 0; m.body.rotation.x = lerp(0, a.fallX === undefined ? 1.5 : a.fallX, e2) - bounce * Math.sign(a.fallX || 1); m.body.rotation.z = lerp(0, a.fallZ || 0, e2); m.body.position.y = -.05 * k - (a.fallH ? .25 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2) * (1 - k) : 0); m.g.visible = a.deadT < 6; continue; }
     m.g.visible = !specMe; m.body.rotation.x = 0; m.body.rotation.z = 0; m.body.position.y = 0; a.fallX = undefined;
     const spd = Math.hypot(a.vx, a.vz); a.walkPh += dt * spd * 2.2; const cr = clamp((1.8 - a.h) / .58, 0, 1);
-    const sy = Math.sin(a.yaw), cy = Math.cos(a.yaw); m.animate(spd, a.walkPh, cr, a.pitch, { fw: -a.vx * sy - a.vz * cy, sd: a.vx * cy - a.vz * sy, walk: !!(a.flags & 2), air: Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) > .2 }); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42; if (a.flinchT > 0) { a.flinchT -= dt; const f = Math.sin(a.flinchT / .22 * Math.PI) * (a.flinchH ? .22 : .12); m.upper.rotation.x -= f; if (a.flinchH) m.head.rotation.x -= f * 1.4; }
+    const sy = Math.sin(a.yaw), cy = Math.cos(a.yaw); m.animate(spd, a.walkPh, cr, a.pitch, { dt, yaw: a.yaw, reload: !!(a.flags & 1024), plant: !!(a.flags & 8) && spd < .5, fw: -a.vx * sy - a.vz * cy, sd: a.vx * cy - a.vz * sy, walk: !!(a.flags & 2), air: Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) > .2 }); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42; if (a.flinchT > 0) { a.flinchT -= dt; const f = Math.sin(a.flinchT / .22 * Math.PI) * (a.flinchH ? .22 : .12); m.upper.rotation.x -= f; if (a.flinchH) m.head.rotation.x -= f * 1.4; }
     setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
     a.flashT = (a.flashT || 0) - dt; m.flash.visible = a.flashT > 0; if (m.flash.visible) { if (!m.flash.userData.flame) addFlames(m.flash); jitterFlash(m.flash); }
     // pasos audibles
@@ -1758,7 +1784,7 @@ function aimedEnemy() { if (!me.alive) return null; const o = [camera.position.x
 
 /* ---------- Compra ---------- */
 const BUY = [
-  ['Pistolas', ['p9', 'p9s', 'b3', 'ap18', 'r50']], ['Subfusiles y escopetas', ['smg', 'k11', 'es12', 'pump']], ['Fusiles', ['fr9', 'bp9', 'ar', 'ars', 'lmg']], ['Precisión', ['tr7', 'dmr', 'sr', 'ax50']], ['Equipo', ['kevlar', 'helm', 'kit']], ['Granadas', NADE_IDS]
+  ['Pistolas', ['p9', 'p9s', 'b3', 'ap18', 'r50', 'rv8']], ['Subfusiles y escopetas', ['smg', 'um45', 'k11', 'px90', 'es12', 'pump']], ['Fusiles', ['fr9', 'bp9', 'kr47', 'ar', 'ars', 'sg55', 'lmg']], ['Precisión', ['tr7', 'dmr', 'sr', 'ax50']], ['Equipo', ['kevlar', 'helm', 'kit']], ['Granadas', NADE_IDS]
 ];
 const GEARN = { kevlar: ['Chaleco', 650], helm: ['Chaleco + casco', 1000], kit: ['Kit de desactivación', 400] };
 function priceOf(i) { if (WEAPONS[i]) return WEAPONS[i].price; if (NADES[i]) return NADES[i].price; if (i === 'helm' && me.armor >= 100) return 350; return GEARN[i][1]; }
@@ -2648,7 +2674,7 @@ function updateShowcase(dt) {
   if (vmCam.fov !== 60) { vmCam.fov = 60; vmCam.updateProjectionMatrix(); } return true;
 }
 const INV = { open: false, w: 'ar', sel: null, scene: null, cam: null, gun: null, key: '', rot: 0, drag: null, auto: true };
-const INV_GROUPS = [['Pistolas', ['p9', 'p9s', 'b3', 'r50', 'ap18']], ['Subfusiles y escopetas', ['smg', 'k11', 'es12', 'pump']], ['Fusiles', ['ar', 'ars', 'bp9', 'fr9', 'lmg']], ['Precisión', ['tr7', 'dmr', 'sr', 'ax50']], ['Cuerpo a cuerpo', ['knife']]];
+const INV_GROUPS = [['Pistolas', ['p9', 'p9s', 'b3', 'r50', 'rv8', 'ap18']], ['Subfusiles y escopetas', ['smg', 'um45', 'k11', 'px90', 'es12', 'pump']], ['Fusiles', ['ar', 'kr47', 'ars', 'sg55', 'bp9', 'fr9', 'lmg']], ['Precisión', ['tr7', 'dmr', 'sr', 'ax50']], ['Cuerpo a cuerpo', ['knife']]];
 function invSkinOf(w) { const v = (prof.camos || {})[w]; return v === undefined ? null : v; }
 function invSetup() {
   if (INV.scene) return; const sc = new THREE.Scene(); INV.scene = sc; INV.cam = new THREE.PerspectiveCamera(30, 1.6, .05, 20);
@@ -3013,6 +3039,13 @@ function setupPost() {
     post.composer = c; resizePost();
   } catch (e) { post.composer = null; }
 }
+// Sin posproceso (celular o «Livianos»), el color se corrige con el mapeo de tonos ACES de la GPU: misma curva tipo cine,
+// sin pasadas extra. Con posproceso lo hace el sombreador de color, así que la GPU no debe aplicarlo dos veces.
+function syncToneMap() {
+  const want = post.composer ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; if (renderer.toneMapping === want) return;
+  renderer.toneMapping = want; renderer.toneMappingExposure = 1.12;
+  for (const sc of [scene, vmScene]) sc.traverse(o => { for (const m of [].concat(o.material || [])) m.needsUpdate = true; });
+}
 function resizePost() {
   if (!post.composer) return; const pr = renderer.getPixelRatio(); post.composer.setPixelRatio(pr); post.composer.setSize(VW(), VH());
   if (post.fxaa) post.fxaa.material.uniforms.resolution.value.set(1 / (VW() * pr), 1 / (VH() * pr));
@@ -3020,7 +3053,7 @@ function resizePost() {
 function applyGfx() {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, prefs.gfx !== 'low' ? (isTouch ? (prefs.gfx === 'ultra' ? 1.5 : 1.25) : 2) : isTouch ? .9 : 1)); perf.level = 0; perf.slow = perf.fast = 0;
   const sm = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' && !isTouch ? 2048 : 1024; if (sun.shadow.mapSize.x !== sm) { sun.shadow.mapSize.set(sm, sm); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  resize(); setupPost(); applyNormals(prefs.gfx !== 'low'); scene.environment = prefs.gfx === 'low' ? null : envTex; vmScene.environment = scene.environment;
+  resize(); setupPost(); syncToneMap(); applyNormals(prefs.gfx !== 'low'); scene.environment = prefs.gfx === 'low' ? null : envTex; vmScene.environment = scene.environment;
 }
 
 // para pruebas automatizadas: ?debug=1 expone el estado del jugador
@@ -3062,7 +3095,7 @@ function adaptRes(dtReal) {
 // 0 normal · 1 sombras cada 3 cuadros y sin oclusión ambiental · 2 sin posproceso (resplandor) · 3 sombras congeladas
 function setPerfLevel(l) {
   const prev = perf.level; perf.level = l;
-  if ((l >= 2) !== (prev >= 2) || (l >= 1) !== (prev >= 1)) { if (l >= 2) disposePost(), post.composer = null; else setupPost(); }
+  if ((l >= 2) !== (prev >= 2) || (l >= 1) !== (prev >= 1)) { if (l >= 2) disposePost(), post.composer = null; else setupPost(); syncToneMap(); }
 }
 // Límite de cuadros: en los menús de celular basta con 30 (no hay nada que apuntar) y el jugador puede elegir 60 o 30 para que el teléfono no se caliente.
 // También se mide la frecuencia real de la pantalla (60, 90, 120 Hz) para fijar la meta de la calidad adaptable.
@@ -3075,6 +3108,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   { const raw = now - FRM.prevRaw; FRM.prevRaw = now; if (raw > 4 && raw < 40) { FRM.d.push(raw); if (FRM.d.length > 90) { const m = FRM.d.slice().sort((a, b) => a - b)[45]; FRM.hz = [60, 90, 120, 144].reduce((b, h) => Math.abs(1000 / h - m) < Math.abs(1000 / b - m) ? h : b, 60); FRM.d.length = 0; } } }
   const cap = frameCap(); if (cap && cap < FRM.hz - 5 && now - FRM.lastDraw < 1000 / cap - 2) return; FRM.lastDraw = now;
+  updateHealthAudio(Math.min(.1, (now - (FRM.ha || now)) / 1000)); FRM.ha = now;
   perfTick(now); const dtReal = (now - last) / 1000; const dt = Math.min(.05, dtReal); last = now; if (dtReal > 0 && dtReal < .5) adaptRes(dtReal);
   if (G.state === 'playing' && WORLD) {
 
@@ -3108,7 +3142,7 @@ function frame(now) {
     }
     if (window.PCDBG && PCDBG.cam) { const c = PCDBG.cam; camera.position.set(c[0], c[1], c[2]); camera.rotation.set(c[4] || -.15, c[3], 0); vm.group.visible = false; }
     if (shake > 0) { shake = Math.max(0, shake - dt * 2); camera.rotation.x += gauss() * shake * .03; camera.rotation.y += gauss() * shake * .03; }
-    const w = WEAPONS[me.cur]; const adsF = w && w.auto ? 58 : 64; const fovT = w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
+    const w = WEAPONS[me.cur]; const adsF = w && w.adsF ? w.adsF : w && w.auto ? 58 : 64; const fovT = w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
     if (me.alive && me.scopeK > .5) { const tt = nowS(), mv = Math.min(1, Math.hypot(me.vel.x, me.vel.z) / 3); camera.rotation.x += Math.sin(tt * 1.3) * .0012 * (1 + mv * 4); camera.rotation.y += Math.sin(tt * .9) * .0014 * (1 + mv * 4); }
     updateVM(dt); updateRange(dt); updateHUD(dt); radarT += dt; if (radarT >= .05) { radarT = 0; drawRadar(); }
   } else {

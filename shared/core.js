@@ -38,11 +38,17 @@
     dmr: { id: 'dmr', name: 'M-14 Halcón', cls: 'Tirador designado', slot: 1, price: 3300, dmg: 62, ap: .86, rm: .98, rpm: 200, auto: false, mag: 15, res: 45, reload: 2.9, stand: .02, scoped: .0012, run: .14, crouch: .016, jump: .25, kick: .04, speed: 4.5, kill: 300, scope: true, zoom: 32, snd: { cut: 2700, dec: .32, thump: 85, vol: 1.08 } },
     ax50: { id: 'ax50', name: 'AX-50 Cóndor', cls: 'Francotirador pesado', slot: 1, price: 6000, dmg: 165, ap: 1, rm: .995, rpm: 30, auto: false, mag: 5, res: 15, reload: 4.2, stand: .08, scoped: .0004, run: .3, crouch: .06, jump: .4, kick: .09, speed: 3.8, kill: 100, scope: true, zoom: 15, snd: { cut: 1700, dec: .65, thump: 55, vol: 1.35 } },
     b3: { id: 'b3', name: 'B-3 Ráfaga', cls: 'Pistola de ráfaga', slot: 2, price: 600, dmg: 26, ap: .55, rm: .84, rpm: 1100, burst: 3, gap: .32, auto: false, mag: 21, res: 63, reload: 2.3, stand: .006, run: .06, crouch: .0045, jump: .16, kick: .012, speed: 5.15, kill: 300, snd: { cut: 3800, dec: .12, thump: 150, vol: .68 } },
+    // armas nuevas: fusil de los terroristas (par del AR-17), fusil con mira de aumento, dos subfusiles y un revólver
+    kr47: { id: 'kr47', name: 'KR-47 Lobo', cls: 'Fusil de asalto', slot: 1, price: 2700, side: 'atk', dmg: 36, ap: .775, rm: .98, rpm: 600, auto: true, mag: 30, res: 90, reload: 2.5, stand: .0042, run: .14, crouch: .003, jump: .24, kick: .019, speed: 4.5, kill: 300, snd: { cut: 2500, dec: .3, thump: 92, vol: 1.02 } },
+    sg55: { id: 'sg55', name: 'SG-55 Lechuza', cls: 'Fusil con mira de aumento', slot: 1, price: 3000, dmg: 33, ap: .8, rm: .98, rpm: 545, auto: true, mag: 30, res: 90, reload: 2.8, stand: .0042, run: .13, crouch: .003, jump: .22, kick: .0135, speed: 4.4, kill: 300, adsF: 40, adsAcc: .75, snd: { cut: 3000, dec: .22, thump: 100, vol: .92 } },
+    um45: { id: 'um45', name: 'UM-45 Tejón', cls: 'Subfusil pesado', slot: 1, price: 1200, dmg: 32, ap: .65, rm: .75, rpm: 666, auto: true, mag: 25, res: 100, reload: 2.6, stand: .0085, run: .05, crouch: .0065, jump: .15, kick: .011, speed: 5.0, kill: 600, snd: { cut: 2900, dec: .17, thump: 128, vol: .8 } },
+    px90: { id: 'px90', name: 'PX-90 Avispa', cls: 'Subfusil de cargador grande', slot: 1, price: 2350, dmg: 25, ap: .69, rm: .84, rpm: 857, auto: true, mag: 50, res: 100, reload: 3.3, stand: .0075, run: .04, crouch: .006, jump: .14, kick: .0085, speed: 5.05, kill: 300, snd: { cut: 4400, dec: .12, thump: 160, vol: .7 } },
+    rv8: { id: 'rv8', name: 'RV-8 Puma', cls: 'Revólver', slot: 2, price: 600, dmg: 86, ap: .93, rm: .8, rpm: 120, auto: false, mag: 8, res: 8, reload: 2.3, stand: .01, run: .16, crouch: .008, jump: .25, kick: .11, speed: 5.0, kill: 300, snd: { cut: 2100, dec: .45, thump: 66, vol: 1.18 } },
     tr7: { id: 'tr7', name: 'TR-7 Cernícalo', cls: 'Rifle ligero', slot: 1, price: 1700, dmg: 75, ap: .85, rm: .98, rpm: 48, auto: false, mag: 10, res: 90, reload: 3.0, stand: .035, scoped: .001, run: .12, crouch: .03, jump: .05, kick: .05, speed: 4.85, kill: 300, scope: true, snd: { cut: 2500, dec: .4, thump: 80, vol: 1.1 } }
   };
   // Escalada de armas: una baja con el arma actual sube de nivel; la última es el cuchillo
-  const LADDER = ['ar', 'bp9', 'fr9', 'lmg', 'smg', 'k11', 'es12', 'pump', 'dmr', 'tr7', 'sr', 'ax50', 'r50', 'b3', 'ap18', 'p9', 'knife'];
-  const TDM = { goal: 50, time: 480, respawn: 3, protect: 2.5, guns: ['ar', 'fr9', 'smg', 'es12', 'lmg', 'tr7', 'sr', 'k11', 'pump', 'bp9', 'dmr'] };
+  const LADDER = ['ar', 'kr47', 'sg55', 'bp9', 'fr9', 'lmg', 'px90', 'smg', 'um45', 'k11', 'es12', 'pump', 'dmr', 'tr7', 'sr', 'ax50', 'rv8', 'r50', 'b3', 'ap18', 'p9', 'knife'];
+  const TDM = { goal: 50, time: 480, respawn: 3, protect: 2.5, guns: ['ar', 'fr9', 'smg', 'es12', 'lmg', 'tr7', 'sr', 'k11', 'pump', 'bp9', 'dmr', 'sg55', 'um45', 'px90'] };
   const GG_TIME = 600;
   const NADES = {
     he: { id: 'he', name: 'Granada HE', price: 300, max: 1 },
@@ -512,7 +518,9 @@
       // calle larga hacia A
       [37.6, .8, 39.6, 2.8, 1.2, 'barrel'], [30.4, 18, 32.8, 18.8, 1.15, 'sandbag'], [30.5, -3.5, 31.9, -2.1, 1.2, 'crate'],
       // sitio B
-      [-34, -19.6, -31, -18.8, 1.15, 'sandbag'], [-22.8, -21.8, -21, -20, 1.2, 'barrel'], [-37.8, -17.4, -36.4, -16, 1.2, 'crate'], [-26.6, -11.8, -25.2, -10.4, 1.2, 'crate'], [-33.6, -4.2, -32.2, -2.8, 1.2, 'crate']
+      [-34, -19.6, -31, -18.8, 1.15, 'sandbag'], [-22.8, -21.8, -21, -20, 1.2, 'barrel'], [-37.8, -17.4, -36.4, -16, 1.2, 'crate'], [-26.6, -11.8, -25.2, -10.4, 1.2, 'crate'], [-33.6, -4.2, -32.2, -2.8, 1.2, 'crate'],
+      // coberturas para las posiciones defensivas que miraban la calle larga A y la salida del túnel B al descubierto
+      [31.8, -7.4, 34.2, -6.6, 1.15, 'sandbag'], [-31.2, -8.6, -28.8, -7.8, 1.15, 'sandbag']
     ],
     muelle: [
       // carril central: contenedor que corta la vista entre spawns y sacos del lado defensor
@@ -733,7 +741,7 @@
   function cleanRules(r) { const o = Object.assign({}, RULES_DEF); if (r && typeof r === 'object') for (const k in RULE_OPTS) { const v = typeof RULES_DEF[k] === 'number' ? Number(r[k]) : r[k]; if (RULE_OPTS[k].includes(v)) o[k] = v; } return o; }
   const STREAKS = { 3: { id: 'radar', reveal: 5 }, 5: { id: 'kit' }, 7: { id: 'dron', reveal: 12 } };
   const BOT_STYLE = ['rush', 'flank', 'steady'];
-  const BOT_RANGE = { k11: [3, 12], pump: [2, 8], bp9: [9, 26], dmr: [15, 45], ax50: [22, 80], b3: [5, 16], knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
+  const BOT_RANGE = { kr47: [9, 26], sg55: [12, 40], um45: [4, 14], px90: [4, 16], rv8: [5, 18], k11: [3, 12], pump: [2, 8], bp9: [9, 26], dmr: [15, 45], ax50: [22, 80], b3: [5, 16], knife: [0, 2], p9: [5, 16], r50: [6, 18], ap18: [5, 15], smg: [4, 13], es12: [2, 8], ar: [9, 26], fr9: [9, 26], tr7: [9, 26], lmg: [11, 30], sr: [20, 70] };
   const DIFF = {
     // react: segundos para reaccionar · err: dispersión de la puntería · turn: giro (rad/s) · hs: probabilidad de apuntar a la cabeza
     // fov: coseno del campo de visión (más alto = ven menos hacia los lados) · spray: control del retroceso (1 = perfecto)
@@ -1437,7 +1445,7 @@
       const eco = !pistolRound && (m < 2000 || (avg < 3400 && m < 4500 && (this.lossStreak[side] || 0) < 3));
       if (!b.inv.p) {
         if (m >= 4750 + 1000 && Math.random() < .18) buy('sr');
-        else if (!eco && m >= 2700 + 650) buy('ar');
+        else if (!eco && m >= 2700 + 650) buy(side === 'atk' && Math.random() < .75 ? 'kr47' : 'ar');
         else if (!eco && m >= 1250 + 650 && Math.random() < .7) buy('smg');
       }
       if (!b.inv.p) {
@@ -1445,16 +1453,19 @@
         if (b.money >= 5200 + 1000 && r < .08) buy('lmg');
         else if (b.money >= 6000 + 1000 && r < .12) buy('ax50');
         else if (b.money >= 3300 + 650 && r < .22) buy('dmr');
+        else if (b.money >= 3000 + 650 && r < .3) buy('sg55');
+        else if (b.money >= 2350 + 650 && r < .38) buy('px90');
         else if (b.money >= 2400 + 650 && r < .35) buy('bp9');
         else if (b.money >= 2050 + 650 && r < .45) buy('fr9');
         else if (!eco && b.money >= 1450 + 650 && r < .6) buy('k11');
+        else if (!eco && b.money >= 1200 + 650 && r < .66) buy('um45');
         else if (!eco && b.money >= 1300 + 650 && r < .7) buy('pump');
         else if (b.money >= 1700 + 650 && r < .15) buy('tr7');
         else if (!eco && b.money >= 1100 + 650 && r < .25) buy('es12');
       }
       if (!b.inv.p && (b.inv.s === 'p9' || b.inv.s === 'p9s') && b.money >= 500 && Math.random() < .25) buy(Math.random() < .5 ? 'ap18' : 'b3');
       if (b.helmet && b.armor >= 100) { } else if (b.money >= 1000 && b.inv.p) buy('helm'); else if (b.money >= 650 && (b.inv.p || this.round === 1 || this.round === this.R.half + 1)) buy('kevlar');
-      if (!b.inv.p && (b.inv.s === 'p9' || b.inv.s === 'p9s') && b.money >= 700 && Math.random() < .35) buy('r50');
+      if (!b.inv.p && (b.inv.s === 'p9' || b.inv.s === 'p9s') && b.money >= 700 && Math.random() < .35) buy(Math.random() < .5 ? 'r50' : 'rv8');
       if (side === 'def' && b.money >= 400 && b.inv.p) buy('kit');
       if (b.money >= 300 && b.inv.p && Math.random() < .6) buy('he');
       if (b.money >= 300 && b.inv.p && Math.random() < .5) buy('sm');
@@ -1759,7 +1770,7 @@
         t: 's', ph: this.phase, pt: r2(Math.max(0, this.phaseEnd - this.now)), rd: this.round, sc: this.scores, s0: this.side(0),
         b: [B.st, B.x, B.y, B.z, B.by, B.st === 'planted' ? r2(B.explodeAt - this.now) : 0, r2(B.pp / ROUND.plant), B.dneed ? r2(B.dp / B.dneed) : 0, B.site || ''],
         a: this.actors.map(a => [a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Math.round(a.yaw * 1000) / 1000, r2(a.pitch), r2(a.h), Math.ceil(Math.max(0, a.hp)), a.alive ? 1 : 0, a.cur,
-          ((this.now - a.firedAt < 1.5) ? 1 : 0) | (a.walking ? 2 : 0) | ((B.st === 'carried' && B.by === a.id) ? 4 : 0) | ((B.planter === a.id || B.defuser === a.id) ? 8 : 0) | (this.now < a.blindUntil ? 16 : 0) | (a.armor > 0 ? 32 : 0) | (a.kit ? 64 : 0) | (a.helmet ? 128 : 0) | (this.now - (a.spot0 || -9) < .45 ? 256 : 0) | (this.now - (a.spot1 || -9) < .45 ? 512 : 0),
+          ((this.now - a.firedAt < 1.5) ? 1 : 0) | (a.walking ? 2 : 0) | ((B.st === 'carried' && B.by === a.id) ? 4 : 0) | ((B.planter === a.id || B.defuser === a.id) ? 8 : 0) | (this.now < a.blindUntil ? 16 : 0) | (a.armor > 0 ? 32 : 0) | (a.kit ? 64 : 0) | (a.helmet ? 128 : 0) | (this.now - (a.spot0 || -9) < .45 ? 256 : 0) | (this.now - (a.spot1 || -9) < .45 ? 512 : 0) | ((a.rlW && this.now < a.rlEnd) || (!a.human && a.reloadT > 0) ? 1024 : 0),
           r2(a.vel.x), r2(a.vel.z), r2(a.lean || 0)]),
         g: this.nades.map(g => [g.id, g.k, r2(g.p.x), r2(g.p.y), r2(g.p.z)]),
         sm: this.smokes.map(s => [s.id, r2(s.x), r2(s.z), r2(s.until - this.now)]),

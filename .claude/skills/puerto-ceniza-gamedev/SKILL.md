@@ -44,6 +44,16 @@ Los textos del juego, los comentarios y los mensajes de commit van **en español
 - Ya hacen: reacción según distancia, postura y ángulo; economía de equipo; rotación de defensores (`this.rot`); reagruparse y entrar con cegadora; tras plantar, cobertura con vista a la carga; acudir cuando desactivan; equilibrio dinámico por marcador fuera del competitivo (`botSkill`).
 - Para cambiar el comportamiento, primero mide con el simulador, cambia **una cosa** y vuelve a medir.
 
+## Armas: cómo agregar una
+
+Hay 24 armas. Para una nueva hay que tocar **todos** estos lugares:
+
+1. `WEAPONS` en `core.js`: daño, penetración de blindaje (`ap`), caída por distancia (`rm`), cadencia (`rpm`), cargador y reserva, imprecisiones (`stand`, `run`, `crouch`, `jump`), retroceso (`kick`), velocidad, premio por baja (`kill`), bando (`side`, opcional) y sonido (`snd`, ver la skill de sonido). Opcionales: `scope`/`zoom`/`scoped` (mira telescópica), `adsF`/`adsAcc` (mira de aumento al apuntar), `pellets`/`spreadP` (escopetas), `burst`/`gap` (ráfaga), `sup` (silenciada).
+2. `BOT_RANGE` (distancia preferida de los bots), `botBuy` (cuándo la compran), `LADDER` (escalada de armas), `TDM.guns` y el grupo de oleadas si corresponde.
+3. Modelo en `models.js` (`DEF.<id>`, ver la skill de gráficos).
+4. Menú de compra (`BUY`) e inventario (`INV_GROUPS`) en `client.js`.
+5. Equilibrio: el precio debe ir con el poder. Compara el tiempo para eliminar (balas necesarias × 60/rpm) con las armas de su categoría y corre `G=6 node tools/sim-bots.js`.
+
 ## Mecánicas tipo CS
 
 Ya existen: control de spray con patrones, imprecisión al moverse, saltar y aterrizar, agacharse y caminar silencioso, frenado al recibir balas (`tagT` en el cliente, `tagUntil` en el núcleo), frenado más rápido que la aceleración (contra-strafe), economía con bono por derrotas, kit de desactivación, casco y blindaje, penetración de materiales. Los disparos se validan en el servidor (`humanShot`): toda mecánica de daño va en `core.js`.
@@ -61,6 +71,11 @@ Ya existen: control de spray con patrones, imprecisión al moverse, saltar y ate
 - Botones de al menos 44 px, con íconos (`ICO`) y una etiqueta corta solo si el ícono no se entiende solo.
 - Revisa siempre en horizontal (915×412) **y** en vertical: si la pantalla está vertical y no se puede bloquear, el juego se dibuja girado 90° (`FL.on`). Usa `px(e)`, `py(e)`, `VW()` y `VH()` en lugar de `clientX` e `innerWidth`.
 - Giroscopio: estilo visor de PUBG (girar a la derecha mira a la derecha; inclinar hacia adelante baja la mira). Cada teléfono reporta los ejes distinto: por eso existe la calibración (`gcalStart`) y no se deben fijar signos a mano.
+
+## Otras skills del proyecto
+
+- `puerto-ceniza-graficos`: dirección de arte, iluminación, materiales, modelos, animación y presupuesto gráfico.
+- `puerto-ceniza-sonido`: motor de audio procedural, cómo suena cada arma, mezcla y rendimiento del sonido.
 
 ## Lista rápida antes de subir
 
