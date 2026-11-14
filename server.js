@@ -25,7 +25,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/api/') && url.pathname !== '/api/rooms') return api(req, res, url);
   if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify({ ok: true, cuentas: ACC.store.kind, baseLista: ACC.ok === true, error: ACC.err || null, version: String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7) })); }
   if (url.pathname === '/api/rooms') {
-    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: r.mode, diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8), teams: teamSlots(r), rules: r.rules })).sort((a, b) => b.players - a.players);
+    const list = [...rooms.values()].filter(r => r.isPublic && r.humanCount > 0).map(r => ({ code: r.code, players: r.humanCount, map: r.mapId, mode: modeKey(r), diff: r.diffKey, phase: r.phase, round: r.round, sc: r.scores, hs: { atk: r.sideHumans('atk'), def: r.sideHumans('def') }, names: r.actors.filter(a => a.human).map(a => a.name).slice(0, 8), teams: teamSlots(r), rules: r.rules })).sort((a, b) => b.players - a.players);
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); return res.end(JSON.stringify(list));
   }
   let file = url.pathname === '/' ? '/index.html' : url.pathname;
@@ -114,7 +114,8 @@ function createRoom(isPublic, diff, map, mode, rules) {
 }
 /* ---------- Escuadras: hasta 4 amigos entran juntos al mismo equipo ---------- */
 const squads = new Map();
-const SQ_MODES = ['bomb', 'elim', 'gg', 'tdm', 'waves'];
+const SQ_MODES = ['bomb', 'elim', 'gg', 'tdm', 'waves', 'comp'];
+const modeKey = r => r.comp ? 'comp' : r.mode;
 function sqCode() { let c; do { c = Array.from({ length: 5 }, () => LETTERS[(Math.random() * LETTERS.length) | 0]).join(''); } while (squads.has(c)); return c; }
 function sqSend(ws, m) { if (ws.readyState === 1) ws.send(JSON.stringify(m)); }
 function sqBroadcast(sq) {
@@ -132,7 +133,7 @@ function sqLeave(cid) {
 function sqRoomFor(n, mode) {
   let best = null, bestSide = null;
   for (const r of rooms.values()) {
-    if (!r.isPublic || r.mode !== mode || r.phase === 'over' || r.humanCount + n > 8) continue;
+    if (!r.isPublic || modeKey(r) !== mode || r.phase === 'over' || r.humanCount + n > PC.TEAM_SIZE * 2) continue;
     for (const side of mode === 'waves' ? ['def'] : ['atk', 'def']) if (PC.TEAM_SIZE - r.sideHumans(side) >= n && (!best || r.humanCount > best.humanCount)) { best = r; bestSide = side; }
   }
   if (best) return [best, bestSide];
@@ -168,7 +169,7 @@ async function sqMessage(ws, cid, m, getAcct) {
 function quickRoom(side, mode) {
   let best = null;
   for (const r of rooms.values()) {
-    if (!r.isPublic || r.humanCount >= PC.TEAM_SIZE * 2 || r.mode !== mode) continue;
+    if (!r.isPublic || r.humanCount >= PC.TEAM_SIZE * 2 || modeKey(r) !== mode) continue;
     if ((side === 'atk' || side === 'def') && r.sideHumans(side) >= PC.TEAM_SIZE) continue;
     if (mode === 'waves' && r.sideHumans('def') >= PC.TEAM_SIZE) continue;
     if (!best || r.humanCount > best.humanCount) best = r;
@@ -196,21 +197,21 @@ wss.on('connection', ws => {
       acct = m.token ? await ACC.fromToken(String(m.token)) : null;
       joining = false; if (ws.readyState !== 1) return;
       let r = null;
-      const gm = ['elim', 'gg', 'tdm', 'waves'].includes(m.gm) ? m.gm : 'bomb';
+      const gm = ['elim', 'gg', 'tdm', 'waves', 'comp'].includes(m.gm) ? m.gm : 'bomb';
       if (m.mode === 'create') r = createRoom(!!m.pub, m.diff, m.map, gm, m.rules);
       else if (m.mode === 'code') {
         r = rooms.get(String(m.code || '').toUpperCase().trim());
         if (!r) return ws.send(JSON.stringify({ t: 'err', msg: 'No existe una sala con ese código. Revisa las 4 letras o crea una nueva.' }));
       } else r = quickRoom(m.side, gm);
-      if (r.humanCount >= 8) return ws.send(JSON.stringify({ t: 'err', msg: 'La sala está llena (8 de 8). Prueba partida rápida o crea otra sala.' }));
+      if (r.humanCount >= PC.TEAM_SIZE * 2) return ws.send(JSON.stringify({ t: 'err', msg: `La sala está llena (${PC.TEAM_SIZE * 2} de ${PC.TEAM_SIZE * 2}). Prueba partida rápida o crea otra sala.` }));
       const a = acct ? r.addHuman(cid, acct.display, m.side, { d: acct.profile.camo || null, w: acct.profile.camos || {} }, { card: acct.profile.card, title: acct.profile.title, tag: await ACC.clanTag(acct) }) : r.addHuman(cid, cleanName(m.name), m.side, null);
       if (!a) {
         if (r.humanCount === 0) rooms.delete(r.code);
         const sideName = m.side === 'atk' ? 'terroristas' : 'antiterroristas';
-        return ws.send(JSON.stringify({ t: 'err', msg: r.lastErr === 'side' ? `El bando ${sideName} ya tiene 4 personas. Elige el otro bando o «Automático».` : 'No se pudo entrar a la sala.' }));
+        return ws.send(JSON.stringify({ t: 'err', msg: r.lastErr === 'side' ? `El bando ${sideName} ya tiene ${PC.TEAM_SIZE} personas. Elige el otro bando o «Automático».` : 'No se pudo entrar a la sala.' }));
       }
       room = r; r.sockets.set(cid, ws); if (acct) { r.accts.set(cid, acct); acct.inRoom = (acct.inRoom || 0) + 1; }
-      ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId, gm: r.mode, cond: r.cond }));
+      ws.send(JSON.stringify({ t: 'joined', code: r.code, you: a.id, team: a.team, diff: r.diffKey, pub: r.isPublic, map: r.mapId, gm: modeKey(r), cond: r.cond }));
       ws.send(JSON.stringify(r.privateState(a)));
       ws.send(JSON.stringify(r.roster()));
       return;

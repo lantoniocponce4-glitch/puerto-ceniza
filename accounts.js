@@ -176,6 +176,7 @@ class Accounts {
       if (g.stat) { a.stats[g.stat] = (a.stats[g.stat] || 0) + 1; if (ss[g.stat] !== undefined) ss[g.stat]++; }
       if (g.medal) { const md = p.medals || (p.medals = {}); if (!md[g.medal]) medals.push(g.medal); md[g.medal] = (md[g.medal] || 0) + 1; }
       if (g.n) { p.xp += g.n; ss.xp += g.n; msgs.push('+' + g.n + ' · ' + g.why); }
+      if (g.rank) { const r0 = PC.rankOf(p.rank); p.rank = Math.max(0, (p.rank || 0) + g.rank); const r1 = PC.rankOf(p.rank); msgs.push((g.rank > 0 ? '+' : '') + g.rank + ' de rango' + (r1 !== r0 ? ' · ' + (r1 > r0 ? 'subiste a ' : 'bajaste a ') + PC.RANKS[r1] : '')); }
       for (const id of g.ch) for (const c of p.ch) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += 500; ss.xp += 500; done.push(c.id); } }
       for (const id of g.ch) for (const c of p.wch || []) if (c.id === id && !c.done) { c.p = Math.min(c.n, c.p + 1); if (c.p >= c.n) { c.done = true; p.xp += PC.WEEKLY_XP; ss.xp += PC.WEEKLY_XP; done.push('w:' + c.id); } }
     }

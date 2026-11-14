@@ -876,12 +876,12 @@ function onMsg(m) {
   switch (m.t) {
     case 'err': setBusy(false); $('#err').textContent = m.msg; leaveNet(); break;
     case 'joined': {
-      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm || 'bomb'; G.cond = m.cond || null; me.id = m.you; me.team = m.team;
+      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm === 'comp' ? 'bomb' : m.gm || 'bomb'; G.comp = m.gm === 'comp' || (net.mode === 'offline' && prefs.gm === 'comp'); G.cond = m.cond || null; me.id = m.you; me.team = m.team;
       buildWorld(m.map); PCM.setFpTeam(me.team); for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0;
       enterGame(); break;
     }
     case 'r': {
-      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.rules) G.rules = m.rules; if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.brk) { for (const id of m.brk) applyBreak(id, false); if (!m.brk.length && WORLD.breakables.some(b => b.gone)) restoreBreaks(); } if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
+      G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.rules) { G.rules = m.rules; G.comp = m.rules.rounds === 24; } if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.brk) { for (const id of m.brk) applyBreak(id, false); if (!m.brk.length && WORLD.breakables.some(b => b.gone)) restoreBreaks(); } if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
       for (const [id, name, team, k, d, as, sc, hum, money, lvl, camo, card, title, ctag] of m.r) { const a = getActor(id, team); a.card = card || null; a.title = title || null; a.clanTag = ctag || null; a.camo = camo || null; if (a.model && a.model.setCamo) a.model.setCamo(a.camo); a.name = name; a.human = hum; a.k = k; a.d = d; a.as = as; a.score = sc; a.money = money; a.lvl = lvl | 0; if (id === me.id && team !== me.team) { me.team = team; PCM.setFpTeam(team); } }
       $('#roomCode').textContent = G.code; $('#mapName').textContent = '· ' + MAPS[CURMAP].name + ' · ' + m.r.filter(x => x[7]).length + ' en línea';
       break;
@@ -948,7 +948,10 @@ function handleEvent(e) {
   switch (e.k) {
     case 'sp': if (e.v === me.id) { me.pos = { x: e.p[0], y: e.p[1], z: e.p[2] }; me.vel = { x: 0, y: 0, z: 0 }; me.yaw = e.y; me.pitch = 0; me.alive = true; me.hp = 100; me.deadT = 0; me.h = 1.8; me.lean = 0; me.slideT = 0; resetAim(); stopKillcam(); if (G.mode === 'tdm' || G.mode === 'gg') { me.ammo = {}; if (me.inv.p) ensureAmmo(me.inv.p); if (me.inv.s) ensureAmmo(me.inv.s); } } else { const a = actors[e.v]; if (a) a.buf = []; } break;
     case 'round': clearFires(); G.reveal = G.drone = 0; stopKillcam(); refillAmmo(); me.sprayI = 0; announce('Ronda ' + e.n, 'Eres ' + SIDE_L[sideOf(me.team)] + ' · ' + (G.mode === 'elim' ? 'compra y elimina al otro bando' : sideOf(me.team) === 'atk' ? 'compra y después planta la carga en A o B' : 'compra y después defiende los sitios A y B'), 3.2); if (e.n === ROUND.half + 1) toast('Medio tiempo: cambio de bando, ahora eres ' + SIDE_L[sideOf(me.team)]); break;
-    case 'half': break;
+    case 'half': if (G.comp) announce('Cambio de bando', 'Se reinicia el dinero de todos', 2.6, 'var(--amber)'); break;
+    case 'ot': announce('Prórroga ' + e.n, 'Seis rondas más: gana quien llegue primero a 4 · $10.000 para todos', 3.4, 'var(--amber)'); break;
+    case 'tpause': toast((e.tm === me.team ? 'Tu equipo' : 'El rival') + ' pidió pausa táctica (le quedan ' + e.left + '): empieza con la próxima compra'); break;
+    case 'tpauseon': announce('Pausa táctica', (e.tm === me.team ? 'Tu equipo' : 'El rival') + ' tiene 30 segundos más para hablar y comprar', 3, 'var(--t' + e.tm + ')'); break;
     case 'live': announce('En marcha', G.mode === 'elim' ? 'Sin carga: gana el bando que elimine al otro' : sideOf(me.team) === 'atk' ? 'Planta la carga en A o B' : 'Que no planten la carga', 1.6); sTone(660, .12, .12, 'square'); break;
     case 'shot': onShotEvent(e); break;
     case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
@@ -962,7 +965,7 @@ function handleEvent(e) {
       if (G.mode === 'waves' && actors[e.v] && actors[e.v].team !== me.team && G.waveLeft > 0) G.waveLeft--;
       addFeed(e); const v = actors[e.v]; if (v) v.deadT = 0; G.lastKill = { a: e.a, v: e.v, w: e.w, h: e.h, t: nowS() };
       if (e.a === me.id && e.v !== me.id) { me.kills++; killSound(!!e.h); }
-      if (e.v === me.id) { me.alive = false; me.deadT = 0; me.killer = e.a; me.specIdx = 0; closeBuy(); resetAim(); closeChat(false); toggleWheel(false); startKillcam(e); }
+      heatAdd(e); if (e.v === me.id) { me.alive = false; me.deadT = 0; me.killer = e.a; me.specIdx = 0; closeBuy(); resetAim(); closeChat(false); toggleWheel(false); startKillcam(e); }
       break;
     }
     case 'plant': { announce('Carga plantada', 'Sitio ' + e.site + ' · 40 segundos', 2.4, 'var(--bad)'); bombBeepT = 0; sTone(880, .15, .2, 'square'); break; }
@@ -986,7 +989,7 @@ function handleEvent(e) {
       if (mine) { sTone(523, .18, .18, 'triangle'); sTone(659, .18, .18, 'triangle', 0, .16); sTone(784, .3, .18, 'triangle', 0, .32); } else { sTone(392, .22, .16, 'triangle'); sTone(311, .4, .16, 'triangle', 0, .2); }
       break;
     }
-    case 'mend': stopKillcam(); if (e.hl && G.hlBest && G.hlBest.v === e.hl.v && G.hlBest.d === e.hl.d && G.hlBest.frames.length > 10) startHighlight(e); else showEnd(e); break;
+    case 'mend': histAdd(e); if (RV.cur && RV.cur.frames.length > 20) { RV.list.push(RV.cur); RV.cur = null; } stopKillcam(); if (e.hl && G.hlBest && G.hlBest.v === e.hl.v && G.hlBest.d === e.hl.d && G.hlBest.frames.length > 10) startHighlight(e); else showEnd(e); break;
     case 'hl': { const sc = e.sc; setTimeout(() => { if (G.state !== 'playing' || (G.hlBest && G.hlBest.sc > sc)) return; const t = nowS(), from = t - 1.2 - e.w; G.hlBest = { v: e.v, sc, d: e.d, ev: t - 1.2, from: Math.max(from, rec.length ? rec[0].t : from), to: t, frames: rec.filter(f => f.t >= from - .1), shots: recShots.filter(x => x.t >= from - .1) }; }, 1200); break; }
     case 'chat': if (e.tm === me.team) { addChat(`<b class="t${e.tm}">${esc(nameOf(e.v))}</b>: ${esc(e.m)}`); uiSound(() => sTone(1200, .05, .08, 'triangle')); } break;
     case 'radio': if (e.tm === me.team) { addChat(`<span class="rd">Radio</span><b class="t${e.tm}">${esc(nameOf(e.v))}</b>: ${esc(PC.RADIO[e.c] || '')}`); uiSound(() => sTone(980, .06, .1, 'square')); uiSound(() => sTone(1320, .07, .1, 'square', 0, .08)); const a = actors[e.v]; if (a) a.radioT = nowS(); } break;
@@ -1116,7 +1119,7 @@ function confirmBtn(el, label, fn) {
   el.addEventListener('click', () => { if (Date.now() - armed < 3500) { armed = 0; el.textContent = orig; fn(); } else { armed = Date.now(); el.textContent = label; setTimeout(() => { if (armed && Date.now() - armed >= 3400) { armed = 0; el.textContent = orig; } }, 3500); } });
 }
 function cycleNade() { const l = NADE_IDS.filter(k => me.inv.n[k] > 0); if (!l.length) return; const i = l.indexOf(me.cur); setCur(l[(i + 1) % l.length]); }
-addEventListener('wheel', e => { if (G.state !== 'playing' || uiOpen() || !me.alive) return; const l = slotList(); const i = l.indexOf(me.cur); setCur(l[(i + (e.deltaY > 0 ? 1 : -1) + l.length) % l.length]); }, { passive: true });
+addEventListener('wheel', e => { if (MK.on) { MK.sel = (MK.sel + (e.deltaY > 0 ? 1 : 2)) % 3; drawMark(); return; } if (G.state !== 'playing' || uiOpen() || !me.alive) return; const l = slotList(); const i = l.indexOf(me.cur); setCur(l[(i + (e.deltaY > 0 ? 1 : -1) + l.length) % l.length]); }, { passive: true });
 addEventListener('mousemove', e => {
   if (G.state !== 'playing' || isTouch || uiOpen()) return;
   if (locked) { look.dx += e.movementX * .0021; look.dy += e.movementY * .0021; }
@@ -1127,12 +1130,12 @@ canvas.addEventListener('mousedown', e => {
   if (!locked && !lockFailed) { requestLock(true); return; }
   if (kcActive()) { stopKillcam(); return; }
   if (!me.alive) { me.specIdx++; return; }
-  if (e.button === 1) { e.preventDefault(); doPing(); return; }
+  if (e.button === 1) { e.preventDefault(); markStart(); return; }
   if (kcActive()) { stopKillcam(); return; }
   if (wheelOpen) { toggleWheel(false); return; }
   if (e.button === 0) me.fireHeld = true; if (e.button === 2) { me.altHeld = true; onAlt(); }
 });
-addEventListener('mouseup', e => { if (isTouch) { if (e.button === 0 && !firePtrs.size && !me.autoFiring) me.fireHeld = false; return; } if (e.button === 0) me.fireHeld = false; if (e.button === 2) me.altHeld = false; });
+addEventListener('mouseup', e => { if (e.button === 1 && MK.on) markEnd(); if (isTouch) { if (e.button === 0 && !firePtrs.size && !me.autoFiring) me.fireHeld = false; return; } if (e.button === 0) me.fireHeld = false; if (e.button === 2) me.altHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 function onAlt() { const w = WEAPONS[me.cur]; if (!me.alive || !w || w.melee) return; if (w.scope) { if (me.drawT <= 0 && me.reloadT <= 0) { me.scoped = !me.scoped; me.altScope = false; if (me.scoped) { sNoise(.06, .2, 2600, 0, 0, 3); sTone(1900, .05, .05, 'sine', 2400, .03); } else { sNoise(.05, .16, 1800, 0, 0, 3); } } } }
 function canAds() { const w = WEAPONS[me.cur]; return !!(w && !w.melee && !w.scope && vm.cur && vm.cur.ads); }
@@ -1483,14 +1486,14 @@ function drawRadar() {
   rctx.fillStyle = TEAMC[1 - me.team]; for (const b of fakeBlips) { rctx.beginPath(); rctx.arc(b.x, b.z, 1.1, 0, 7); rctx.fill(); }
   for (const a of actors) {
     if (!a || a.id === me.id || !a.alive) continue; const mate = a.team === me.team;
-    if (!mate && t - a.seenT > 1.6 && !(a.flags & 1) && !(G.reveal > t)) continue;
+    if (!mate && t - a.seenT > 1.6 && !(a.flags & 1) && !(a.flags & (me.team === 0 ? 256 : 512)) && !(G.reveal > t)) continue;
     rctx.fillStyle = TEAMC[a.team]; rctx.beginPath(); rctx.arc(a.pos.x, a.pos.z, 1.1, 0, 7); rctx.fill();
     if (mate) { rctx.strokeStyle = TEAMC[a.team]; rctx.lineWidth = .4; rctx.beginPath(); rctx.moveTo(a.pos.x, a.pos.z); rctx.lineTo(a.pos.x - Math.sin(a.yaw) * 2.4, a.pos.z - Math.cos(a.yaw) * 2.4); rctx.stroke(); }
     if (mate && (a.flags & 4)) { rctx.fillStyle = '#f2b33d'; rctx.fillRect(a.pos.x - .5, a.pos.z + 1.3, 1, .7); }
   }
   rctx.restore();
   rctx.save(); rctx.translate(S, S); rctx.rotate(yaw); rctx.scale(sc, sc); rctx.translate(-cx, -cz);
-  for (const pg of pings) { const q = pingPos(pg); rctx.fillStyle = pg.e >= 0 ? '#ff4d3a' : '#f2b33d'; rctx.save(); rctx.translate(q.x, q.z); rctx.rotate(Math.PI / 4); rctx.fillRect(-1.1, -1.1, 2.2, 2.2); rctx.restore(); }
+  for (const pg of pings) { const q = pingPos(pg); rctx.fillStyle = { enemy: '#ff4d3a', killer: '#ff4d3a', hold: '#9fd8ff', dead: '#a29a88' }[pg.kind] || '#f2b33d'; rctx.save(); rctx.translate(q.x, q.z); rctx.rotate(Math.PI / 4); rctx.fillRect(-1.1, -1.1, 2.2, 2.2); rctx.restore(); }
   for (const a of actors) if (a && a.alive && a.team === me.team && a.radioT && nowS() - a.radioT < 2) { rctx.strokeStyle = '#f2b33d'; rctx.lineWidth = .5; rctx.beginPath(); rctx.arc(a.pos.x, a.pos.z, 2.2 + (nowS() - a.radioT) * 1.5, 0, 7); rctx.stroke(); }
   rctx.restore();
   rctx.save(); rctx.translate(S, S); rctx.fillStyle = '#f2f0e8'; rctx.beginPath(); rctx.moveTo(0, -8); rctx.lineTo(5.5, 6); rctx.lineTo(0, 2.5); rctx.lineTo(-5.5, 6); rctx.closePath(); rctx.fill(); rctx.restore();
@@ -1781,7 +1784,7 @@ function leaveToMenu() {
   try { history.replaceState(null, '', location.pathname); } catch (e) { }
   drawProfile(); loadRooms();
 }
-function openPause() { if (G.state !== 'playing') return; closeBuy(); $('#pause').hidden = false; me.fireHeld = false; me.altHeld = false; me.nadeArm = false; releaseLock(); }
+function openPause() { if (G.state !== 'playing') return; $('#tpRow').hidden = !G.comp; closeBuy(); $('#pause').hidden = false; me.fireHeld = false; me.altHeld = false; me.nadeArm = false; releaseLock(); }
 $('#resume').onclick = () => { $('#pause').hidden = true; blurUI(); requestLock(true); };
 confirmBtn($('#quit'), 'Confirmar: salir de la sala', () => leaveToMenu()); confirmBtn($('#toMenu'), 'Confirmar: salir de la sala', () => leaveToMenu());
 $('#copyBtn').onclick = async () => { const txt = $('#inviteUrl').textContent; try { await navigator.clipboard.writeText(txt); $('#copyBtn').textContent = 'Copiado'; setTimeout(() => $('#copyBtn').textContent = 'Copiar link', 1600); } catch (e) { const r = document.createRange(); r.selectNodeContents($('#inviteUrl')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $('#copyBtn').textContent = 'Selecciona y copia'; } };
@@ -1820,14 +1823,21 @@ function progressEvent(e) {
     case 'plant': if (e.v === me.id) { addXP(150, 'carga plantada'); progress('plant'); } break;
     case 'defused': if (e.v === me.id) { addXP(200, 'carga desactivada'); progress('defuse'); } break;
     case 'rend': if (e.w === me.team) { addXP(100, 'ronda ganada'); progress('rounds'); } break;
-    case 'mend': if (e.gg ? e.win === me.id : e.w === me.team) { addXP(500, 'partida ganada'); progress('win'); if (e.gg) progress('ggwin'); } progress('match'); break;
+    case 'mend': if (e.gg ? e.win === me.id : e.w === me.team) { addXP(500, 'partida ganada'); progress('win'); if (e.gg) progress('ggwin'); } progress('match'); if (e.comp && e.w !== -1) { const r0 = PC.rankOf(prof.rank), d = e.w === me.team ? 25 : -20; prof.rank = Math.max(0, (prof.rank || 0) + d); saveProf(); const r1 = PC.rankOf(prof.rank); xpPop((d > 0 ? '+' : '') + d + ' de rango' + (r1 !== r0 ? ' · ' + PC.RANKS[r1] : '')); } break;
     case 'lvl': if (e.v === me.id) addXP(40, 'nivel de arma'); break;
   }
+}
+function rankBadge(pts, size = 34) {
+  const i = PC.rankOf(pts), tier = i < 4 ? ['#b98a5a', '#5a3d22'] : i < 8 ? ['#e8c35c', '#6b4a12'] : ['#ff7a5a', '#5a1410'], n = i % 4 + 1;
+  let marks = ''; for (let k = 0; k < (i >= 8 ? 0 : n); k++) marks += `<path d="M10 ${28 - k * 5}l7-4 7 4" fill="none" stroke="${tier[0]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (i >= 8) marks = `<path d="M17 ${i === 9 ? 9 : 12}l2.4 5 5.4.6-4 3.7 1.1 5.3-4.9-2.8-4.9 2.8 1.1-5.3-4-3.7 5.4-.6z" fill="${tier[0]}"/>` + (i === 9 ? `<path d="M9 27h16" stroke="${tier[0]}" stroke-width="2.4" stroke-linecap="round"/>` : '');
+  return `<svg class="rkb" width="${size}" height="${size}" viewBox="0 0 34 34" role="img" aria-label="Rango ${PC.RANKS[i]}"><path d="M17 2l13 5v9c0 8-5.6 13.7-13 16-7.4-2.3-13-8-13-16V7z" fill="${tier[1]}" stroke="${tier[0]}" stroke-width="1.5"/>${marks}</svg>`;
 }
 function drawProfile() {
   if (!auth.me) { ensureDaily(); ensureWeekly(); } drawAccount(); const need = needXP(prof.lvl);
   const camos = [{ id: null, name: 'Sin camuflaje', lvl: 1 }].concat(PC.CAMOS);
-  $('#profBox').innerHTML = `<div class="prof"><div class="lvl"><b>${prof.lvl}</b><span>nivel</span></div><div class="xpw"><div class="small">${prof.xp} / ${need} de experiencia</div><div class="xpbar"><s style="width:${Math.min(100, prof.xp / need * 100)}%"></s></div></div></div>
+  const rk = prof.rank || 0, ri = PC.rankOf(rk);
+  $('#profBox').innerHTML = `<div class="rankRow">${rankBadge(rk)}<div><div class="lbl small">Rango competitivo</div><b>${PC.RANKS[ri]}</b><span class="small"> · ${ri >= PC.RANKS.length - 1 ? rk + ' puntos' : (rk % 100) + ' / 100 para ' + PC.RANKS[ri + 1]}</span></div><button type="button" class="go ghost sm" id="statsOpen">Estadísticas</button></div><div class="prof"><div class="lvl"><b>${prof.lvl}</b><span>nivel</span></div><div class="xpw"><div class="small">${prof.xp} / ${need} de experiencia</div><div class="xpbar"><s style="width:${Math.min(100, prof.xp / need * 100)}%"></s></div></div></div>
   <div class="invHead"><span class="lbl small">Camuflaje general (todas las armas)</span><span class="sqrow" style="margin:0"><button type="button" class="go ghost sm" id="passOpen">Pase de temporada</button><button type="button" class="go ghost sm" id="invOpen">Inventario de skins</button></span></div><div class="camos">${camos.map(c => { const lock = c.id ? camoLocked(c) : false; const sel = (prof.camo || null) === c.id; return `<button type="button" class="camo" data-c="${c.id || ''}" aria-pressed="${sel}" ${lock ? 'aria-disabled="true"' : ''} title="${c.name}${lock ? ' · ' + camoLockTxt(c) : ''}"><span class="sw" style="${c.id ? `background-image:url(${PCM.camoSwatch(c.id)})` : ''}"></span><span class="cn">${lock ? 'Nv ' + c.lvl : c.name}</span></button>`; }).join('')}</div>
   <div class="lbl small">Medallas · ${Object.keys(prof.medals || {}).length} de ${PC.MEDALS.length}</div><div class="medals">${PC.MEDALS.map(m => { const n = (prof.medals || {})[m.id] || 0; const ini = m.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); return `<div class="medal${n ? '' : ' off'}" title="${esc(m.name + ': ' + m.desc)}"><i style="background:${m.c}">${ini}</i><b>${esc(m.name)}</b>${n ? `<small>×${n}</small>` : `<span>${esc(m.desc)}</span>`}</div>`; }).join('')}</div>
   <div class="lbl small">Desafíos de hoy</div><div class="daily">${prof.ch.map(c => `<div class="ch${c.done ? ' done' : ''}"><span>${chText(c)}</span><b>${c.p}/${c.n}</b><i><s style="width:${c.p / c.n * 100}%"></s></i></div>`).join('')}</div>
@@ -1898,11 +1908,91 @@ async function restoreSession() {
   else if (r.error && !/conexión/.test(r.error)) { auth.token = null; try { localStorage.removeItem('pc2_tok'); } catch (e) { } }
 }
 
+/* ================= ESTADÍSTICAS PERSONALES: MAPA DE CALOR E HISTORIAL ================= */
+function heatAdd(e) {
+  if (G.mode === 'range' || me.id < 0) return; const H = prefs.heat || (prefs.heat = {}), M = H[CURMAP] || (H[CURMAP] = { d: [], k: [] });
+  if (e.v === me.id) M.d.push([+me.pos.x.toFixed(1), +me.pos.z.toFixed(1)]); else if (e.a === me.id && e.v !== me.id) M.k.push([+me.pos.x.toFixed(1), +me.pos.z.toFixed(1)]); else return;
+  if (M.d.length > 400) M.d.shift(); if (M.k.length > 400) M.k.shift(); savePrefs();
+}
+function histAdd(e) {
+  if (G.mode === 'range' || me.id < 0 || !e.st) return; const row = e.st.find(r => r[0] === me.id); const ro = (G.roster || []).find(r => r[0] === me.id); if (!row) return;
+  const rounds = (e.sc || [0, 0]).reduce((a, b) => a + b, 0) || 1, wk = (e.wk && e.wk[me.id]) || {};
+  const H = prefs.hist || (prefs.hist = []); H.unshift({ t: Date.now(), map: CURMAP, mode: G.comp ? 'comp' : G.mode, res: e.gg ? (e.win === me.id ? 'v' : 'd') : e.w === -1 ? 'e' : e.w === me.team ? 'v' : 'd', sc: e.sc, k: ro ? ro[3] : 0, d: ro ? ro[4] : 0, a: ro ? ro[5] : 0, dmg: row[1], adr: Math.round(row[1] / rounds), acc: row[5] ? Math.round(row[6] / row[5] * 100) : 0, hs: row[2] ? Math.round(row[4] / row[2] * 100) : 0,
+    w: Object.entries(wk).filter(([w]) => WEAPONS[w]).map(([w, v]) => [w, v[0], v[1], v[2]]) });
+  while (H.length > 20) H.pop(); savePrefs();
+}
+const MODE_TXT = { bomb: 'Con carga', elim: 'Sin carga', gg: 'Escalada', tdm: 'Por equipos', waves: 'Oleadas', comp: 'Competitivo' };
+function drawStats(tab) {
+  const el = $('#statsBody'); if (!el) return; tab = tab || drawStats.tab || 'hist'; drawStats.tab = tab; document.querySelectorAll('#statsTabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === tab));
+  const H = prefs.hist || [];
+  if (tab === 'hist') { el.innerHTML = H.length ? `<table class="hist"><tr><th>Resultado</th><th>Mapa</th><th>Modo</th><th>B/M/A</th><th>Daño/ronda</th><th>Precisión</th><th>Cabeza</th></tr>${H.map(h => `<tr><td class="r-${h.res}">${{ v: 'Victoria', d: 'Derrota', e: 'Empate' }[h.res]}${h.sc ? ' ' + h.sc.join('-') : ''}</td><td>${esc((MAPS[h.map] || {}).name || h.map)}</td><td>${MODE_TXT[h.mode] || h.mode}</td><td>${h.k}/${h.d}/${h.a}</td><td>${h.adr}</td><td>${h.acc}%</td><td>${h.hs}%</td></tr>`).join('')}</table>` : '<p class="small">Juega una partida y aquí aparecerán tus últimas 20.</p>'; return; }
+  if (tab === 'arms') { const agg = {}; for (const h of H) for (const [w, s, hi, k] of h.w || []) { const a = agg[w] || (agg[w] = [0, 0, 0, 0]); a[0] += s; a[1] += hi; a[2] += k; a[3]++; }
+    const rows = Object.entries(agg).sort((a, b) => b[1][2] - a[1][2] || b[1][0] - a[1][0]);
+    el.innerHTML = rows.length ? `<table class="hist"><tr><th>Arma</th><th>Partidas</th><th>Disparos</th><th>Precisión</th><th>Bajas</th></tr>${rows.map(([w, a]) => `<tr><td>${esc(WEAPONS[w].name)}</td><td>${a[3]}</td><td>${a[0]}</td><td>${a[0] ? Math.round(a[1] / a[0] * 100) : 0}%</td><td>${a[2]}</td></tr>`).join('')}</table>` : '<p class="small">Aún no hay datos de armas.</p>'; return; }
+  const map = drawStats.map || CURMAP || PC.MAP_IDS[0]; drawStats.map = map;
+  el.innerHTML = `<div class="seg" id="heatMaps">${PC.MAP_IDS.map(id => `<button type="button" data-m="${id}" aria-pressed="${id === map}">${esc(MAPS[id].name)}</button>`).join('')}</div><canvas id="heatCv" width="560" height="420"></canvas><div class="small"><span style="color:#ff4d3a">●</span> donde caíste · <span style="color:#8fd694">●</span> donde conseguiste bajas</div>`;
+  const cv = $('#heatCv'), x = cv.getContext('2d'), M = MAPS[map], [x0, z0, x1, z1] = M.bounds, sc = Math.min(cv.width / (x1 - x0), cv.height / (z1 - z0)) * .95, ox = (cv.width - (x1 - x0) * sc) / 2, oz = (cv.height - (z1 - z0) * sc) / 2;
+  const P = (px, pz) => [ox + (px - x0) * sc, oz + (pz - z0) * sc];
+  x.fillStyle = '#12161a'; x.fillRect(0, 0, cv.width, cv.height); x.fillStyle = 'rgba(233,220,192,.08)'; x.fillRect(ox, oz, (x1 - x0) * sc, (z1 - z0) * sc);
+  for (const [bx0, bz0, bx1, bz1, h, mat, y0] of M.boxes) { if ((y0 || 0) > 1.5) continue; const [a, b] = P(Math.min(bx0, bx1), Math.min(bz0, bz1)); x.fillStyle = h > 1.5 ? 'rgba(233,220,192,.32)' : 'rgba(233,220,192,.16)'; x.fillRect(a, b, Math.abs(bx1 - bx0) * sc, Math.abs(bz1 - bz0) * sc); }
+  for (const k in M.sites) { const [a, b] = P(...M.sites[k].c); x.fillStyle = '#ff6e50'; x.font = '700 16px system-ui'; x.fillText(k, a - 5, b + 6); }
+  const D = ((prefs.heat || {})[map]) || { d: [], k: [] }; x.globalCompositeOperation = 'lighter';
+  const blob = (pts, rgb) => { for (const [px, pz] of pts) { const [a, b] = P(px, pz), g = x.createRadialGradient(a, b, 0, a, b, 16); g.addColorStop(0, `rgba(${rgb},.55)`); g.addColorStop(1, `rgba(${rgb},0)`); x.fillStyle = g; x.fillRect(a - 16, b - 16, 32, 32); } };
+  blob(D.d, '255,77,58'); blob(D.k, '143,214,148'); x.globalCompositeOperation = 'source-over';
+  if (!D.d.length && !D.k.length) { x.fillStyle = '#a29a88'; x.font = '13px system-ui'; x.fillText('Aún no hay datos en este mapa', 20, 28); }
+  document.querySelectorAll('#heatMaps button').forEach(b => b.onclick = () => { drawStats.map = b.dataset.m; drawStats('heat'); });
+}
+document.addEventListener('click', e => { if (e.target.id === 'statsOpen') { $('#stats').hidden = false; drawStats(); drawRvList(); } const tb = e.target.closest('#statsTabs button'); if (tb) drawStats(tb.dataset.t); if (e.target.id === 'statsClose') $('#stats').hidden = true; });
+
+/* ================= VISOR DE REPETICIONES (rondas de tu última partida) ================= */
+const RV = { list: [], cur: null, on: false, r: null, t: 0, play: true, speed: 1, view: 'free', models: {}, yaw: .6, pitch: -.75, dist: 38, tgt: [0, 0], lastShot: 0, drag: null };
+function drawRvList() { const el = $('#rvList'); if (!el) return; el.innerHTML = RV.list.length ? RV.list.map((r, i) => `<button type="button" class="go ghost sm" data-rv="${i}">Ronda ${r.round} · ${esc((MAPS[r.map] || {}).name || '')} · ${r.kills.length} bajas</button>`).join('') : '<span class="small">Juega una partida: aquí quedan sus últimas 12 rondas para verlas desde cualquier jugador.</span>'; }
+document.addEventListener('click', e => { const b = e.target.closest('[data-rv]'); if (b) startReplay(+b.dataset.rv); });
+function startReplay(i) {
+  const R = RV.list[i]; if (!R || G.state === 'playing') { if (G.state === 'playing') toast('Las repeticiones se ven desde el menú, al salir de la partida'); return; }
+  $('#stats').hidden = true; $('#menu').hidden = true; if (CURMAP !== R.map) buildWorld(R.map);
+  for (const k in RV.models) scene.remove(RV.models[k].g); RV.models = {};
+  for (const id in R.frames[0].a) { const m = PCM.buildSoldier(R.teams[id] || 0, +id, { flashMat }); scene.add(m.g); RV.models[id] = m; }
+  const M = MAPS[R.map]; RV.tgt = [(M.bounds[0] + M.bounds[2]) / 2, (M.bounds[1] + M.bounds[3]) / 2];
+  RV.on = true; RV.r = R; RV.t = R.frames[0].t; RV.play = true; RV.view = 'free'; RV.lastShot = RV.t; $('#rv').hidden = false;
+  $('#rvView').innerHTML = '<option value="free">Cámara libre</option>' + Object.keys(R.frames[0].a).map(id => `<option value="${id}">${esc(R.names[id] || 'Jugador ' + id)} (${(R.teams[id] || 0) === 0 ? 'antiterroristas' : 'terroristas'})</option>`).join('');
+  const T0 = R.frames[0].t, T1 = R.frames[R.frames.length - 1].t; $('#rvSeek').max = (T1 - T0).toFixed(2); $('#rvSeek').value = 0;
+  $('#rvTicks').innerHTML = R.kills.map(k => `<i style="left:${((k.t - T0) / (T1 - T0) * 100).toFixed(2)}%" title="${esc(R.names[k.a] || '')} → ${esc(R.names[k.v] || '')}" class="t${R.teams[k.a] || 0}"></i>`).join('');
+  $('#rvTitle').textContent = `Ronda ${R.round} · ${(MAPS[R.map] || {}).name || ''}`;
+}
+function stopReplay() { RV.on = false; for (const k in RV.models) scene.remove(RV.models[k].g); RV.models = {}; $('#rv').hidden = true; $('#menu').hidden = false; }
+function rvState(t) { const F = RV.r.frames; let i = 0; while (i < F.length - 1 && F[i + 1].t <= t) i++; const p = F[i], b = F[Math.min(i + 1, F.length - 1)], k = b.t > p.t ? clamp((t - p.t) / (b.t - p.t), 0, 1) : 0, out = {};
+  for (const id in p.a) { const A = p.a[id], B = b.a[id] || A; out[id] = { x: lerp(A[0], B[0], k), y: lerp(A[1], B[1], k), z: lerp(A[2], B[2], k), yaw: A[3] + angDiff(A[3], B[3]) * k, pitch: lerp(A[4], B[4], k), h: lerp(A[5], B[5], k), alive: A[6], cur: A[7] }; } return out; }
+function rvRender(dt) {
+  const R = RV.r, T0 = R.frames[0].t, T1 = R.frames[R.frames.length - 1].t;
+  if (RV.play) { RV.t = Math.min(T1, RV.t + dt * RV.speed); if (RV.t >= T1) RV.play = false; $('#rvSeek').value = (RV.t - T0).toFixed(2); $('#rvPlay').textContent = RV.play ? 'Pausa' : 'Reproducir'; }
+  const st = rvState(RV.t), st2 = rvState(RV.t - .1);
+  for (const id in RV.models) { const m = RV.models[id], s = st[id]; if (!s || !s.alive) { m.g.visible = false; continue; } const s0 = st2[id] || s, spd = Math.hypot(s.x - s0.x, s.z - s0.z) / .1;
+    m.g.visible = RV.view !== id; m.g.position.set(s.x, s.y, s.z); m.g.rotation.y = s.yaw; m.ph = (m.ph || 0) + dt * spd * 2.2 * RV.speed; m.animate(spd, m.ph, clamp((1.8 - s.h) / .58, 0, 1), s.pitch); m.setGun(s.cur); m.flash.visible = false; }
+  for (const sh of R.shots) { if (sh.t <= RV.lastShot || sh.t > RV.t) continue; const m = RV.models[sh.s]; if (!m || !m.g.visible) continue; const from = new THREE.Vector3(); m.muzzle.getWorldPosition(from); tracer(from, new THREE.Vector3(sh.e[0], sh.e[1], sh.e[2])); m.flash.visible = true; }
+  for (const k of R.kills) if (k.t > RV.lastShot && k.t <= RV.t) toast(`${R.names[k.a] || '—'} eliminó a ${R.names[k.v] || '—'}${k.h ? ' (a la cabeza)' : ''}`);
+  RV.lastShot = RV.t;
+  const v = RV.view !== 'free' ? st[RV.view] : null;
+  if (v && v.alive) { camera.position.set(v.x, v.y + v.h - .12, v.z); camera.rotation.set(v.pitch, v.yaw, 0); }
+  else { const cy = Math.cos(RV.pitch), [tx, tz] = RV.tgt; camera.position.set(tx + Math.sin(RV.yaw) * cy * RV.dist, Math.max(3, -Math.sin(RV.pitch) * RV.dist), tz + Math.cos(RV.yaw) * cy * RV.dist); camera.lookAt(tx, 0, tz); }
+  if (camera.fov !== 70) { camera.fov = 70; camera.updateProjectionMatrix(); }
+}
+// controles del visor: arrastrar para girar, rueda para acercar, WASD para mover la cámara libre
+renderer.domElement.addEventListener('pointerdown', e => { if (RV.on) RV.drag = [e.clientX, e.clientY]; });
+addEventListener('pointerup', () => { RV.drag = null; });
+addEventListener('pointermove', e => { if (!RV.on || !RV.drag) return; RV.yaw -= (e.clientX - RV.drag[0]) * .006; RV.pitch = clamp(RV.pitch - (e.clientY - RV.drag[1]) * .005, -1.45, -.15); RV.drag = [e.clientX, e.clientY]; });
+addEventListener('wheel', e => { if (RV.on) RV.dist = clamp(RV.dist * (e.deltaY > 0 ? 1.1 : .9), 6, 90); }, { passive: true });
+addEventListener('keydown', e => { if (!RV.on) return; const s = 2.2, f = [-Math.sin(RV.yaw), -Math.cos(RV.yaw)]; if (e.code === 'KeyW') { RV.tgt[0] += f[0] * s; RV.tgt[1] += f[1] * s; } if (e.code === 'KeyS') { RV.tgt[0] -= f[0] * s; RV.tgt[1] -= f[1] * s; } if (e.code === 'KeyA') { RV.tgt[0] += f[1] * s; RV.tgt[1] -= f[0] * s; } if (e.code === 'KeyD') { RV.tgt[0] -= f[1] * s; RV.tgt[1] += f[0] * s; } if (e.code === 'Space') { RV.play = !RV.play; e.preventDefault(); } if (e.code === 'Escape') stopReplay(); });
+
 /* ================= REPETICIÓN DE LA BAJA ================= */
 const rec = [], recShots = []; const REC0 = rec; let kc = null, meModel = null; const spec = { id: -1, yaw: 0, pitch: 0, x: 0, y: 0, z: 0 };
 function recordSnap(m, t) {
   const fr = { t, a: {} }; for (const r of m.a) fr.a[r[0]] = [r[1], r[2], r[3], r[4], r[5], r[6], r[8], r[9], r[7]];
   rec.push(fr); while (rec.length && t - rec[0].t > 7) rec.shift();
+  if (G.mode !== 'range') { let R = RV.cur; if (!R || R.round !== m.rd) { if (R && R.frames.length > 20) { RV.list.push(R); while (RV.list.length > 12) RV.list.shift(); } R = RV.cur = { round: m.rd, map: CURMAP, frames: [], shots: [], kills: [], names: {}, teams: {} }; }
+    if (!R.lastT || t - R.lastT >= .12) { R.lastT = t; R.frames.push(fr); }
+    for (const e of m.ev) { if (e.k === 'shot') R.shots.push({ t, s: e.s, e: e.e, w: e.w, hit: e.hit }); else if (e.k === 'kill') R.kills.push({ t, a: e.a, v: e.v, w: e.w, h: e.h }); }
+    for (const r of m.a) if (!R.names[r[0]] && actors[r[0]]) { R.names[r[0]] = actors[r[0]].name; R.teams[r[0]] = actors[r[0]].team; } }
   for (const e of m.ev) if (e.k === 'shot') recShots.push({ t, s: e.s, e: e.e, w: e.w, hit: e.hit });
   while (recShots.length && t - recShots[0].t > 7) recShots.shift();
 }
@@ -2030,13 +2120,17 @@ function drawWheel() { $('#radioWheel').innerHTML = PC.RADIO.map((r, i) => `<but
 $('#radioWheel').addEventListener('pointerdown', e => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); e.stopPropagation(); sendRadio(+b.dataset.c); });
 function toggleWheel(on) { wheelOpen = on === undefined ? !wheelOpen : !!on; if (wheelOpen && (G.state !== 'playing' || chatOpen)) wheelOpen = false; $('#radioWheel').hidden = !wheelOpen; }
 function sendRadio(i) { sendMsg({ t: 'radio', c: i }); toggleWheel(false); }
-function doPing() {
+const MK = { on: false, sel: 0 }, MK_L = [['enemy', 'Enemigo aquí'], ['go', 'Voy por aquí'], ['hold', 'Cubre esta zona']];
+function markStart() { if (!me.alive || G.state !== 'playing') return; const o = [camera.position.x, camera.position.y, camera.position.z], r = traceShot(o, aimDir(me.punchP, 0, 0), 140); MK.on = true; MK.sel = r.hit ? 0 : 1; drawMark(); }
+function drawMark() { const el = $('#markSel'); if (!el) return; el.hidden = !MK.on; el.innerHTML = MK_L.map((m, i) => `<span class="${i === MK.sel ? 'on' : ''} k-${m[0]}">${m[1]}</span>`).join('') + '<small>Rueda para cambiar · suelta para marcar</small>'; }
+function markEnd() { MK.on = false; drawMark(); doPing(MK_L[MK.sel][0]); }
+function doPing(kind) {
   if (!me.alive || G.state !== 'playing') return; const o = [camera.position.x, camera.position.y, camera.position.z]; const d = aimDir(me.punchP, 0, 0); const r = traceShot(o, d, 140);
-  sendMsg({ t: 'ping', p: [o[0] + d[0] * r.t, o[1] + d[1] * r.t, o[2] + d[2] * r.t].map(v => +v.toFixed(2)), e: r.hit ? r.hit.id : null });
+  sendMsg({ t: 'ping', p: [o[0] + d[0] * r.t, o[1] + d[1] * r.t, o[2] + d[2] * r.t].map(v => +v.toFixed(2)), e: r.hit && kind !== 'go' && kind !== 'hold' ? r.hit.id : null, kind: kind || null });
 }
 function addPing(e) {
-  const el = document.createElement('div'); el.className = 'ping' + (e.e >= 0 ? ' enemy' : ''); el.innerHTML = '<i></i><span></span>'; $('#tags').appendChild(el);
-  pings.push({ p: e.p, e: e.e, by: e.v, until: nowS() + (e.e >= 0 ? 4 : 6), el }); while (pings.length > 6) pings.shift().el.remove();
+  const kind = e.kind || (e.e >= 0 ? 'enemy' : 'go'); const el = document.createElement('div'); el.className = 'ping k-' + kind + (e.e >= 0 ? ' enemy' : ''); el.innerHTML = '<i></i><span></span>'; $('#tags').appendChild(el);
+  pings.push({ p: e.p, e: e.e, by: e.v, kind, until: nowS() + ({ enemy: 4, go: 6, hold: 8, dead: 9, killer: 5 }[kind] || 5), el }); while (pings.length > 8) pings.shift().el.remove(); if (kind === 'dead' || kind === 'killer') return;
   sTone(1500, .05, .12, 'sine'); sTone(1900, .07, .12, 'sine', 0, .06);
 }
 function pingPos(pg) { const a = pg.e >= 0 ? actors[pg.e] : null; if (a && a.alive && (nowS() - a.seenT < 1.5 || pg.until - nowS() > 3)) return { x: a.pos.x, y: a.pos.y + a.h + .2, z: a.pos.z }; return { x: pg.p[0], y: pg.p[1] + .3, z: pg.p[2] }; }
@@ -2045,7 +2139,7 @@ function drawPings(t) {
     const pg = pings[i]; if (t > pg.until) { pg.el.remove(); pings.splice(i, 1); continue; }
     const q = pingPos(pg); _p.set(q.x, q.y, q.z).project(camera); const vis = _p.z < 1 && _p.z > -1;
     pg.el.style.display = vis ? 'block' : 'none'; if (!vis) continue;
-    const d = Math.round(Math.hypot(q.x - camera.position.x, q.z - camera.position.z)); const txt = (pg.e >= 0 ? 'Enemigo · ' : '') + d + ' m';
+    const d = Math.round(Math.hypot(q.x - camera.position.x, q.z - camera.position.z)); const txt = ({ enemy: 'Enemigo · ', go: 'Voy · ', hold: 'Cubre · ', dead: (actors[pg.by] ? actors[pg.by].name : 'Compañero') + ' cayó · ', killer: 'Lo eliminó · ' }[pg.kind] || '') + d + ' m';
     if (pg.el._t !== txt) { pg.el._t = txt; pg.el.lastChild.textContent = txt; }
     pg.el.style.transform = `translate(${(_p.x * .5 + .5) * innerWidth}px,${(-_p.y * .5 + .5) * innerHeight}px) translate(-50%,-100%)`; pg.el.style.opacity = Math.min(1, (pg.until - t) / .8);
   }
@@ -2765,9 +2859,10 @@ function frame(now) {
     if (me.alive && me.scopeK > .5) { const tt = nowS(), mv = Math.min(1, Math.hypot(me.vel.x, me.vel.z) / 3); camera.rotation.x += Math.sin(tt * 1.3) * .0012 * (1 + mv * 4); camera.rotation.y += Math.sin(tt * .9) * .0014 * (1 + mv * 4); }
     updateVM(dt); updateRange(dt); updateHUD(dt); radarT += dt; if (radarT >= .05) { radarT = 0; drawRadar(); }
   } else {
+    if (RV.on) { rvRender(dt); updateFx(dt); animSmokes(); } else {
     menuT += dt * .04; const M = MAPS[CURMAP]; const cx = (M.bounds[0] + M.bounds[2]) / 2, cz = (M.bounds[1] + M.bounds[3]) / 2;
     camera.position.set(cx + Math.cos(menuT) * 34, 16, cz + Math.sin(menuT) * 26); camera.lookAt(cx, 1.5, cz); if (camera.fov !== 60) { camera.fov = 60; camera.updateProjectionMatrix(); }
-    animSmokes();
+    animSmokes(); }
   }
   sky.position.copy(camera.position); PCM.tickCamo(now * .001);
   const shOn = G.state !== 'playing' ? updateShowcase(dt) : (SHOW.g && (SHOW.g.visible = false), false); if (shOn) vm.group.visible = false;
@@ -2827,7 +2922,11 @@ function updateVM(dt) {
   g.g.rotation.set(rx + (vm.kick * .05 + vm.swY * .05) * calm + reloadK * .55 + (isKnife ? 0 : draw * -.6) + vm.swing * -.6, ry + vm.swing * 1.2 + vm.swX * .08 * calm, rz + reloadK * -.35 + vm.swing * .3 + (vm.swX * .05 - (me.roll || 0) * 1.5) * calm);
   vm.flashT = (vm.flashT || 0) - dt; g.flash.visible = vm.flashT > 0; g.flash.material.rotation = Math.random() * 6; g.light.intensity = vm.flashT > 0 ? 3 : 0;
 }
+$('#rvClose').onclick = stopReplay; $('#rvPlay').onclick = () => { const R = RV.r; if (!RV.play && RV.t >= R.frames[R.frames.length - 1].t) RV.t = R.frames[0].t; RV.play = !RV.play; };
+$('#rvSeek').oninput = e => { RV.t = RV.r.frames[0].t + +e.target.value; RV.lastShot = RV.t; }; $('#rvView').onchange = e => { RV.view = e.target.value; };
+$('#rvSpeed').onchange = e => { RV.speed = +e.target.value; };
+$('#tpBtn').onclick = () => { sendMsg({ t: 'tpause' }); };
 drawProfile(); restoreSession();
-if (/[?&]debug=1/.test(location.search)) window.__pc = { me, vm, applyCond, buildWorld, renderer, applyGfx, RG, rangeOnHit, rangeEnd, net, get kc() { return kc; }, addFeed, startFinalKill, LIFE, gyro: () => ({ gyroOk, gyroSeen, gyroSrc, mode: prefs.mc.gyro, state: G.state, he: HE.on, act: gyroActive() }) };
+if (/[?&]debug=1/.test(location.search)) window.__pc = { me, vm, applyCond, buildWorld, renderer, applyGfx, RG, rangeOnHit, rangeEnd, net, get kc() { return kc; }, addFeed, startFinalKill, LIFE, RV, startReplay, stopReplay, drawStats, leaveToMenu, gyro: () => ({ gyroOk, gyroSeen, gyroSrc, mode: prefs.mc.gyro, state: G.state, he: HE.on, act: gyroActive() }) };
 requestAnimationFrame(frame);
 })();

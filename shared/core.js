@@ -135,7 +135,7 @@
       case 'medal': if (e.v === id) { const md = MEDALS.find(x => x.id === e.m); if (md) out.push({ n: md.xp, why: 'medalla ' + md.name, ch: [], medal: md.id }); } break;
       case 'defused': if (e.v === id) out.push({ n: 200, why: 'carga desactivada', ch: ['defuse'] }); break;
       case 'rend': if (e.w === team) out.push({ n: 100, why: 'ronda ganada', ch: ['rounds'] }); break;
-      case 'mend': if (e.gg ? e.win === id : e.w === team) out.push({ n: 500, why: 'partida ganada', ch: e.gg ? ['ggwin', 'win'] : ['win'], stat: 'wins' }); out.push({ n: 0, why: '', ch: ['match'], stat: 'matches' }); break;
+      case 'mend': if (e.gg ? e.win === id : e.w === team) out.push({ n: 500, why: 'partida ganada', ch: e.gg ? ['ggwin', 'win'] : ['win'], stat: 'wins' }); out.push({ n: 0, why: '', ch: ['match'], stat: 'matches' }); if (e.comp) out.push({ n: 0, why: '', ch: [], rank: e.w === -1 ? 0 : e.w === team ? 25 : -20 }); break;
       case 'lvl': if (e.v === id) out.push({ n: 40, why: 'nivel de arma', ch: [] }); break;
     }
     return out;
@@ -158,6 +158,9 @@
   ];
   const ORDERS = { follow: 'Síganme', regroup: 'Reagrúpense', wait: 'Esperen aquí', holdA: 'Cubran el sitio A', holdB: 'Cubran el sitio B', push: 'Avancen', smoke: 'Tiren humo' };
   const TEAM_SIZE = 5; // 5 contra 5
+  // Rangos competitivos: 100 puntos por insignia; ganar suma 25, perder resta 20, empatar no cambia
+  const RANKS = ['Recluta', 'Cabo', 'Sargento', 'Teniente', 'Capitán', 'Mayor', 'Coronel', 'General', 'Élite', 'Leyenda de Ceniza'];
+  const rankOf = pts => Math.min(RANKS.length - 1, Math.floor(Math.max(0, pts || 0) / 100));
   const BOT_NAMES = [['Vega', 'Ríos', 'Tano', 'Brea', 'Soto'], ['Krell', 'Mazur', 'Osei', 'Duarte', 'Varga']];
   const TEAMS = [{ name: 'Halcón' }, { name: 'Cobra' }];
 
@@ -539,7 +542,7 @@
   /* ================= SALA ================= */
   const WAVE_REVIVE = 8;
   // Partidas personalizadas: reglas por sala (se validan aquí)
-  const RULE_OPTS = { rounds: [3, 5, 7, 9], time: [60, 90, 115, 150], money: [800, 2000, 4000, 10000, 16000], arms: ['all', 'pistolas', 'franco', 'escopetas', 'cuchillo'], bots: [1, 0], ff: [0, 1] };
+  const RULE_OPTS = { rounds: [3, 5, 7, 9, 24], time: [60, 90, 115, 150], money: [800, 2000, 4000, 10000, 16000], arms: ['all', 'pistolas', 'franco', 'escopetas', 'cuchillo'], bots: [1, 0], ff: [0, 1] };
   const RULES_DEF = { rounds: 5, time: 115, money: 800, arms: 'all', bots: 1, ff: 0 };
   const ARMS_OK = { all: () => true, pistolas: w => w.slot === 2, franco: w => w.slot === 2 || !!w.scope, escopetas: w => w.slot === 2 || !!w.pellets, cuchillo: () => false };
   function cleanRules(r) { const o = Object.assign({}, RULES_DEF); if (r && typeof r === 'object') for (const k in RULE_OPTS) { const v = typeof RULES_DEF[k] === 'number' ? Number(r[k]) : r[k]; if (RULE_OPTS[k].includes(v)) o[k] = v; } return o; }
@@ -562,7 +565,8 @@
       this.mapId = opts.mode === 'range' ? 'poligono' : has(MAPS, opts.map) && !MAPS[opts.map].hidden ? opts.map : MAP_IDS[(Math.random() * MAP_IDS.length) | 0];
       this.W = new World(this.mapId); this.M = this.W.map;
       this.isPublic = opts.isPublic !== false;
-      this.mode = ['elim', 'gg', 'tdm', 'range', 'waves'].includes(opts.mode) ? opts.mode : 'bomb';
+      this.comp = opts.mode === 'comp'; if (this.comp) opts.rules = { rounds: 24, time: 115, money: 800, arms: 'all', bots: 1, ff: 0 };
+      this.mode = ['elim', 'gg', 'tdm', 'range', 'waves'].includes(opts.mode) ? opts.mode : 'bomb'; this.pauses = [2, 2]; this.pausePending = null;
       this.reveal = [0, 0]; this.brk = []; this.brkT = 0;
       this.rules = cleanRules(opts.rules); this.R = Object.assign({}, ROUND, { total: this.rules.rounds, half: Math.floor(this.rules.rounds / 2), win: Math.floor(this.rules.rounds / 2) + 1, live: this.rules.time });
       this.clients = new Map(); this.onSend = () => { }; this.onBroadcast = () => { };
@@ -591,7 +595,7 @@
       return { st, mvp, wk };
     }
     ev(e) {
-      if (e.k === 'kill') { this.hlKill(e); this.statKill(e); } else if (e.k === 'defused') { this.hlDefuse(e); this.medal(this.actors[e.v], 'desactivador'); } else if (e.k === 'mend') { e.hl = this.hl || null; Object.assign(e, this.matchStats()); }
+      if (e.k === 'kill') { this.hlKill(e); this.statKill(e); const v = this.actors[e.v], k = this.actors[e.a]; if (v && this.mode !== 'range') { this.events.push({ k: 'ping', v: v.id, tm: v.team, p: [r2(v.pos.x), r2(v.pos.y), r2(v.pos.z)], e: -1, kind: 'dead' }); if (k && k.team !== v.team) this.events.push({ k: 'ping', v: v.id, tm: v.team, p: [r2(k.pos.x), r2(k.pos.y), r2(k.pos.z)], e: k.id, kind: 'killer' }); } } else if (e.k === 'defused') { this.hlDefuse(e); this.medal(this.actors[e.v], 'desactivador'); } else if (e.k === 'mend') { e.hl = this.hl || null; Object.assign(e, this.matchStats()); }
       this.events.push(e);
     }
     /* --- jugada de la partida: la de mayor puntaje se repite al final --- */
@@ -775,12 +779,13 @@
     }
     startRound() {
       this.round++;
-      if (this.round === this.R.half + 1) {
-        this.swap = true; this.lossStreak = { atk: 0, def: 0 };
-        for (const a of this.actors) { this.resetLoadout(a, true); a.money = this.rules.money; }
+      if (this.round === this.R.half + 1 || this.round === this.R.otSwap) {
+        this.swap = !this.swap; this.lossStreak = { atk: 0, def: 0 };
+        for (const a of this.actors) { this.resetLoadout(a, true); a.money = this.R.ot ? 10000 : this.rules.money; }
         this.ev({ k: 'half' });
-      }
-      this.phase = 'buy'; this.phaseEnd = this.now + (this.round === 1 || this.round === this.R.half + 1 ? ROUND.buyFirst : ROUND.buy);
+      } else if (this.round === this.R.otStart) { this.lossStreak = { atk: 0, def: 0 }; for (const a of this.actors) { this.resetLoadout(a, true); a.money = 10000; } this.ev({ k: 'ot', n: this.R.ot }); }
+      this.phase = 'buy'; this.phaseEnd = this.now + (this.round === 1 || this.round === this.R.half + 1 || this.round === this.R.otStart || this.round === this.R.otSwap ? ROUND.buyFirst : ROUND.buy);
+      if (this.pausePending !== null) { this.phaseEnd += 30; this.ev({ k: 'tpauseon', tm: this.pausePending }); this.pausePending = null; }
       this.drops = []; this.nades = []; this.smokes = []; this.fires = []; this.decoys = []; this.liveStart = 1e9; this.reveal = [0, 0]; this.restoreBreakables(true);
       this.fb = false;
       for (const a of this.actors) {
@@ -825,9 +830,10 @@
         this.give(a, m);
       }
       this.phase = 'post'; this.phaseEnd = this.now + ROUND.post;
-      const over = this.scores[wt] >= this.R.win || this.round >= this.R.total;
+      let over = this.scores[wt] >= this.R.win || this.round >= this.R.total;
+      if (over && this.comp && this.scores[0] === this.scores[1]) { over = false; this.R.ot = (this.R.ot || 0) + 1; this.R.otStart = this.round + 1; this.R.otSwap = this.round + 4; this.R.total = this.round + 6; this.R.win = this.scores[0] + 4; }
       this.ev({ k: 'rend', w: wt, side: winSide, why: reason, sc: this.scores.slice(), over: over ? 1 : 0 });
-      if (over) { this.phase = 'over'; this.phaseEnd = this.now + ROUND.over; const win = this.scores[0] === this.scores[1] ? -1 : (this.scores[0] > this.scores[1] ? 0 : 1); this.ev({ k: 'mend', w: win, sc: this.scores.slice(), t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); }
+      if (over) { this.phase = 'over'; this.phaseEnd = this.now + ROUND.over; const win = this.scores[0] === this.scores[1] ? -1 : (this.scores[0] > this.scores[1] ? 0 : 1); this.ev({ k: 'mend', w: win, sc: this.scores.slice(), comp: this.comp ? 1 : 0, t: ROUND.over, next: this.rotate !== false ? this.nextMapId() : this.mapId }); }
       this.rosterDirty = true;
     }
     give(a, m) { a.money = clamp(a.money + m, 0, MONEY.max); a.pdirty = true; }
@@ -951,7 +957,12 @@
         case 'ping': {
           if (!a.alive || !Array.isArray(m.p) || this.now - (a.pingT === undefined ? -9 : a.pingT) < .6) return; a.pingT = this.now;
           const e = typeof m.e === 'number' && this.actors[m.e | 0] && this.actors[m.e | 0].team !== a.team ? m.e | 0 : -1;
-          this.ev({ k: 'ping', v: a.id, tm: a.team, p: [r2(num(m.p[0])), r2(num(m.p[1])), r2(num(m.p[2]))], e }); break;
+          const kind = ['go', 'hold'].includes(m.kind) && e < 0 ? m.kind : e >= 0 ? 'enemy' : 'go';
+          this.ev({ k: 'ping', v: a.id, tm: a.team, p: [r2(num(m.p[0])), r2(num(m.p[1])), r2(num(m.p[2]))], e, kind }); break;
+        }
+        case 'tpause': {
+          if (!this.comp || !a.human || this.phase === 'over') return; const tm = a.team;
+          if (this.pausePending !== null || this.pauses[tm] <= 0) return; this.pauses[tm]--; this.pausePending = tm; this.ev({ k: 'tpause', tm, left: this.pauses[tm] }); break;
         }
       }
     }
@@ -1466,8 +1477,14 @@
     }
 
     /* ================= CICLO ================= */
+    spotting() {
+      for (const t of this.actors) { if (!t.alive) continue; const k = t.team ? 'spot0' : 'spot1';
+        for (const o of this.actors) { if (!o.alive || o.team === t.team) continue; const dx = t.pos.x - o.pos.x, dz = t.pos.z - o.pos.z, d = Math.hypot(dx, dz); if (d > 60) continue;
+          const ang = Math.atan2(-dx, -dz), df = Math.abs(((ang - o.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (df > 1.0) continue;
+          if (this.W.visible(eyeOf(o), [t.pos.x, t.pos.y + t.h * .7, t.pos.z], this.smokes)) { t[k] = this.now; break; } } }
+    }
     tick(dt) {
-      this.dt = dt; this.now += dt; this.tickN++;
+      this.dt = dt; this.now += dt; this.tickN++; if (this.tickN % 5 === 0 && this.mode !== 'range') this.spotting();
       if (this.now >= this.phaseEnd) {
         if (this.phase === 'buy') { this.phase = 'live'; this.phaseEnd = this.now + this.R.live; this.liveStart = this.now; this.ev({ k: 'live' }); if (this.mode === 'waves') this.beginWave(); }
         else if (this.phase === 'live') {
@@ -1513,7 +1530,7 @@
         t: 's', ph: this.phase, pt: r2(Math.max(0, this.phaseEnd - this.now)), rd: this.round, sc: this.scores, s0: this.side(0),
         b: [B.st, B.x, B.y, B.z, B.by, B.st === 'planted' ? r2(B.explodeAt - this.now) : 0, r2(B.pp / ROUND.plant), B.dneed ? r2(B.dp / B.dneed) : 0, B.site || ''],
         a: this.actors.map(a => [a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Math.round(a.yaw * 1000) / 1000, r2(a.pitch), r2(a.h), Math.ceil(Math.max(0, a.hp)), a.alive ? 1 : 0, a.cur,
-          ((this.now - a.firedAt < 1.5) ? 1 : 0) | (a.walking ? 2 : 0) | ((B.st === 'carried' && B.by === a.id) ? 4 : 0) | ((B.planter === a.id || B.defuser === a.id) ? 8 : 0) | (this.now < a.blindUntil ? 16 : 0) | (a.armor > 0 ? 32 : 0) | (a.kit ? 64 : 0) | (a.helmet ? 128 : 0),
+          ((this.now - a.firedAt < 1.5) ? 1 : 0) | (a.walking ? 2 : 0) | ((B.st === 'carried' && B.by === a.id) ? 4 : 0) | ((B.planter === a.id || B.defuser === a.id) ? 8 : 0) | (this.now < a.blindUntil ? 16 : 0) | (a.armor > 0 ? 32 : 0) | (a.kit ? 64 : 0) | (a.helmet ? 128 : 0) | (this.now - (a.spot0 || -9) < .45 ? 256 : 0) | (this.now - (a.spot1 || -9) < .45 ? 512 : 0),
           r2(a.vel.x), r2(a.vel.z), r2(a.lean || 0)]),
         g: this.nades.map(g => [g.id, g.k, r2(g.p.x), r2(g.p.y), r2(g.p.z)]),
         sm: this.smokes.map(s => [s.id, r2(s.x), r2(s.z), r2(s.until - this.now)]),
@@ -1529,5 +1546,5 @@
     roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '']) }; }
   }
 
-  return { TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { RANKS, rankOf, TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });

@@ -465,6 +465,23 @@ tr.dead td{opacity:.5}
 .tbr.dead{opacity:.45}.tbr .mono{font-family:var(--f-mono);color:var(--money)}
 .tbs{font-size:11px;padding:1px 6px;border-radius:2px;border:1px solid var(--line)}.tbs.ok{color:var(--ok)}.tbs.mid{color:var(--amber)}.tbs.low{color:var(--dim)}
 .sprst{margin:4px 0 6px}
+
+#markSel{position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:90vw;pointer-events:none}
+#markSel span{background:var(--panel);border:1px solid var(--line);padding:4px 10px;border-radius:2px;font-size:13px;opacity:.6}
+#markSel span.on{opacity:1;border-color:var(--amber);color:#fff}#markSel small{width:100%;text-align:center;font-size:11px;color:var(--dim)}
+.ping.k-go{color:var(--amber)}.ping.k-hold{color:#9fd8ff}.ping.k-hold i{background:rgba(159,216,255,.25);border-radius:50%;transform:none}
+.ping.k-dead{color:#c9c2b0}.ping.k-dead i{border:0;background:none;transform:none;position:relative}.ping.k-dead i::before,.ping.k-dead i::after{content:"";position:absolute;left:5px;top:-1px;width:2px;height:14px;background:currentColor;transform:rotate(45deg)}.ping.k-dead i::after{transform:rotate(-45deg)}
+.ping.k-killer{color:var(--bad)}
+.rankRow{display:flex;align-items:center;gap:12px;margin-bottom:10px}.rankRow b{font-size:16px}.rankRow button{margin-left:auto}
+.statsBox{width:min(760px,96vw)}.hist{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}.hist th{text-align:left;font-size:11px;color:var(--dim);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line)}.hist td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.05)}
+.r-v{color:var(--ok)}.r-d{color:var(--bad)}.r-e{color:var(--dim)}
+#heatCv{width:100%;max-width:560px;height:auto;display:block;margin:8px 0;border-radius:3px}
+#heatMaps{flex-wrap:wrap}
+#rv{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px max(16px,2vw) calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(0deg,rgba(9,11,13,.92),rgba(9,11,13,.6) 70%,transparent)}
+.rvBar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}.rvBar select{background:var(--panel);color:var(--sand);border:1px solid var(--line);padding:4px}
+.rvTime{position:relative;width:100%}.rvTime input{width:100%;accent-color:var(--amber)}
+#rvTicks{position:absolute;left:0;right:0;top:-4px;height:8px;pointer-events:none}#rvTicks i{position:absolute;width:3px;height:10px;margin-left:-1px;background:var(--amber)}#rvTicks i.t0{background:var(--t0)}#rvTicks i.t1{background:var(--t1)}
+.rkb{flex:none}
 </style>
 </head>
 <body>
@@ -487,6 +504,7 @@ tr.dead td{opacity:.5}
     <canvas id="radar" width="340" height="340"></canvas>
     <div id="zoneTag" class="lbl"></div>
     <div id="feed"></div>
+    <div id="markSel" hidden></div>
     <canvas id="sprayPad" width="220" height="260" hidden aria-label="Práctica de spray"></canvas>
     <div id="xh"><i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i></div>
     <div id="adsDot" aria-hidden="true"></div>
@@ -559,7 +577,7 @@ tr.dead td{opacity:.5}
           <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
         </div>
         <div class="sec"><div class="lbl">Modo (salas nuevas)</div>
-          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button><button type="button" data-v="waves">Oleadas (cooperativo)</button></div>
+          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button><button type="button" data-v="waves">Oleadas (cooperativo)</button><button type="button" data-v="comp">Competitivo · 24 rondas</button></div>
         </div>
       </div>
       <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Escalada de armas: cada baja te da un arma nueva y reapareces al instante; gana quien llegue al cuchillo y mate con él.</div>
@@ -648,6 +666,7 @@ tr.dead td{opacity:.5}
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <div class="sec mctl" data-mctl="2" hidden></div>
+      <div class="sec" id="tpRow" hidden><div class="lbl small">Competitivo</div><button type="button" class="go ghost sm" id="tpBtn">Pedir pausa táctica (30 s)</button><span class="small"> · 2 por equipo; empieza con la próxima compra</span></div>
       <div class="sec" id="tmodeRow" hidden><button type="button" class="btn small" id="tmodeBtn">Usar controles táctiles</button></div>
       <label class="sec sens" for="sens2"><span class="lbl small">Sensibilidad</span><input id="sens2" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
       <div class="btns"><button class="go ghost" id="hudEdit2" type="button">Configurar HUD</button><button class="go" id="resume" type="button">Volver al juego</button><button class="go ghost" id="quit" type="button">Salir de la sala</button></div>
@@ -676,6 +695,21 @@ tr.dead td{opacity:.5}
     </div>
   </div>
 
+  <div id="stats" class="ov" hidden>
+    <div class="box statsBox" role="dialog" aria-label="Estadísticas">
+      <div class="invTop"><div><div class="eyebrow">TU RENDIMIENTO</div><h2>Estadísticas</h2></div><button class="go ghost sm" id="statsClose" type="button">Cerrar</button></div>
+      <div class="seg" id="statsTabs"><button type="button" data-t="hist">Últimas 20 partidas</button><button type="button" data-t="arms">Por arma</button><button type="button" data-t="heat">Mapa de calor</button></div>
+      <div id="statsBody"></div>
+      <div class="lbl small" style="margin-top:12px">Repeticiones de tu última sesión</div><div id="rvList" class="sqrow"></div>
+    </div>
+  </div>
+  <div id="rv" hidden>
+    <div class="rvBar"><b id="rvTitle"></b><button type="button" class="go sm" id="rvPlay">Pausa</button>
+      <label class="small">Velocidad <select id="rvSpeed"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+      <label class="small">Ver desde <select id="rvView"></select></label><button type="button" class="go ghost sm" id="rvClose">Salir</button>
+      <div class="rvTime"><input id="rvSeek" type="range" min="0" max="1" step="0.05" value="0" aria-label="Línea de tiempo"><div id="rvTicks"></div></div>
+      <div class="small">Cámara libre: arrastra para girar, rueda para acercar, WASD para moverte. Espacio pausa.</div></div>
+  </div>
   <div id="pass" class="ov" hidden>
     <div class="box passBox" role="dialog" aria-label="Pase de temporada">
       <div class="invTop"><div><div class="eyebrow">PASE DE TEMPORADA</div><h2>30 escalones de premios</h2></div><button class="go ghost sm" id="passClose" type="button">Cerrar</button></div>
@@ -741,9 +775,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=55"></script>
-<script src="/models.js?v=55"></script>
-<script src="/client.js?v=55"></script>
+<script src="/core.js?v=56"></script>
+<script src="/models.js?v=56"></script>
+<script src="/client.js?v=56"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
