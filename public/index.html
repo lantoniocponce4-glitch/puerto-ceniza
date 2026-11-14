@@ -418,6 +418,22 @@ tr.dead td{opacity:.5}
   #slots{display:none}
 }
 @media (prefers-reduced-motion:reduce){.kf{animation:none}#timer.bomb{animation:none}}
+
+#loadCard{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;background:#0b0e11;transition:opacity .6s ease;pointer-events:none}
+#loadCard.out{opacity:0}
+#loadCard .lcArt{position:absolute;inset:0;background:var(--lc);opacity:.55;-webkit-mask-image:linear-gradient(180deg,#000 30%,transparent 100%);mask-image:linear-gradient(180deg,#000 30%,transparent 100%)}
+#loadCard .lcArt::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(0,0,0,.18) 0 2px,transparent 2px 9px)}
+#loadCard .lcIn{position:relative;padding:max(24px,6vh) max(16px,6vw);max-width:720px}
+#loadCard h2{font-size:clamp(34px,6vw,64px);line-height:1;margin:.15em 0 .2em;letter-spacing:.01em;text-wrap:balance}
+#loadCard .lcTip{display:flex;gap:10px;align-items:baseline;margin-top:14px;padding:10px 14px;border-left:3px solid var(--amber);background:rgba(255,255,255,.05);font-size:14px}
+#loadCard .lcTip b{color:var(--amber);text-transform:uppercase;font-size:11px;letter-spacing:.12em}
+@media (prefers-reduced-motion:reduce){#loadCard{transition:none}}
+.wstats{display:grid;gap:5px;margin:4px 0 6px}
+.wst{display:grid;grid-template-columns:78px 1fr 92px;align-items:center;gap:10px;font-size:12px;color:var(--dim)}
+.wst i{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;display:block}
+.wst i b{display:block;height:100%;background:linear-gradient(90deg,var(--amber),#f4d38a);border-radius:3px}
+.wst em{font-style:normal;color:var(--sand);text-align:right;font-variant-numeric:tabular-nums}
+.wprice{margin-top:2px}
 </style>
 </head>
 <body>
@@ -495,6 +511,7 @@ tr.dead td{opacity:.5}
     <div class="tb" id="bLeanR" aria-label="Asomarse a la derecha">▶</div>
   </div>
 
+  <div id="loadCard" hidden aria-live="polite"><div class="lcArt"></div><div class="lcIn"><div class="eyebrow">DESPLIEGUE</div><h2 id="lcMap"></h2><p id="lcBlurb" class="small"></p><div class="lcTip"><b>Consejo</b><span id="lcTip"></span></div></div></div>
   <div id="menu" class="ov">
     <div class="mwrap">
       <div>
@@ -649,6 +666,7 @@ tr.dead td{opacity:.5}
         <div class="invMain">
           <canvas id="invView" aria-label="Vista 3D del arma; arrastra para girarla"></canvas>
           <div class="invMeta"><b id="invName">—</b><span class="small" id="invCls"></span></div>
+          <div id="invStats" class="wstats"></div>
           <div class="small" id="invSkinName"></div>
           <div id="invSkins" class="camos"></div>
           <div class="sqrow"><button class="go sm" id="invEquip" type="button">Equipar</button><button class="go ghost sm" id="invAll" type="button">Todas con la general</button></div>
@@ -687,9 +705,9 @@ tr.dead td{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
-<script src="/core.js?v=49"></script>
-<script src="/models.js?v=49"></script>
-<script src="/client.js?v=49"></script>
+<script src="/core.js?v=50"></script>
+<script src="/models.js?v=50"></script>
+<script src="/client.js?v=50"></script>
 <script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>

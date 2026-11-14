@@ -357,6 +357,7 @@ const LOOK = [
   { vest: 0x7a6446, pad: 0x5e4b33, boot: 0x8a7353, glove: 0x3a3226, helm: 0x9f8a62, belt: 0x5e4b33, pack: 0x6b5a40, wrap: 0xb8a27a, skins: [0xd2ab8a, 0x9b7052, 0x7f5a40, 0xc49572] }
 ];
 const TEAMC = [0x5cc8e0, 0xef6a45];
+const SCARF = [0x4a4f3a, 0x262626, 0x8a7350, 0x6b3a2e].map(c => S({ map: TXCLOTH, color: c, roughness: .95 }));
 const teamMats = [0, 1].map(t => {
   const L = LOOK[t];
   const o = {
@@ -370,6 +371,26 @@ const teamMats = [0, 1].map(t => {
   return o;
 });
 const skinMats = {};
+// Rostro pintado en la esfera de la cabeza (u = .75 es el frente): cejas, ojos, nariz, boca, sombras y barba según el soldado
+const faceMats = {};
+function faceMat(team, idx) {
+  const v = idx % 4, k = team + '_' + v; if (faceMats[k]) return faceMats[k];
+  const W = 256, H = 128, [c, x] = cnv(W, H), col = new T.Color(LOOK[team].skins[v]), hex = '#' + col.getHexString();
+  const sh = (f) => '#' + col.clone().multiplyScalar(f).getHexString();
+  x.fillStyle = hex; x.fillRect(0, 0, W, H);
+  const cx = W * .75, eye = H * .44, mouth = H * .66;
+  const g = x.createRadialGradient(cx, H * .5, 8, cx, H * .5, 70); g.addColorStop(0, 'rgba(255,230,210,.12)'); g.addColorStop(1, 'rgba(0,0,0,.18)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = sh(.72); x.fillRect(cx - 18, eye - 7, 36, 4); // sombra de cejas
+  x.fillStyle = '#2a1d14'; for (const s of [-1, 1]) { x.save(); x.translate(cx + s * 10, eye - 9); x.rotate(s * -.12); x.fillRect(-7, -1.5, 14, 3); x.restore(); }
+  for (const s of [-1, 1]) { x.fillStyle = '#f2ece4'; x.beginPath(); x.ellipse(cx + s * 10, eye, 5, 2.6, 0, 0, 7); x.fill(); x.fillStyle = v % 2 ? '#3b2a1c' : '#2d3a40'; x.beginPath(); x.arc(cx + s * 10, eye, 2.1, 0, 7); x.fill(); }
+  x.fillStyle = sh(.8); x.fillRect(cx - 2, eye + 4, 4, 12); x.fillStyle = sh(.66); x.fillRect(cx - 5, eye + 15, 10, 2.5); // nariz
+  x.fillStyle = sh(.55); x.fillRect(cx - 8, mouth, 16, 2.4); x.fillStyle = sh(.82); x.fillRect(cx - 6, mouth + 3, 12, 2); // boca
+  const beard = team === 0 ? v % 3 : (v === 2 ? 1 : 0);
+  if (beard) { x.fillStyle = beard === 1 ? 'rgba(40,28,18,.85)' : 'rgba(40,30,22,.35)'; x.beginPath(); x.moveTo(cx - 26, eye + 10); x.quadraticCurveTo(cx - 24, H * .92, cx, H * .95); x.quadraticCurveTo(cx + 24, H * .92, cx + 26, eye + 10); x.lineTo(cx + 20, mouth + 6); x.lineTo(cx - 20, mouth + 6); x.closePath(); x.fill();
+    if (beard === 1) { x.fillRect(cx - 9, mouth - 4, 18, 3.5); } x.fillStyle = sh(.55); x.fillRect(cx - 8, mouth, 16, 2.4); }
+  const t = new T.CanvasTexture(c); t.anisotropy = ANISO; texs.push(t);
+  return (faceMats[k] = S({ map: t, roughness: .6 }));
+}
 const skinMat = (team, idx) => { const k = team + '_' + (idx % 4); return skinMats[k] || (skinMats[k] = S({ color: LOOK[team].skins[idx % 4], roughness: .62 })); };
 const _up = new T.Vector3(0, 1, 0);
 function orientSeg(mesh, a, b) { const d = new T.Vector3().subVectors(b, a); const L = d.length() || 1e-4; mesh.position.copy(a).addScaledVector(d, .5); mesh.scale.set(1, L, 1); mesh.quaternion.setFromUnitVectors(_up, d.multiplyScalar(1 / L)); }
@@ -437,17 +458,22 @@ function buildSoldier(team, idx, opt = {}) {
   add(upper, rbox(.055, .13, .045, .012), C.black, .2, .34, .06); add(upper, cylY(.004, .003, .22, 6), C.black, .21, .5, .07);
   add(upper, cylY(.052, .058, .12, 12), skin, 0, .58, 0);
   const head = new T.Group(); head.position.set(0, .71, 0); upper.add(head);
-  add(head, sphG(.105, 24, 18), skin).scale.set(.95, 1.12, 1.02);
+  add(head, sphG(.105, 24, 18), faceMat(team, idx)).scale.set(.95, 1.12, 1.02);
+  add(head, rbox(.13, .06, .06, .025), skin, 0, -.075, -.055); // mandíbula
   add(head, rbox(.03, .045, .04, .012), skin, 0, -.01, -.105);
   for (const sx of [-1, 1]) add(head, sphG(.025, 8, 6), skin, sx * .1, 0, 0).scale.set(.5, 1, .8);
   let cap = null;
   if (team === 0) {
     add(head, rbox(.19, .04, .03, .012), C.lens, 0, .015, -.098);
     for (const sx of [-1, 1]) { const e = add(head, cylY(.036, .036, .03, 16), C.black, sx * .108, 0, 0); e.rotation.z = Math.PI / 2; }
+    // Halcón: micrófono de radio en el auricular izquierdo
+    const mic = add(head, cylY(.005, .005, .1, 6), C.black, -.1, -.045, -.06); mic.rotation.x = 1.15; mic.rotation.z = -.35; add(head, sphG(.012, 8, 6), C.black, -.085, -.07, -.105);
     cap = new T.Group(); head.add(cap); add(cap, new T.SphereGeometry(.113, 20, 10, 0, Math.PI * 2, 0, Math.PI * .5), C.cap, 0, .02, 0); const br = add(cap, rbox(.15, .012, .09, .005), C.cap, 0, .03, -.12); br.rotation.x = .12;
   } else {
     add(head, sphG(.117, 20, 16), C.wrap, 0, .012, .005).scale.set(1, 1.1, 1.05);
     add(head, rbox(.2, .05, .04, .015), C.lens, 0, .022, -.1); add(head, rbox(.06, .08, .05, .02), C.wrap, 0, -.02, .12);
+    // Cobra: pañuelo sobre nariz y boca, con color distinto por soldado
+    const scarf = SCARF[idx % 4]; add(head, rbox(.215, .085, .15, .04), scarf, 0, -.055, -.03); add(head, rbox(.17, .05, .05, .02), scarf, 0, -.1, -.085); add(head, rbox(.05, .07, .03, .012), scarf, 0, -.03, .125);
   }
   const helmet = new T.Group(); head.add(helmet);
   const shell = add(helmet, new T.SphereGeometry(.14, 24, 14, 0, Math.PI * 2, 0, Math.PI * .55), C.helm, 0, .03, 0); shell.scale.set(1, .95, 1.08);
@@ -542,11 +568,22 @@ function fpArms(gun, pos, s) {
     const L = mkArm(); const rif = info.cls === 'rifle'; handOf(L, true, rif ? [-.2, 1, 0] : [.8, .5, 0], true, rif ? [1, .15, -.35] : [.4, -.35, -.8]); const fp = info.cls === 'rifle' ? toLocal(info.fore) : gp.clone().add(new T.Vector3(-.035, -.012, .02));
     if (rif) fp.add(new T.Vector3(-.03 * k, -.028 * k, 0));
     solveArm(L, toGun(shL), fp, a, b, toGun([-.55, -.45, -.1]));
+    // datos para animar la recarga: la mano izquierda va al cargador, baja a buscar otro y vuelve
+    const g0 = toLocal(info.grip), mag = info.cls === 'pistol' ? toLocal([info.grip[0] - .01, info.grip[1] - .11]) : toLocal([info.grip[0] + .1, info.grip[1] - .07]);
+    mag.x -= .03 * k; gun.userData.fpL = { arm: L, sh: toGun(shL), fore: fp.clone(), mag, low: mag.clone().add(new T.Vector3(-.06 * k, -.3 * k, .1 * k)), pole: toGun([-.55, -.45, -.1]), a, b, t: 0 };
   }
 }
 
+const _rt = new T.Vector3();
+function poseReload(gun, t) {
+  const L = gun.userData.fpL; if (!L || Math.abs(L.t - t) < 1e-3) return; L.t = t;
+  const sm = (u) => { u = Math.min(1, Math.max(0, u)); return u * u * (3 - 2 * u); };
+  if (t <= 0) _rt.copy(L.fore); else if (t < .22) _rt.lerpVectors(L.fore, L.mag, sm(t / .22)); else if (t < .42) _rt.lerpVectors(L.mag, L.low, sm((t - .22) / .2));
+  else if (t < .66) _rt.lerpVectors(L.low, L.mag, sm((t - .42) / .24)); else if (t < .8) _rt.copy(L.mag).add(new T.Vector3(0, .012 * Math.sin((t - .66) / .14 * Math.PI) / (gun.scale.x || 1), 0)); else _rt.lerpVectors(L.mag, L.fore, sm((t - .8) / .2));
+  solveArm(L.arm, L.sh, _rt.clone(), L.a, L.b, L.pole);
+}
 window.PCM = {
-  buildGun, buildSoldier, fpArms, setFpTeam, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
+  buildGun, buildSoldier, fpArms, setFpTeam, poseReload, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setEnv(env) { for (const m of Object.values(MCAMO).concat(Object.values(MG))) if (m && m.isMeshStandardMaterial && m.metalness > .3) { m.envMap = env; m.envMapIntensity = .9; m.needsUpdate = true; } },
   setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
 };
