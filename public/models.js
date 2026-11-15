@@ -537,26 +537,31 @@ function mergeChildren(grp, skip) {
 }
 const POSE_OV = { descanso: { pos: [.14, .3, -.2], rot: [.85, .15, .25] }, hombro: { pos: [.17, .64, .02], rot: [-1.15, .05, .12] }, alerta: { pos: [.06, .44, -.32], rot: [.22, 0, 0] } };
 const HANDPOS = { rifle: [.1, .47, -.2], pistol: [.03, .47, -.44], knife: [.2, .3, -.27], nade: [.2, .34, -.25] };
+const BLOBMAT = (() => { const [c, x] = cnv(64, 64); const gr = x.createRadialGradient(32, 32, 2, 32, 32, 31); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(.6, 'rgba(0,0,0,.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); const t = new T.CanvasTexture(c); return new T.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); })();
 function buildSoldier(team, idx, opt = {}) {
   const C = teamMatsFor(team, opt.outfit), skin = skinMat(team, idx);
   const g = new T.Group(), body = new T.Group(); g.add(body);
   const add = (p, geo, mat, x = 0, y = 0, z = 0) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
   const hips = new T.Group(); hips.position.y = .95; body.add(hips);
-  add(hips, cylY(.165, .155, .2, 16), C.camo, 0, -.03, 0).scale.z = .68;
+  add(hips, cylY(.175, .165, .22, 18), C.camo, 0, -.03, 0).scale.z = .72;
   add(hips, cylY(.172, .172, .05, 18), C.belt, 0, .06, 0).scale.z = .7; add(hips, rbox(.05, .035, .02, .006), C.buckle, 0, .06, -.12);
   const legs = [];
   for (const sx of [-1, 1]) {
     const hip = new T.Group(); hip.position.set(sx * .095, -.05, 0); hips.add(hip);
-    add(hip, cylY(.08, .064, .43, 14), C.camo, 0, -.215, 0);
-    if (sx > 0) add(hip, rbox(.06, .15, .11, .02), C.vest, .075, -.12, 0);
+    add(hip, cylY(.098, .076, .43, 16), C.camo, 0, -.215, 0);
+    // bolsillo lateral del pantalón y, en la derecha, funda de pistola con su correa al muslo
+    add(hip, rbox(.045, .12, .13, .02), C.camo, sx * .095, -.2, -.005);
+    if (sx > 0) { add(hip, rbox(.06, .16, .11, .02), C.vest, .1, -.13, .01); add(hip, rbox(.035, .1, .07, .012), C.black, .13, -.1, .01); add(hip, cylY(.101, .101, .025, 16), C.strap, 0, -.24, 0).scale.z = .95; }
     const knee = new T.Group(); knee.position.y = -.43; hip.add(knee);
-    add(knee, sphG(.064, 12, 10), C.camo); add(knee, rbox(.1, .1, .05, .018), C.pad, 0, -.02, -.055);
-    add(knee, cylY(.06, .05, .4, 14), C.camo, 0, -.2, 0);
-    add(knee, rbox(.115, .11, .27, .035), C.boot, 0, -.43, -.045); add(knee, rbox(.12, .035, .29, .012), C.sole, 0, -.485, -.045);
+    add(knee, sphG(.076, 12, 10), C.camo); add(knee, rbox(.12, .12, .06, .022), C.pad, 0, -.02, -.068);
+    add(knee, cylY(.074, .058, .38, 16), C.camo, 0, -.19, 0);
+    // bota alta con caña acolchada, puntera y suela gruesa
+    add(knee, cylY(.064, .066, .14, 14), C.boot, 0, -.36, 0);
+    add(knee, rbox(.13, .12, .3, .04), C.boot, 0, -.43, -.05); add(knee, rbox(.136, .045, .31, .014), C.sole, 0, -.49, -.05);
     legs.push({ hip, knee });
   }
   const upper = new T.Group(); upper.position.y = .95; body.add(upper);
-  add(upper, cylY(.195, .16, .5, 18), C.camo, 0, .27, 0).scale.z = .64;
+  add(upper, cylY(.205, .17, .5, 20), C.camo, 0, .27, 0).scale.z = .66;
   add(upper, rbox(.38, .33, .27, .04), C.vest, 0, .32, 0); add(upper, rbox(.4, .05, .28, .02), C.vest, 0, .13, 0);
   for (const px of [-.105, 0, .105]) add(upper, rbox(.085, .11, .06, .016), C.vest, px, .21, -.16);
   add(upper, rbox(.11, .07, .04, .014), C.vest, -.09, .38, -.15);
@@ -570,6 +575,9 @@ function buildSoldier(team, idx, opt = {}) {
   add(hips, rbox(.1, .07, .05, .014), C.pack, 0, .02, .13);
   if (C.glow) { for (const sx of [-1, 1]) add(upper, rbox(.012, .2, .008, .003), C.tag, sx * .15, .3, -.146); add(upper, rbox(.24, .01, .008, .003), C.tag, 0, .18, -.146); add(upper, rbox(.2, .01, .008, .003), C.tag, 0, .46, .146); }
   add(upper, rbox(.055, .13, .045, .012), C.black, .2, .34, .06); add(upper, cylY(.004, .003, .22, 6), C.black, .21, .5, .07);
+  for (const px of [-.105, 0, .105]) add(upper, rbox(.07, .05, .05, .012), C.black, px, .29, -.165); // cargadores asomando de las bolsas
+  add(upper, rbox(.24, .3, .08, .03), C.pack, 0, .3, .18); add(upper, rbox(.2, .05, .085, .015), C.strap, 0, .4, .18); add(upper, cylY(.006, .004, .34, 6), C.black, -.08, .6, .2);
+  const blob = new T.Mesh(new T.PlaneGeometry(.95, .95), BLOBMAT); blob.rotation.x = -Math.PI / 2; blob.position.y = .015; blob.renderOrder = 1; g.add(blob);
   add(upper, cylY(.052, .058, .12, 12), skin, 0, .58, 0);
   const head = new T.Group(); head.position.set(0, .71, 0); upper.add(head);
   add(head, sphG(.105, 24, 18), faceMat(team, idx)).scale.set(.95, 1.12, 1.02);
@@ -599,7 +607,7 @@ function buildSoldier(team, idx, opt = {}) {
   helmet.visible = false;
   const pack = new T.Group(); pack.position.set(0, .32, .17); upper.add(pack); add(pack, rbox(.28, .3, .12, .03), C.pack); const led = new T.Mesh(sphG(.008, 8, 6), new T.MeshBasicMaterial({ color: 0xff3020 })); led.position.set(.09, .1, .065); pack.add(led); pack.visible = false;
   const arms = {}; const SH = { R: new T.Vector3(.2, .48, 0), L: new T.Vector3(-.2, .48, 0) };
-  for (const s of ['R', 'L']) { const a = { up: add(upper, cylY(.056, .05, 1, 12), C.camo), elbow: add(upper, sphG(.05, 10, 8), C.camo), fore: add(upper, cylY(.05, .042, 1, 12), C.camo), hand: add(upper, rbox(.075, .1, .05, .018), C.glove) }; const pad = add(upper, sphG(.068, 12, 10), C.camo); pad.position.copy(SH[s]); pad.scale.set(1, .9, 1.1); arms[s] = a; }
+  for (const s of ['R', 'L']) { const a = { up: add(upper, cylY(.068, .058, 1, 14), C.camo), elbow: add(upper, sphG(.06, 12, 8), C.pad), fore: add(upper, cylY(.058, .046, 1, 14), C.camo), hand: add(upper, rbox(.085, .11, .055, .02), C.glove) }; const pad = add(upper, sphG(.082, 14, 10), C.camo); pad.position.copy(SH[s]); pad.scale.set(1.05, .9, 1.15); const sp = add(upper, rbox(.12, .05, .15, .02), C.vest, SH[s].x * 1.05, SH[s].y + .045, 0); sp.rotation.z = SH[s].x > 0 ? -.35 : .35; arms[s] = a; }
   const hand = new T.Group(); upper.add(hand);
   const flash = new T.Sprite(opt.flashMat || new T.SpriteMaterial({ color: 0xffcc88 })); flash.scale.set(.42, .42, .42); flash.visible = false;
   const guns = {}; let cur = null;

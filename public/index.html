@@ -625,6 +625,12 @@ body.touchUI #teamBuy,body.touchUI .buybox>.small{display:none}
 .mctl .btn{all:unset;box-sizing:border-box;min-height:40px;padding:0 14px;display:inline-flex;align-items:center;border:1px solid rgba(242,179,61,.5);color:var(--sand);background:rgba(242,179,61,.1);font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
 .mctl .btn:hover{background:rgba(242,179,61,.2)}
 
+
+/* durante la repetición la escena queda limpia: sin radar, dinero, vida, munición ni controles */
+#hud.kcOn #radar,#hud.kcOn #zoneTag,#hud.kcOn #leftbot,#hud.kcOn #rightbot,#hud.kcOn #xh,#hud.kcOn #chatBox,#hud.kcOn #perf,#hud.kcOn #roomChip,#hud.kcOn #wslots,#touch.kcOn .tb,#touch.kcOn #wslots{opacity:0;transition:opacity .25s;pointer-events:none}
+
+/* recuadro de la repetición en la esquina, para no tapar a quien se está mostrando */
+#killcam .kcb{left:calc(16px + env(safe-area-inset-left,0px));transform:none;bottom:calc(7vh + 10px);max-width:min(400px,46vw)}
 </style>
 </head>
 <body>

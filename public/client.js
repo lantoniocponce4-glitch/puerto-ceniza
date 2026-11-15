@@ -1747,7 +1747,7 @@ function updateHUD(dt) {
   for (let i = dmgDirs.length - 1; i >= 0; i--) { const d = dmgDirs[i]; d.life -= dt; if (d.life <= 0) { d.el.remove(); dmgDirs.splice(i, 1); continue; } const ang = Math.atan2(-(d.src.x - me.pos.x), -(d.src.z - me.pos.z)); d.el.style.transform = `rotate(${-angDiff(me.yaw, ang)}rad)`; d.el.style.opacity = Math.min(1, d.life); }
   if (annT > 0) { annT -= dt; if (annT <= 0) $('#announce').classList.remove('on'); }
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('#toast').classList.remove('on'); }
-  $('#clickPlay').hidden = isTouch || locked || lockFailed || uiOpen() || G.state !== 'playing';
+  $('#clickPlay').hidden = isTouch || locked || lockFailed || uiOpen() || G.state !== 'playing' || kcActive();
   // pista de acción
   const B = G.bomb; let hint = '', prog = 0; const mySide = sideOf(me.team); const site = WORLD && me.alive ? siteAt(me.pos.x, me.pos.z) : null;
   const myA = actors[me.id];
@@ -1760,7 +1760,7 @@ function updateHUD(dt) {
   // zona
   setTxt('#zoneTag', site ? 'Sitio ' + site : (me.cb ? 'Zona de compra' : ''));
   // espectador
-  const kcOn = kcActive(); $('#killcam').hidden = !kcOn;
+  const kcOn = kcActive(); $('#killcam').hidden = !kcOn; if ($('#hud').classList.contains('kcOn') !== kcOn) { $('#hud').classList.toggle('kcOn', kcOn); $('#touch').classList.toggle('kcOn', kcOn); }
   if (kcOn) { setTxt('#kcTag', kc.cine ? 'ÚLTIMA BAJA' : kc.hl ? 'JUGADA DE LA PARTIDA' : 'REPETICIÓN'); setTxt('#kcSub', kc.hl ? (kc.desc || '') : 'Te eliminó'); const k = actors[kc.killer]; const txt = (k ? k.name : '—') + '|' + kc.w + '|' + (kc.hl ? 1 : 0); if ($('#killcam')._t !== txt) { $('#killcam')._t = txt; setTxt('#kcName', k ? (k.clanTag ? '[' + k.clanTag + '] ' : '') + k.name : '—'); { const cd = k && PC.CARDS.find(c => c.id === k.card), tl = k && PC.TITLES.find(c => c.id === k.title); $('#kcCard').style.cssText = cd ? cardCss(cd) : ''; $('#kcCard').hidden = !cd && !tl; setTxt('#kcTitle', tl ? tl.name : ''); } setCls('#kcName', k ? 't' + k.team : ''); setTxt('#kcInfo', (kc.hl ? (k && k.id === me.id ? '¡Es tuya! Al terminar puedes descargar el video' : 'Mira cómo lo hizo') : (WEAPONS[kc.w] ? WEAPONS[kc.w].name : kc.w === 'he' ? 'Granada HE' : kc.w === 'in' ? 'Incendiaria' : 'Carga') + (kc.h ? ' · a la cabeza' : '') + ' · ' + kc.dist + ' m' + (kc.hp != null ? ' · le quedó ' + kc.hp + ' de vida' : ''))); } $('#kcBar').style.width = clamp(kc.phase === 'eyes' ? (kc.rt - kc.from) / kc.len * .8 : .8 + kc.orbitT / kc.orbitLen * .2, 0, 1) * 100 + '%'; }
   const sp = $('#spec'); if (kcOn) sp.hidden = true; else if (!me.alive && G.mode === 'waves' && me.deadT <= 1.2) { sp.hidden = false; setTxt('#specName', 'Reapareces en ' + Math.max(0, Math.ceil((G.reviveAt || 0) - nowS())) + ' s'); setCls('#specName', ''); setTxt('#specHint', 'Si todo tu equipo cae, termina la partida'); }
   else if (!me.alive && (G.mode === 'gg' || G.mode === 'tdm')) { sp.hidden = false; setTxt('#specName', 'Reapareces en un momento'); setCls('#specName', ''); setTxt('#specHint', 'Te toca ' + ((WEAPONS[PC.LADDER[me.lvl | 0]] || {}).name || '')); } else if (!me.alive && me.deadT > 1.2) { const tg = specTarget(); sp.hidden = false; setTxt('#specName', tg ? tg.name + ' · ' + Math.max(0, tg.hp | 0) + ' de vida' : 'Nadie en pie'); setCls('#specName', tg ? 't' + tg.team : ''); setTxt('#specHint', (tg && WEAPONS[tg.cur] ? WEAPONS[tg.cur].name + ' · ' : '') + (isTouch ? 'toca para cambiar de compañero' : 'clic para cambiar de compañero')); } else sp.hidden = true;
@@ -2230,9 +2230,11 @@ function startKillcam(e) {
   const t = nowS(); const last = rec[rec.length - 1].a[e.a]; const quick = G.mode === 'gg' || G.mode === 'tdm';
   const len = quick ? 1.9 : 4.2;
   // fase 1: los ojos del rival (con su arma y cámara lenta al final); fase 2: plano en tercera persona del rival y tu caída
-  kc = { start: t + (quick ? .35 : .8), from: t - len, len, end: t, rt: t - len, killer: e.a, kteam: actors[e.a].team, w: e.w, h: e.h, dist: e.dist, lastRt: t - len, hp: last ? last[8] : null, cam: null, phase: 'eyes', orbitT: 0, orbitLen: quick ? .9 : 1.9, view: null };
+  kc = { start: t + (quick ? .35 : .8), from: t - len, len, end: t, rt: t - len, killer: e.a, victim: me.id, kteam: actors[e.a].team, w: e.w, h: e.h, dist: e.dist, lastRt: t - len, hp: last ? last[8] : null, cam: null, phase: 'eyes', orbitT: 0, orbitLen: quick ? 1.1 : 2.4, view: null };
+  for (const a of actors) if (a && a.model) a.model.kcDieAt = undefined; if (meModel) meModel.kcDieAt = undefined;
 }
-function stopKillcam() { if (!kc) return; const k0 = kc; kc = null; if (k0.onDone) setTimeout(k0.onDone, 0); $('#killcam').hidden = true; if (meModel) meModel.g.visible = false; PCM.setFpTeam(me.team, myOutfit()); spec.id = -1; }
+let KCRING = null;
+function stopKillcam() { if (KCRING) KCRING.visible = false; if (!kc) return; const k0 = kc; kc = null; if (k0.onDone) setTimeout(k0.onDone, 0); $('#killcam').hidden = true; if (meModel) meModel.g.visible = false; PCM.setFpTeam(me.team, myOutfit()); spec.id = -1; }
 function kcActive() { return !!kc && (kc.hl || !me.alive) && G.state === 'playing' && nowS() >= kc.start; }
 // Jugada de la partida: se repite al terminar desde los ojos de quien la hizo; si es tuya, se graba un video
 function startHighlight(e) {
@@ -2252,13 +2254,22 @@ function stopRec() { const mr = G.hlRec; G.hlRec = null; if (mr && mr.state === 
 function kcRender(dt) {
   // tiempo de repetición: velocidad normal y cámara lenta en el último medio segundo
   if (kc.cine) { kc.rt += dt * .42; if (kc.rt >= kc.end) { stopKillcam(); return; } }
-  else if (kc.phase === 'eyes') { const slow = (kc.slowEnd || kc.end) - kc.rt < .5 && (kc.slowEnd || kc.end) - kc.rt > -.4; kc.rt += dt * (slow ? .32 : 1); if (kc.rt >= kc.end) { kc.rt = kc.end; kc.phase = 'orbit'; kc.orbitT = 0; } }
-  else { kc.orbitT += dt; if (kc.orbitT >= kc.orbitLen) { stopKillcam(); return; } }
+  else if (kc.phase === 'eyes') { const slow = (kc.slowEnd || kc.end) - kc.rt < .5 && (kc.slowEnd || kc.end) - kc.rt > -.4; kc.rt += dt * (slow ? .32 : 1); if (kc.rt >= kc.end) { kc.rt = kc.end; kc.phase = kc.hl ? 'orbit' : 'freeze'; kc.freezeT = 0; kc.orbitT = 0; } }
+  else if (kc.phase === 'freeze') { kc.freezeT += dt; kc.rt = Math.min(kc.end + .5, kc.rt + dt * .12); if (kc.freezeT >= .45) { kc.phase = 'orbit'; kc.orbitT = 0; } }
+  else { kc.orbitT += dt; kc.rt = Math.min(kc.end + .9, kc.rt + dt * .5); if (kc.orbitT >= kc.orbitLen) { stopKillcam(); return; } }
   const rt = kc.rt; const st = kcState(rt), st2 = kcState(rt - .06); if (!st) { stopKillcam(); return; }
   if (!meModel || meModel.tm !== me.team) { if (meModel) scene.remove(meModel.g); meModel = makeSoldier(me.team, me.id, myOutfit()); meModel.tm = me.team; }
   if (meModel.setCamo) meModel.setCamo(mySkin());
   const place = (m, id) => {
-    const s1 = st[id]; if (!s1 || !s1.alive) { m.g.visible = false; return; }
+    const s1 = st[id]; if (!s1) { m.g.visible = false; return; }
+    if (!s1.alive) {
+      if (id != (kc.victim === undefined ? me.id : kc.victim)) { m.g.visible = false; return; }
+      // caída hacia donde la empujó el disparo, con un pequeño rebote al tocar el suelo
+      if (m.kcDieAt === undefined) m.kcDieAt = rt; const kk = st[kc.killer]; const away = kk ? Math.atan2(s1.x - kk.x, s1.z - kk.z) - s1.yaw : 0;
+      const dur = kc.h ? .32 : .55, k = Math.min(1, (rt - m.kcDieAt) / dur), e2 = k * k * (3 - 2 * k), fx = -Math.cos(away) * 1.5, fz = Math.sin(away) * .9;
+      m.g.visible = true; m.g.position.set(s1.x, s1.y, s1.z); m.g.rotation.y = s1.yaw; m.body.rotation.x = lerp(0, fx, e2); m.body.rotation.z = lerp(0, fz, e2); m.body.position.y = -.05 * k; m.flash.visible = false; return;
+    }
+    m.kcDieAt = undefined; m.body.rotation.z = 0;
     const s0 = st2 && st2[id] ? st2[id] : s1; const spd = Math.hypot(s1.x - s0.x, s1.z - s0.z) / .06;
     m.g.visible = id != kc.killer || kc.phase === 'orbit' || !!kc.cine; m.g.position.set(s1.x, s1.y, s1.z); m.g.rotation.y = s1.yaw; m.body.rotation.x = 0; m.body.position.y = 0;
     m.kcPh = (m.kcPh || 0) + dt * spd * 2.2; m.animate(spd, m.kcPh, clamp((1.8 - s1.h) / .58, 0, 1), s1.pitch); m.setGun(s1.cur); m.flash.visible = false;
@@ -2273,16 +2284,37 @@ function kcRender(dt) {
       let cx = mx + Math.cos(a) * R, cz = mz + Math.sin(a) * R; const cy = 1.1 + R * .12; if (WORLD && !WORLD.visible([mx, 1.3, mz], [cx, cy, cz], [])) { cx = mx + (cx - mx) * .45; cz = mz + (cz - mz) * .45; }
       const hd = Math.hypot(mx - cx, mz - cz) || 1; kc.cam = { x: cx, y: cy, z: cz, yaw: Math.atan2(-(mx - cx), -(mz - cz)), pitch: Math.atan2(1.1 - cy, hd) };
     }
-    else if (kc.phase === 'eyes') kc.cam = { x: k.x, y: k.y + k.h - .12, z: k.z, yaw: k.yaw, pitch: k.pitch };
+    else if (kc.phase === 'eyes' || kc.phase === 'freeze') {
+      // los datos de red llegan a saltos: la mirada del rival se suaviza para que la repetición no tiemble
+      const tg = { x: k.x, y: k.y + k.h - .12, z: k.z, yaw: k.yaw, pitch: k.pitch };
+      if (!kc.sm) kc.sm = Object.assign({}, tg); const ka = 1 - Math.exp(-dt * 16), kp = 1 - Math.exp(-dt * 24);
+      kc.sm.yaw += angDiff(kc.sm.yaw, tg.yaw) * ka; kc.sm.pitch = lerp(kc.sm.pitch, tg.pitch, ka); kc.sm.x = lerp(kc.sm.x, tg.x, kp); kc.sm.y = lerp(kc.sm.y, tg.y, kp); kc.sm.z = lerp(kc.sm.z, tg.z, kp);
+      kc.cam = { x: kc.sm.x, y: kc.sm.y, z: kc.sm.z, yaw: kc.sm.yaw, pitch: kc.sm.pitch };
+      // impacto: acercamiento rápido hacia la víctima mientras la imagen casi se congela
+      if (kc.phase === 'freeze') { const e = Math.min(1, kc.freezeT / .18); kc.fov = lerp(74, 46, e * e * (3 - 2 * e)); } else kc.fov = null;
+    }
     else {
       // plano final: por detrás del hombro del rival mirando hacia donde caíste
       const v = st[me.id] || { x: k.x - Math.sin(k.yaw) * 5, y: 0, z: k.z - Math.cos(k.yaw) * 5 };
-      const dx = v.x - k.x, dz = v.z - k.z, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, e = Math.min(1, kc.orbitT / .5), ee = e * e * (3 - 2 * e);
-      const cx = k.x - ux * (1.4 + ee * 1.6) + uz * (.55 + ee * .9), cz = k.z - uz * (1.4 + ee * 1.6) - ux * (.55 + ee * .9), cy = k.y + 1.75 + ee * .9;
-      const tx = (k.x + v.x) / 2, tz = (k.z + v.z) / 2, ty = .9; const hd = Math.hypot(tx - cx, tz - cz) || 1;
+      // plano que rodea la escena: arranca detrás del hombro del rival y gira lento hacia un costado, mirando entre los dos
+      const dx = v.x - k.x, dz = v.z - k.z, L = Math.hypot(dx, dz) || 1, e = Math.min(1, kc.orbitT / kc.orbitLen), ee = e * e * (3 - 2 * e);
+      // el foco es el rival (dónde estaba y cómo disparó); si la víctima está cerca, el encuadre se abre para incluirla
+      const near = L < 9, f0 = near ? .5 : Math.min(1.2, L * .1), tx = k.x + dx / L * f0, tz = k.z + dz / L * f0, ty = near ? .95 : 1.2;
+      const R = (near ? clamp(L * .6 + 2.6, 3.4, 6.5) : 3.9) * (1 - ee * .15), cy = 1.65 + ee * .55;
+      // al empezar se elige el ángulo con vista despejada al rival (probando alrededor), y desde ahí gira lento
+      if (kc.orbBase === undefined) {
+        kc.side = Math.random() < .5 ? 1 : -1; const b0 = Math.atan2(k.x - v.x, k.z - v.z) + .45 * kc.side; let best = b0, bt = -1;
+        for (const o of [0, .7, -.7, 1.4, -1.4, 2.1, -2.1, 2.8]) { const a2 = b0 + o, ex = tx + Math.sin(a2) * R, ez = tz + Math.cos(a2) * R, ddx = ex - tx, ddy = cy - ty, ddz = ez - tz, LL = Math.hypot(ddx, ddy, ddz); const t2 = WORLD ? WORLD.traceWorld([tx, ty, tz], [ddx / LL, ddy / LL, ddz / LL], LL).t : LL; if (t2 >= LL - .05) { best = a2; bt = LL; break; } if (t2 > bt) { bt = t2; best = a2; } }
+        kc.orbBase = best;
+      }
+      const ang = kc.orbBase + ee * .9 * kc.side; let cx = tx + Math.sin(ang) * R, cz = tz + Math.cos(ang) * R;
+      if (WORLD) { const ddx = cx - tx, ddy = cy - ty, ddz = cz - tz, LL = Math.hypot(ddx, ddy, ddz) || 1; const hit = WORLD.traceWorld([tx, ty, tz], [ddx / LL, ddy / LL, ddz / LL], LL); if (hit.t < LL) { const f = Math.max(.25, (hit.t - .35) / LL); cx = tx + ddx * f; cz = tz + ddz * f; } }
+      const hd = Math.hypot(tx - cx, tz - cz) || 1; kc.fov = lerp(52, 64, ee);
       kc.cam = { x: cx, y: cy, z: cz, yaw: Math.atan2(-(tx - cx), -(tz - cz)), pitch: Math.atan2(ty - cy, hd) };
     }
   }
+  { const km = actors[kc.killer] && actors[kc.killer].model; if (!KCRING) { KCRING = new THREE.Mesh(new THREE.RingGeometry(.45, .58, 32), new THREE.MeshBasicMaterial({ color: 0xff3a24, transparent: true, opacity: .85, depthWrite: false, side: THREE.DoubleSide })); KCRING.rotation.x = -Math.PI / 2; scene.add(KCRING); }
+    KCRING.visible = !!(km && km.g.visible && (kc.phase !== 'eyes' || kc.cine)); if (KCRING.visible) { KCRING.position.set(km.g.position.x, km.g.position.y + .03, km.g.position.z); const sc = 1 + Math.sin(nowS() * 6) * .08; KCRING.scale.set(sc, sc, sc); } }
   for (const sh of kc.shots || recShots) {
     if (sh.t <= kc.lastRt || sh.t > rt) continue;
     const a = actors[sh.s]; const m = a && a.model; if (!m) continue;
@@ -3162,7 +3194,7 @@ function frame(now) {
     }
     if (window.PCDBG && PCDBG.cam) { const c = PCDBG.cam; camera.position.set(c[0], c[1], c[2]); camera.rotation.set(c[4] || -.15, c[3], 0); vm.group.visible = false; }
     if (shake > 0) { shake = Math.max(0, shake - dt * 2); camera.rotation.x += gauss() * shake * .03; camera.rotation.y += gauss() * shake * .03; }
-    const w = WEAPONS[me.cur]; const adsF = w && w.adsF ? w.adsF : w && w.auto ? 58 : 64; const fovT = w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
+    const w = WEAPONS[me.cur]; const adsF = w && w.adsF ? w.adsF : w && w.auto ? 58 : 64; const fovT = kcActive() && kc.fov ? kc.fov : w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
     if (me.alive && me.scopeK > .5) { const tt = nowS(), mv = Math.min(1, Math.hypot(me.vel.x, me.vel.z) / 3); camera.rotation.x += Math.sin(tt * 1.3) * .0012 * (1 + mv * 4); camera.rotation.y += Math.sin(tt * .9) * .0014 * (1 + mv * 4); }
     updateVM(dt); updateRange(dt); updateHUD(dt); radarT += dt; if (radarT >= .05) { radarT = 0; drawRadar(); }
   } else {
