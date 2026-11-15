@@ -710,7 +710,9 @@
   }
   // escala después de sumar las coberturas extra (así todo el mapa crece junto)
   scaleMap(MAPS.alcazaba, 1.25); scaleMap(MAPS.muelle, 1.3); scaleMap(MAPS.distrito, 1.25); scaleMap(MAPS.oasis, 1.1);
-  holdCover(MAPS.alcazaba); holdCover(MAPS.distrito);
+  holdCover(MAPS.alcazaba); holdCover(MAPS.distrito); holdCover(MAPS.oasis);
+  // Alcazaba: las posiciones que miran la calle larga de A y la salida del túnel de B quedaban sobre la ruta atacante y sin cobertura
+  { const M = MAPS.alcazaba; M.holds.A[0] = [37.6, -10.4, Math.PI]; M.holds.B[0] = [-33.8, -12.4, Math.PI]; M.boxes.push([36.4, -8.6, 38.8, -7.8, 1.15, 'sandbag'], [-35, -10.6, -32.6, -9.8, 1.15, 'sandbag']); }
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
   const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena', fundicion: 'lluvia', oasis: 'arena' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
