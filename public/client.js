@@ -1042,9 +1042,9 @@ function onMsg(m) {
     case 'err': { const wasRetry = net.retry > 0; setBusy(false); leaveNet(); net.retry = 0; if (G.state !== 'menu') leaveToMenu(); $('#err').textContent = wasRetry ? 'Se perdió la conexión y la sala ya no está disponible. Busca otra partida.' : m.msg; break; }
     case 'joined': {
       if (net.retry) { toast('Reconectado a la sala ' + m.code); net.retry = 0; }
-      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm === 'comp' ? 'bomb' : m.gm || 'bomb'; G.comp = m.gm === 'comp' || (net.mode === 'offline' && prefs.gm === 'comp'); G.cond = m.cond || null; me.id = m.you; me.team = m.team;
+      setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm === 'comp' ? 'bomb' : m.gm || 'bomb'; G.comp = m.gm === 'comp' || (net.mode === 'offline' && prefs.gm === 'comp'); G.cond = m.cond || null; G.diff = m.diff; me.id = m.you; me.team = m.team;
       buildWorld(m.map); PCM.setFpTeam(me.team, myOutfit()); for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0;
-      enterGame(); break;
+      enterGame(); if (['tdm', 'gg', 'waves'].includes(G.mode)) setTimeout(showVersus, 900); break;
     }
     case 'r': {
       G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.rules) { G.rules = m.rules; G.comp = m.rules.rounds === 24; } if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.brk) { for (const id of m.brk) applyBreak(id, false); if (!m.brk.length && WORLD.breakables.some(b => b.gone)) restoreBreaks(); } if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
@@ -1113,7 +1113,7 @@ function handleEvent(e) {
   const t = nowS();
   switch (e.k) {
     case 'sp': if (e.v === me.id) { me.pos = { x: e.p[0], y: e.p[1], z: e.p[2] }; me.vel = { x: 0, y: 0, z: 0 }; me.yaw = e.y; me.pitch = 0; me.alive = true; me.hp = 100; me.deadT = 0; me.h = 1.8; me.lean = 0; me.slideT = 0; resetAim(); stopKillcam(); if (G.mode === 'tdm' || G.mode === 'gg') { me.ammo = {}; if (me.inv.p) ensureAmmo(me.inv.p); if (me.inv.s) ensureAmmo(me.inv.s); } } else { const a = actors[e.v]; if (a) a.buf = []; } break;
-    case 'round': clearFires(); G.reveal = G.drone = 0; stopKillcam(); refillAmmo(); me.sprayI = 0; announce('Ronda ' + e.n, 'Eres ' + SIDE_L[sideOf(me.team)] + ' · ' + (G.mode === 'elim' ? 'compra y elimina al otro bando' : sideOf(me.team) === 'atk' ? 'compra y después planta la carga en A o B' : 'compra y después defiende los sitios A y B'), 3.2); if (e.n === ROUND.half + 1) toast('Medio tiempo: cambio de bando, ahora eres ' + SIDE_L[sideOf(me.team)]); break;
+    case 'round': clearFires(); G.reveal = G.drone = 0; stopKillcam(); refillAmmo(); me.sprayI = 0; if (e.n === 1 && net.mode && !(RG && RG.on)) setTimeout(showVersus, 250); (e.n === 1 ? (...a) => { G.vsAnn = a; announce(...a); } : announce)('Ronda ' + e.n, 'Eres ' + SIDE_L[sideOf(me.team)] + ' · ' + (G.mode === 'elim' ? 'compra y elimina al otro bando' : sideOf(me.team) === 'atk' ? 'compra y después planta la carga en A o B' : 'compra y después defiende los sitios A y B'), 3.2); if (e.n === ROUND.half + 1) toast('Medio tiempo: cambio de bando, ahora eres ' + SIDE_L[sideOf(me.team)]); break;
     case 'half': if (G.comp) announce('Cambio de bando', 'Se reinicia el dinero de todos', 2.6, 'var(--amber)'); break;
     case 'ot': announce('Prórroga ' + e.n, 'Seis rondas más: gana quien llegue primero a 4 · $10.000 para todos', 3.4, 'var(--amber)'); break;
     case 'tpause': toast((e.tm === me.team ? 'Tu equipo' : 'El rival') + ' pidió pausa táctica (le quedan ' + e.left + '): empieza con la próxima compra'); break;
@@ -1226,7 +1226,7 @@ function smokeList() { const l = []; for (const s of smokes.values()) if (nowS()
 /* ================= ENTRADA ================= */
 const keys = {}; const look = { dx: 0, dy: 0 };
 let locked = false, lockFailed = false, lockFails = 0, wantUnlock = false, lastMX = null, lastMY = null;
-function uiOpen() { return !$('#buy').hidden || !$('#pause').hidden || !$('#end').hidden || !$('#rangeEnd').hidden; }
+function uiOpen() { return !$('#vs').hidden || !$('#buy').hidden || !$('#pause').hidden || !$('#end').hidden || !$('#rangeEnd').hidden; }
 function requestLock(gesture) {
   // El navegador solo permite capturar el mouse justo después de un clic o una tecla.
   if (isTouch || locked || uiOpen() || !gesture || lockFailed) return;
@@ -2323,6 +2323,30 @@ function kcRender(dt) {
   }
   kc.lastRt = rt;
 }
+
+/* ================= PRESENTACIÓN DE LOS EQUIPOS ================= */
+// Al comenzar la partida: tu equipo a la izquierda, el rival a la derecha, con nivel, nombre, clan, título y si es persona o bot
+const MODE_N = { bomb: 'Con carga', elim: 'Sin carga', gg: 'Escalada de armas', tdm: 'Combate por equipos', waves: 'Oleadas · cooperativo' };
+let vsT = null;
+function showVersus() {
+  if (G.state !== 'playing' || !G.roster || !G.roster.length || !me.alive && G.mode !== 'waves') return; const el = $('#vs'); if (!el) return;
+  const mine = me.team, rows = t => G.roster.filter(r => r[2] === t).sort((a, b) => (b[7] - a[7]) || ((b[9] | 0) - (a[9] | 0)));
+  const outName = id => { const o = PC.OUTFITS.find(x => x.id === id); return o && id !== 'clasico' ? o.name : ''; };
+  const card = (r, i, side) => {
+    const [id, name, team, , , , , hum, , lvl, , cardId, titleId, ctag, outfit] = r; const tl = PC.TITLES.find(x => x.id === titleId), cd = PC.CARDS.find(x => x.id === cardId);
+    const sub = [tl ? tl.name : '', outName(outfit)].filter(Boolean).join(' · ') || (hum ? 'Operador' : 'Bot de ' + ({ recluta: 'nivel recluta', veterano: 'nivel veterano', elite: 'nivel élite' }[G.diff] || 'apoyo'));
+    return `<div class="vsP${id === me.id ? ' me' : ''}" style="--tc:${TEAMC[team]};animation-delay:${(.15 + i * .09).toFixed(2)}s${cd ? ';' + cardCss(cd).replace('background:', 'background:linear-gradient(90deg,rgba(9,11,13,.55),rgba(9,11,13,.85)),') : ''}"><span class="vsLvl">${hum ? (lvl | 0) + 1 : '—'}</span><span class="vsName"><b>${ctag ? `<i>[${esc(ctag)}]</i>` : ''}${esc(name)}</b><span>${esc(sub)}</span></span><span class="vsTag${hum ? ' h' : ''}">${id === me.id ? 'TÚ' : hum ? 'PERSONA' : 'BOT'}</span></div>`;
+  };
+  const team = (t, side) => `<div class="vsTeam ${side}"><div class="vsTeamHead" style="color:${TEAMC[t]}">${side === 'r' ? `<small>${SIDE_N[sideOf(t)]}</small>` : ''}${TEAMN[t]}${side === 'l' ? `<small>${SIDE_N[sideOf(t)]}</small>` : ''}</div>${rows(t).map((r, i) => card(r, i, side)).join('')}</div>`;
+  const M = MAPS[CURMAP];
+  el.innerHTML = `<div class="vsHead"><div class="vsMap">${esc(M ? M.name : '')}</div><div class="vsMode">${esc((G.comp ? 'Competitivo' : MODE_N[G.mode] || '').toUpperCase())}${G.mode === 'waves' ? '' : ' · 5 CONTRA 5'}</div></div>
+    <div class="vsBody">${team(mine, 'l')}<div class="vsMid"><div class="vsX">VS</div></div>${team(1 - mine, 'r')}</div><div class="vsSkip">${isTouch ? 'Toca para continuar' : 'Clic o cualquier tecla para continuar'}</div>`;
+  el.hidden = false; el.classList.remove('out'); releaseLock(); uiSound(() => { sNoise(.5, .25, 420, 0, 0, .7); sTone(98, .5, .3, 'sawtooth', 60, .25); sTone(196, .3, .12, 'square', 0, .3); });
+  clearTimeout(vsT); vsT = setTimeout(hideVersus, 5200);
+}
+function hideVersus() { const el = $('#vs'); if (!el || el.hidden || el.classList.contains('out')) return; clearTimeout(vsT); if (G.vsAnn) { announce(G.vsAnn[0], G.vsAnn[1], 2.8); G.vsAnn = null; } el.classList.add('out'); setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 400); }
+$('#vs').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); hideVersus(); });
+addEventListener('keydown', () => { if (!$('#vs').hidden) hideVersus(); }, true);
 
 /* ================= ÓRDENES POR VOZ A LOS BOTS ================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
