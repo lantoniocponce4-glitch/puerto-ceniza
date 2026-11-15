@@ -267,6 +267,74 @@ DEF.ars = withSuppressor(DEF.ar, .19, .018, .045); DEF.r50 = pistolDef(.2); DEF.
 DEF.b3 = pistolDef(.17, false, true);
 const A = () => { const P = []; return [P, (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g])]; };
 // K-11 Zorro: subfusil compacto con cargador largo y culata plegable
+// KR-47 Lobo: fusil de asalto con culata y guardamanos de madera, cargador curvo y cañón con freno de boca
+DEF.kr47 = function () {
+  const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
+  a('metal', ex([[-.11, .002], [.22, .002], [.23, .02], [.23, .07], [-.11, .072], [-.12, .05]], .05, 0, .004));
+  a('park', ex([[-.1, .072], [.2, .072], [.19, .088], [-.08, .088]], .046, 0, .003));
+  a('wood', ex([[.23, .006], [.42, .012], [.43, .03], [.42, .066], [.23, .07]], .058, 0, .006));
+  a('wood', ex([[.24, .07], [.4, .068], [.39, .088], [.25, .09]], .044, 0, .004));
+  a('metal', cyl(.0105, .0105, .43, .6, .046)); a('metal', cyl(.006, .006, .26, .44, .078));
+  a('metal', cyl(.016, .016, .6, .66, .046)); for (let i = 0; i < 3; i++) a('poly', bx(.615 + i * .014, .058, .62 + i * .014, .064, .034));
+  a('metal', ex([[.395, .07], [.41, .07], [.408, .1], [.398, .1]], .012)); a('dotg', sph(.0013, .403, .1, 0, 1, 1, 1, 6));
+  a('metal', notch(-.005, .012, .088, .102, .096, .006, .03));
+  // cargador curvo
+  a('metal', ex([[.03, 0], [.1, 0], ['q', .13, -.1, .19, -.17], [.13, -.205], ['q', .07, -.12, .03, 0]], .028));
+  a('poly', gripG(-.035)); a('metal', trig(-.025));
+  a('wood', ex([[-.12, .068], [-.12, .005], [-.3, -.04], [-.39, -.055], [-.395, -.035], [-.395, .045], [-.38, .062], [-.3, .068]], .044, 0, .006));
+  a('rubber', bx(-.41, -.058, -.393, .066, .047));
+  return { P, muzzle: .66, boreY: .046, grip: [-.03, -.05], fore: [.33, .008], cls: 'rifle', sight: [.0035, .0975], adsZ: -.2 };
+};
+// SG-55 Lechuza: bullpup con mira de aumento integrada (tubo con retícula)
+DEF.sg55 = function () {
+  const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
+  a('od', ex([[-.34, -.04], [-.12, -.03], [.02, -.004], [.3, 0], [.31, .02], [.31, .07], [-.3, .074], [-.345, .04], [-.345, -.03]], .064, 0, .006));
+  a('metal', cyl(.011, .011, .31, .5, .045)); a('metal', cyl(.015, .015, .5, .55, .045));
+  // mira de aumento: tubo, anillos y oculares
+  a('poly', cyl(.022, .022, -.06, .14, .118)); a('poly', cyl(.028, .026, .14, .19, .118)); a('poly', cyl(.026, .024, -.11, -.06, .118));
+  for (const x of [-.02, .1]) a('park', bx(x - .012, .074, x + .012, .1, .03));
+  a('glass', cyl(.021, .021, .188, .192, .118)); a('glass', cyl(.02, .02, -.112, -.108, .118));
+  a('od', ex([[.13, -.004], [.2, -.004], [.19, -.1], [.16, -.1], [.13, -.06]], .03, 0, .004));
+  a('poly', gripG(.07)); a('metal', trig(.08));
+  a('metal', ex([[-.14, -.03], [-.08, -.02], ['q', -.07, -.09, -.06, -.16], [-.12, -.17], ['q', -.13, -.1, -.14, -.03]], .026));
+  a('rubber', bx(-.357, -.042, -.343, .075, .064));
+  return { P, muzzle: .55, boreY: .045, grip: [.085, -.05], fore: [.18, -.07], cls: 'rifle', sight: Object.assign([-.1, .118], { ret: [-.104, .118, .03] }), adsZ: -.16 };
+};
+// UM-45 Tejón: subfusil pesado de cajón recto, culata plegable y cargador recto ancho
+DEF.um45 = function () {
+  const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
+  a('poly', ex([[-.12, 0], [.2, 0], [.21, .014], [.21, .072], [-.12, .074], [-.13, .046]], .056, 0, .005));
+  a('park', rail(-.11, .2, .074, .03)); const h = holo(-.02, .086, .032); a('poly', h.body); a('glass', h.glass);
+  a('metal', cyl(.012, .012, .21, .3, .04)); a('metal', cyl(.017, .017, .3, .33, .04));
+  a('metal', ex([[.04, 0], [.1, 0], [.105, -.17], [.045, -.175]], .036));
+  a('poly', gripG(-.04)); a('metal', trig(-.03));
+  a('poly', ex([[-.13, .06], [-.13, .02], [-.33, -.01], [-.35, .0], [-.35, .06]], .02, .016, .003)); a('poly', ex([[-.13, .06], [-.13, .02], [-.33, -.01], [-.35, .0], [-.35, .06]], .02, -.016, .003));
+  a('rubber', bx(-.365, -.015, -.348, .068, .05));
+  return { P, muzzle: .33, boreY: .04, grip: [-.035, -.05], fore: [.15, -.02], cls: 'rifle', sight: h.sight, adsZ: -.2 };
+};
+// PX-90 Avispa: subfusil bullpup con el cargador traslúcido sobre el cajón
+DEF.px90 = function () {
+  const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
+  a('poly', ex([[-.3, -.03], [-.06, -.02], ['q', .02, -.11, .1, -.11], [.18, -.06], [.24, .0], [.25, .05], [-.29, .06], [-.31, .03]], .06, 0, .008, [[[-.01, -.03], [.12, -.03], ['q', .1, -.08, .04, -.08], [-.01, -.04]]]));
+  a('glass', bx(-.22, .06, .2, .085, .05)); a('park', bx(-.22, .085, .2, .09, .046));
+  const h = holo(-.06, .09, .03); a('poly', h.body); a('glass', h.glass);
+  a('metal', cyl(.011, .011, .25, .33, .03)); a('metal', cyl(.015, .015, .33, .36, .03));
+  a('metal', trig(.04));
+  a('rubber', bx(-.32, -.035, -.305, .062, .058));
+  return { P, muzzle: .36, boreY: .03, grip: [.055, -.05], fore: [.17, -.04], cls: 'rifle', sight: h.sight, adsZ: -.22 };
+};
+// RV-8 Puma: revólver de cañón largo con tambor de 8 cartuchos
+DEF.rv8 = function () {
+  const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
+  a('metal', ex([[-.04, .02], [.06, .02], [.065, .062], [-.03, .066], [-.045, .045]], .028, 0, .003));
+  a('metal', cyl(.024, .024, -.005, .05, .046, 0, 16)); for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2; a('poly', cyl(.004, .004, -.006, .051, .046 + Math.cos(an) * .016, Math.sin(an) * .016, 6)); }
+  a('metal', cyl(.0095, .0095, .05, .22, .052)); a('park', bx(.05, .06, .22, .068, .012));
+  a('metal', bx(.205, .068, .215, .079, .004)); a('dotg', sph(.0012, .205, .078, 0, 1, 1, 1, 6));
+  a('metal', notch(-.035, -.022, .066, .0755, .07, .006, .02));
+  a('wood', ex([[-.045, .02], [.0, .02], [-.012, -.095], [-.06, -.1], [-.065, -.08]], .032, 0, .006));
+  a('metal', trig(-.005)[1]); a('metal', ex([[-.045, .066], [-.03, .07], [-.05, .082], [-.058, .074]], .008));
+  return { P, muzzle: .22, boreY: .052, grip: [-.025, -.045], fore: [-.03, -.06], cls: 'pistol', sight: [.21, .0775], adsZ: -.26 };
+};
 DEF.k11 = function () {
   const [P, a] = A();
   a('poly', ex([[-.11, 0], [.14, 0], [.15, .012], [.15, .07], [-.11, .072], [-.12, .045]], .048, 0, .004));
@@ -542,10 +610,21 @@ function buildSoldier(team, idx, opt = {}) {
     cur = guns[id]; cur.visible = true; const info = cur.userData.info; const cls = info.cls;
     const po = model.poseOv && cls === 'rifle' ? POSE_OV[model.poseOv] : null; model._hpy = undefined; hand.position.set(...(po ? po.pos : HANDPOS[cls])); if (po) hand.rotation.set(...po.rot); else hand.rotation.set(cls === 'knife' ? -.5 : 0, 0, 0); hand.updateMatrix();
     cur.userData.muzzle.add(flash); model.muzzle = cur.userData.muzzle;
-    const gp = toLocal(info.grip).applyMatrix4(hand.matrix);
-    const fp = cls === 'rifle' ? toLocal(info.fore).applyMatrix4(hand.matrix) : cls === 'pistol' ? gp.clone().add(new T.Vector3(-.035, -.01, .02)) : new T.Vector3(-.24, .14, -.08);
-    solveArm(arms.R, SH.R, gp, .29, .27, new T.Vector3(.55, .1, .25)); solveArm(arms.L, SH.L, fp, .29, .27, new T.Vector3(-.6, 0, .05));
+    // puntos de agarre en el espacio de la mano: se recalculan cada cuadro para animar los brazos (retroceso, recarga, lanzar)
+    const gpL = toLocal(info.grip), fpL = cls === 'rifle' ? toLocal(info.fore) : cls === 'pistol' ? gpL.clone().add(new T.Vector3(-.035, -.01, .02)) : null;
+    model._base = { pos: hand.position.clone(), rot: hand.rotation.clone(), cls, gpL, fpL, fpFix: new T.Vector3(-.24, .14, -.08) };
+    model.poseArms(null);
   };
+  // resuelve los dos brazos con cinemática inversa hacia el arma (o hacia un punto dado para la mano izquierda)
+  const _gp = new T.Vector3(), _fp = new T.Vector3(), _poleR = new T.Vector3(.55, .1, .25), _poleL = new T.Vector3(-.6, 0, .05);
+  model.poseArms = function (leftTo) {
+    const B = model._base; if (!B) return; hand.updateMatrix();
+    _gp.copy(B.gpL).applyMatrix4(hand.matrix);
+    if (leftTo) _fp.copy(leftTo); else if (B.fpL) _fp.copy(B.fpL).applyMatrix4(hand.matrix); else _fp.copy(B.fpFix);
+    solveArm(arms.R, SH.R, _gp, .29, .27, _poleR); solveArm(arms.L, SH.L, _fp, .29, .27, _poleL);
+  };
+  // acciones de una sola vez: 'fire' (retroceso), 'throw' (granada), 'slash' (cuchillo)
+  model.act = function (k) { model._act = { k, t0: performance.now() * .001 }; };
   // las piezas chicas no proyectan sombra: misma silueta, la mitad de llamadas de dibujo en la pasada de sombras
   g.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); const sc = Math.max(o.scale.x, o.scale.y, o.scale.z); if (o.geometry.boundingSphere.radius * sc < .07) o.castShadow = false; } });
   // fundir las piezas rígidas de cada articulación por material (los brazos con cinemática inversa quedan aparte)
@@ -558,6 +637,7 @@ function buildSoldier(team, idx, opt = {}) {
     const was = model.curGun; model.curGun = null; if (was) model.setGun(was);
   };
   model.setPose = function (p) { const ov = POSE_OV[p] ? p : null; if (ov === (model.poseOv || null)) return; model.poseOv = ov; const was = model.curGun; model.curGun = null; if (was) model.setGun(was); };
+  model._seed = (idx || 0) * 1.7;
   model.setHelmet = function (on) { helmet.visible = on; if (cap) cap.visible = !on; };
   model.animate = function (spd, ph, cr, pitch, mv) {
     mv = mv || {}; const t = performance.now() * .001, run = Math.min(1, spd / 3.2), k = run * (1 - cr * .55);
@@ -574,7 +654,33 @@ function buildSoldier(team, idx, opt = {}) {
     const y = .95 - cr * .42 + bob - air * .05; hips.position.y = y; upper.position.y = y + breath;
     upper.rotation.x = pitch * .65 + cr * .1 + run * .06 + Math.sin(t * 1.6) * .012 * (1 - run); upper.rotation.y = -model._hy * .85 + Math.sin(ph) * .06 * k; upper.rotation.z = -Math.sin(ph) * .03 * k;
     head.rotation.x = pitch * .25 - run * .05; head.rotation.y = model._hy * .3;
-    hand.position.y = (model._hpy !== undefined ? model._hpy : (model._hpy = hand.position.y)) + Math.sin(ph * 2) * .008 * k;
+    // giro en el lugar: si gira parado, los pies dan pasitos cortos
+    const dyaw = model._yawP === undefined ? 0 : Math.atan2(Math.sin(mv.yaw - model._yawP), Math.cos(mv.yaw - model._yawP)); model._yawP = mv.yaw || 0;
+    if (spd < .4 && !air && Math.abs(dyaw) > .012) model._turnPh = (model._turnPh || 0) + Math.abs(dyaw) * 9; else model._turnPh = (model._turnPh || 0) * .9;
+    if (model._turnPh > .05 && spd < .4) { const tp = Math.sin(model._turnPh); legs[0].hip.rotation.x += Math.max(0, tp) * .25; legs[1].hip.rotation.x += Math.max(0, -tp) * .25; legs[0].knee.rotation.x -= Math.max(0, tp) * .45; legs[1].knee.rotation.x -= Math.max(0, -tp) * .45; }
+    // reposo: traslada el peso de una pierna a otra y mira alrededor
+    const idle = (1 - run) * (1 - cr); hips.rotation.z += Math.sin(t * .7 + (model._seed || 0)) * .025 * idle; head.rotation.y += Math.sin(t * .45 + (model._seed || 0) * 2) * .12 * idle;
+    // brazos y arma
+    const B = model._base; if (!B) return;
+    hand.position.copy(B.pos); hand.rotation.copy(B.rot); hand.position.y += Math.sin(ph * 2) * .008 * k;
+    let leftTo = null;
+    const A = model._act, age = A ? t - A.t0 : 9;
+    if (A && A.k === 'fire' && age < .3) { const e = Math.exp(-age * 16); hand.position.z += .055 * e; hand.rotation.x += (B.cls === 'pistol' ? .22 : .1) * e; upper.rotation.x -= .025 * e; }
+    else if (A && A.k === 'throw' && age < .7) {
+      const p = age / .7, up = p < .45 ? Math.sin(p / .45 * Math.PI / 2) : Math.cos((p - .45) / .55 * Math.PI / 2), fwd = p < .45 ? 0 : Math.sin((p - .45) / .55 * Math.PI);
+      hand.position.y += .26 * up; hand.position.z += .24 * up - .3 * fwd; hand.rotation.x -= .9 * up - .5 * fwd; upper.rotation.y -= .35 * up - .25 * fwd; leftTo = new T.Vector3(-.15, .55 + .1 * up, -.3);
+    }
+    else if (A && A.k === 'slash' && age < .4) { const p = age / .4, sw = Math.sin(p * Math.PI); hand.position.x += .18 * Math.cos(p * Math.PI) * sw; hand.position.z -= .2 * sw; hand.rotation.y += 1.1 * (.5 - p) * sw * 2; upper.rotation.y += .3 * (.5 - p) * sw; }
+    if (mv.reload && B.cls !== 'knife' && B.cls !== 'nade') {
+      // recarga: inclina el arma, la mano izquierda baja al cargador del chaleco y lo inserta
+      model._rl = (model._rl || 0) + mv.dt; const p = (model._rl % 2.2) / 2.2, tilt = Math.min(1, Math.min(model._rl, 2.2 - (model._rl % 2.2)) * 5);
+      hand.rotation.z += .5 * tilt; hand.rotation.x -= .22 * tilt; hand.position.y -= .05 * tilt; hand.updateMatrix();
+      const well = B.gpL.clone().add(new T.Vector3(0, -.06, -.1)).applyMatrix4(hand.matrix), pouch = new T.Vector3(-.12, .18, -.16);
+      const q = p < .25 ? p / .25 : p < .5 ? 1 - (p - .25) / .25 : 0, w = p < .25 ? 0 : p < .75 ? 1 : 1 - (p - .75) / .25;
+      leftTo = well.clone().lerp(pouch, q); if (p >= .75) { const f = B.fpL ? B.fpL.clone().applyMatrix4(hand.matrix) : B.fpFix; leftTo.lerp(f, 1 - w); }
+    } else model._rl = 0;
+    if (mv.plant) { hand.position.y -= .28; hand.position.z -= .12; hand.rotation.x -= .6; upper.rotation.x += .45; leftTo = new T.Vector3(-.08, .2, -.42); }
+    model.poseArms(leftTo);
   };
   return model;
 }

@@ -351,6 +351,15 @@ tr.dead td{opacity:.5}
 #app.hudedit .tb[hidden]{display:flex!important;opacity:.5}
 #rotate{display:none;position:fixed;inset:0;z-index:99;background:#0d1013;color:var(--sand);align-items:center;justify-content:center;text-align:center;font-family:var(--f-display)}#rotate b{display:block;font-size:26px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}#rotate span{font-family:var(--f-body);font-size:14px;color:var(--dim)}
 @media (orientation:portrait) and (pointer:coarse){#app.playing ~ #rotate{display:flex}}
+/* Horizontal forzado (pantalla vertical sin poder bloquear la orientación): todo el juego se gira 90° */
+html.forceLand #app{inset:auto;top:0;left:0;width:var(--fw,100vh);height:var(--fh,100vw);transform-origin:0 0;transform:translateX(var(--fh,100vw)) rotate(90deg)}
+html.forceLand #rotate{display:none!important}
+#gcal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;background:rgba(9,11,13,.82);text-align:center;padding:16px}
+#gcal .gcIn{max-width:460px;padding:20px 22px;border:1px solid rgba(242,179,61,.45);background:#11161a;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+#gcal h3{font-family:var(--f-display);font-size:28px;text-transform:uppercase;margin:.3em 0}#gcal h3 b{color:var(--amber)}
+#gcal .gcB{height:8px;background:rgba(255,255,255,.08);margin:14px 0}#gcal .gcB s{display:block;height:100%;width:0;background:var(--amber);transition:width .1s}
+html.forceLand #radar{width:104px;height:104px} html.forceLand #zoneTag{display:none}
+html.forceLand #bBuy{left:120px} html.forceLand #feed{top:8px} html.forceLand #slots{display:none}
 .mctl .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 14px;margin-top:6px}.mctl label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--dim)}.mctl input[type=range]{accent-color:var(--amber);min-height:28px}.mctl .chk{flex-direction:row;align-items:center;gap:8px;color:var(--sand);font-size:13px;min-height:36px}.mctl .chk input{width:20px;height:20px;accent-color:var(--amber)}.mctl .gyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.mctl .gybtn{min-height:44px}.mctl .gyst{color:var(--dim)}.mctl .gyst.ok{color:#7fd88f}
 .endMore{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px}@media (max-width:640px){.endMore{grid-template-columns:1fr}}
 .endMvp{border-radius:3px;border:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:3px;min-height:74px;justify-content:center;background:linear-gradient(110deg,#2a2f35,#14171b)}.endMvp .lbl{color:#fff;opacity:.85}.endMvp b{font-family:var(--f-display);font-size:22px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}.endMvp span{font-size:12px;color:#fff;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.7)}
@@ -527,6 +536,95 @@ tr.dead td{opacity:.5}
 .retPick .seg{flex-wrap:wrap}.retCols{display:flex;gap:8px;margin-top:6px}
 .retCols button{all:unset;cursor:pointer;width:26px;height:26px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 2px rgba(0,0,0,.4),0 0 8px var(--c)}
 .retCols button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink),0 0 0 4px #fff,0 0 10px var(--c)}.retCols button:focus-visible{box-shadow:0 0 0 3px #fff}
+
+/* ---------- HUD táctil v2 (ideas de shooters móviles: íconos, armas tocables abajo, comunicación agrupada) ---------- */
+#touch .tb{background:radial-gradient(circle at 50% 38%,rgba(30,36,42,.5),rgba(8,10,12,.42));border:1.5px solid rgba(240,232,214,.32);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.25);transition:transform .07s,background .1s,border-color .1s;flex-direction:column;gap:1px}
+#touch .tb svg{width:46%;height:46%;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+#touch .tb small{font-size:8px;letter-spacing:.08em;opacity:.8;line-height:1;pointer-events:none}
+#touch .tb:active{background:rgba(242,179,61,.3);border-color:rgba(242,179,61,.9)}
+#touch #bFire,#touch #bFireL{border-color:rgba(239,106,69,.85);color:#ffd9cc;background:radial-gradient(circle at 50% 38%,rgba(239,106,69,.32),rgba(60,16,10,.35))}
+#touch #bFire svg{width:52%;height:52%}
+#touch #bAct{border-color:var(--amber);color:var(--amber)}
+#touch #bPing{width:50px;height:50px;border-radius:50%;border-color:rgba(242,179,61,.6)}
+#touch #bBoard,#touch #bPause,#touch #bMore{width:40px;height:40px;border-radius:10px}
+#touch #bMore.on{border-color:var(--amber);color:var(--amber)}
+#touch .cg{width:46px;height:46px;border-radius:12px}
+#app:not(.hudedit) #touch:not(.cgOpen) .cg{display:none}
+#wslots{position:absolute;display:flex;gap:6px;pointer-events:auto}
+#wslots button{all:unset;box-sizing:border-box;min-width:76px;height:44px;padding:4px 10px;display:flex;flex-direction:column;justify-content:center;gap:2px;background:linear-gradient(180deg,rgba(20,25,30,.62),rgba(8,10,12,.55));border:1.5px solid rgba(240,232,214,.22);color:var(--sand);font-family:var(--f-display);text-transform:uppercase;letter-spacing:.05em;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);touch-action:none}
+#wslots button b{font-size:12px;font-weight:700;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+#wslots button span{font-size:9px;color:var(--dim)}
+#wslots button.cur{border-color:var(--amber);background:linear-gradient(180deg,rgba(242,179,61,.28),rgba(40,30,8,.5))}#wslots button.cur span{color:var(--amber)}
+
+/* ---------- Compra en celular: pestañas de categoría + cuadrícula compacta, todo en una pantalla ---------- */
+#buyClose{display:none}
+.btabs{display:none}
+body.touchUI #buy{align-items:stretch;padding:0}
+body.touchUI .buybox{width:100%;height:100%;max-height:100%;border-radius:0;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px));gap:6px;display:grid;grid-template-columns:132px 1fr;grid-template-rows:auto 1fr;overflow:hidden}
+body.touchUI .buyhead{grid-column:1/3;align-items:center;flex-wrap:nowrap}
+body.touchUI .buyhead h2{font-size:20px}
+body.touchUI #buyMoney{font-size:22px;margin-left:auto}
+body.touchUI #buyClose{all:unset;box-sizing:border-box;width:44px;height:40px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--line);color:var(--sand);font-size:18px;cursor:pointer;margin-right:env(safe-area-inset-right,0px)}
+body.touchUI .btabs{display:flex;flex-direction:column;gap:4px;overflow-y:auto;min-height:0}
+body.touchUI .btabs button{all:unset;box-sizing:border-box;padding:0 10px;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-family:var(--f-display);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);cursor:pointer}
+body.touchUI .btabs button small{font-family:var(--f-mono);font-size:10px;font-weight:400}
+body.touchUI .btabs button[aria-selected="true"]{color:var(--sand);border-color:var(--amber);background:rgba(242,179,61,.14);box-shadow:inset 3px 0 0 var(--amber)}
+body.touchUI .bcols{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:min-content;gap:6px;overflow-y:auto;min-height:0;padding-right:calc(4px + env(safe-area-inset-right,0px));-webkit-overflow-scrolling:touch;touch-action:pan-y}
+body.touchUI .bcol{display:contents}
+body.touchUI .bcol>.lbl{display:none}
+body.touchUI .bi{min-height:58px;padding:6px 10px}
+body.touchUI .bi .n{font-size:13px}
+body.touchUI #teamBuy,body.touchUI .buybox>.small{display:none}
+
+/* botón de compra: grande, junto al dinero y latiendo durante la fase de compra */
+#touch #bBuy{width:56px;height:56px;border-radius:12px;border-color:var(--money);color:var(--money)}
+#touch #bBuy.pulse{animation:buyPulse 1.2s ease-in-out infinite}
+@keyframes buyPulse{0%,100%{box-shadow:0 0 0 0 rgba(143,214,148,.0)}50%{box-shadow:0 0 0 7px rgba(143,214,148,.28)}}
+@media (prefers-reduced-motion:reduce){#touch #bBuy.pulse{animation:none}}
+
+/* el chip de la sala se oculta mientras hay un anuncio grande (no lo tapa) */
+#roomChip{transition:opacity .2s}
+#announce.on ~ #roomChip{opacity:0}
+
+/* ---------- Menú principal por pestañas (Jugar · Social · Perfil · Ajustes) ---------- */
+.mnav{display:flex;gap:6px;position:sticky;top:0;z-index:2;padding:6px 0;background:linear-gradient(180deg,rgba(9,11,13,.96),rgba(9,11,13,.88))}
+.mnav button{all:unset;box-sizing:border-box;flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-family:var(--f-display);font-weight:700;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);cursor:pointer;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.mnav button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mnav button[data-mtab="jugar"] svg{fill:currentColor;stroke:none}
+.mnav button:hover{color:var(--sand);border-color:rgba(233,220,192,.4)}
+.mnav button[aria-selected="true"]{color:var(--ink,#0d1013);background:linear-gradient(180deg,#f6d27a,var(--amber));border-color:var(--amber)}
+.mnav button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.mtab{display:flex;flex-direction:column;gap:16px}
+.mtab[hidden]{display:none}
+.playHero .modes{padding:14px;border:1px solid rgba(242,179,61,.35);background:linear-gradient(135deg,rgba(242,179,61,.1),rgba(255,255,255,.02))}
+.playHero #quick{font-size:20px;min-height:54px;flex:1 1 220px}
+.setGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:start}
+.setGrid>.sec{margin:0}
+.howto summary{cursor:pointer;color:var(--dim);font-size:13px}
+.howto .lead{margin-top:8px}
+#menu h1{font-size:clamp(40px,6vw,72px)}
+/* celular en horizontal: barra lateral con logo y pestañas, contenido con su propio desplazamiento */
+@media (max-height:520px){
+  #menu{overflow:hidden;padding:0}
+  .mwrap{width:100%;max-width:none;height:100%;display:grid;grid-template-columns:150px minmax(0,1fr);grid-template-rows:auto auto 1fr;gap:0 16px;padding:10px max(14px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px))}
+  .mwrap>div:first-child{grid-column:1;grid-row:1}
+  #menu .eyebrow{display:none}
+  #menu h1{font-size:30px;line-height:.9}
+  .mnav{grid-column:1;grid-row:2/4;flex-direction:column;justify-content:flex-start;padding:12px 0;background:none;position:static}
+  .mnav button{flex:0 0 auto;justify-content:flex-start;min-height:48px}
+  .mtab,#err,#apkUpd,#iosInst{grid-column:2}
+  #err:empty{display:none}
+  .mtab{grid-row:1/4;overflow-y:auto;min-height:0;padding:4px 4px 16px 0;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+  .playHero #quick{font-size:18px;min-height:48px}
+  #menu{background:linear-gradient(90deg,rgba(9,11,13,.97) 0%,rgba(9,11,13,.9) 60%,rgba(9,11,13,.8) 100%)}
+  .mtab .small{font-size:12px}
+}
+/* modos de juego en cuadrícula (seis botones no caben en una fila) y botones secundarios legibles */
+#gmSeg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+#gmSeg button{min-height:44px;line-height:1.15;padding:6px 8px}
+.mctl .btn{all:unset;box-sizing:border-box;min-height:40px;padding:0 14px;display:inline-flex;align-items:center;border:1px solid rgba(242,179,61,.5);color:var(--sand);background:rgba(242,179,61,.1);font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.mctl .btn:hover{background:rgba(242,179,61,.2)}
+
 </style>
 </head>
 <body>
@@ -598,13 +696,15 @@ tr.dead td{opacity:.5}
     <div class="tb" id="bBuy" aria-label="Comprar">$</div>
     <div class="tb" id="bBoard" aria-label="Marcador">Tabla</div>
     <div class="tb" id="bPause" aria-label="Menú">II</div>
-    <div class="tb" id="bRadio" aria-label="Radio rápida">Radio</div>
+    <div class="tb cg" id="bRadio" aria-label="Radio rápida">Radio</div>
     <div class="tb" id="bPing" aria-label="Marcar">Marcar</div>
-    <div class="tb" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
-    <div class="tb" id="bChat" aria-label="Chat de equipo">Chat</div>
-    <div class="tb" id="bVoice" aria-label="Órdenes por voz a los bots">Voz</div>
+    <div class="tb cg" id="bInsp" aria-label="Inspeccionar arma">Ver</div>
+    <div class="tb cg" id="bChat" aria-label="Chat de equipo">Chat</div>
+    <div class="tb cg" id="bVoice" aria-label="Órdenes por voz a los bots">Voz</div>
     <div class="tb" id="bLeanL" aria-label="Asomarse a la izquierda">◀</div>
     <div class="tb" id="bLeanR" aria-label="Asomarse a la derecha">▶</div>
+    <div class="tb" id="bMore" aria-label="Más acciones: radio, chat, voz e inspeccionar">Más</div>
+    <div id="wslots" aria-label="Armas"></div>
   </div>
 
   <div id="loadCard" hidden aria-live="polite"><div class="lcArt"></div><div class="lcIn"><div class="eyebrow">DESPLIEGUE</div><h2 id="lcMap"></h2><p id="lcBlurb" class="small"></p><div class="lcTip"><b>Consejo</b><span id="lcTip"></span></div></div></div>
@@ -614,35 +714,13 @@ tr.dead td{opacity:.5}
         <div class="eyebrow">OPERACIÓN CENIZA · 5 CONTRA 5 · POR RONDAS</div>
         <h1>Puerto<br><em>Ceniza</em></h1>
       </div>
-      <p class="lead">Los <b>terroristas</b> plantan la carga en el sitio A o B; los <b>antiterroristas</b> lo impiden o la desactivan. Una vida por ronda, sin regeneración. Gana dinero y compra tu equipo. Cada partida es <b>al mejor de 5</b>: gana el primer equipo en llegar a 3 rondas, y luego el mapa rota. Hasta 10 personas por sala; los cupos vacíos los ocupan bots.</p>
-      <div id="acctBox" class="sec"></div>
-      <div id="profBox"></div>
-      <div id="pnameWrap"><label class="field sec" for="pname"><span class="lbl small">Nombre del personaje</span><input id="pname" type="text" maxlength="14" autocomplete="nickname" placeholder="Operador"></label></div>
-      <div class="row2">
-        <div class="sec"><div class="lbl">Tu bando</div>
-          <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
-        </div>
-        <div class="sec"><div class="lbl">Modo (salas nuevas)</div>
-          <div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button><button type="button" data-v="waves">Oleadas (cooperativo)</button><button type="button" data-v="comp">Competitivo · 24 rondas</button></div>
-        </div>
-      </div>
-      <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Escalada de armas: cada baja te da un arma nueva y reapareces al instante; gana quien llegue al cuchillo y mate con él.</div>
-      <div class="sec"><div class="lbl">Mapa (salas nuevas)</div><div class="maps" id="maps"></div></div>
-      <div class="row2">
-        <div class="sec"><div class="lbl">Bots</div>
-          <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
-        </div>
-        <div class="sec"><div class="lbl">Controles y HUD</div><button class="go ghost sm" id="hudEdit1" type="button">Configurar HUD</button></div>
-        <div class="sec mctl" data-mctl="1" hidden></div>
-        <div class="sec retPick"></div>
-        <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
-        <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
-        <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
-      </div>
-      <div class="keys" id="keysHelp">
-        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>F</kbd>plantar / desactivar</span><span><kbd>Q</kbd><kbd>E</kbd>asomarse</span><span><kbd>X</kbd>arma anterior</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>L</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span><span><kbd>T</kbd>órdenes por voz (mantén)</span>
-      </div>
-      <div class="modes">
+      <nav class="mnav" role="tablist" aria-label="Menú principal"><button type="button" role="tab" data-mtab="jugar" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg><span>Jugar</span></button><button type="button" role="tab" data-mtab="social" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.6c3 .1 5.5 2 5.5 5"/></svg><span>Social</span></button><button type="button" role="tab" data-mtab="perfil" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/></svg><span>Perfil</span></button><button type="button" role="tab" data-mtab="ajustes" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg><span>Ajustes</span></button></nav>
+      <div id="err" role="status"></div>
+      <div id="apkUpd" class="apkUpd" hidden></div>
+      <div id="iosInst" class="apkUpd" hidden><span>Instala Puerto Ceniza en tu iPhone: toca <b>Compartir</b> <span aria-hidden="true">⎙</span> y luego <b>«Agregar a pantalla de inicio»</b>. Se abre a pantalla completa y se actualiza sola.</span><button type="button" class="linkbtn" id="iosInstX">Ahora no</button></div>
+      <section class="mtab" data-panel="jugar" role="tabpanel">
+        <div class="playHero">
+        <div class="modes">
         <button class="go" id="quick" type="button">Partida rápida ▸</button>
         <button class="go ghost sm" id="create" type="button">Crear sala</button>
         <details class="rulesBox" id="rulesBox"><summary>Reglas personalizadas <span class="small" id="rulesSum"></span></summary>
@@ -658,10 +736,36 @@ tr.dead td{opacity:.5}
         </details>
         <label class="pubchk" for="pubRoom"><input type="checkbox" id="pubRoom"> Pública (aparece en la lista)</label>
         <div class="join"><input id="code" type="text" maxlength="4" placeholder="CÓDIGO" aria-label="Código de sala" autocomplete="off"><button id="joinBtn" type="button">Unirse</button></div>
+        </div>
+        </div>
+        <div class="sec"><div class="lbl">Modo de juego</div><div class="seg" id="gmSeg"><button type="button" data-v="bomb">Con carga</button><button type="button" data-v="elim">Sin carga</button><button type="button" data-v="gg">Escalada de armas</button><button type="button" data-v="tdm">Combate por equipos</button><button type="button" data-v="waves">Oleadas (cooperativo)</button><button type="button" data-v="comp">Competitivo · 24 rondas</button></div>
+      <div class="small">Con carga: los terroristas plantan en A o B y los antiterroristas la desactivan. Sin carga: gana la ronda el bando que elimine al otro. Escalada de armas: cada baja te da un arma nueva y reapareces al instante; gana quien llegue al cuchillo y mate con él.</div>
+        </div>
+      <div class="sec"><div class="lbl">Mapa (salas nuevas)</div><div class="maps" id="maps"></div></div>
+        <div class="row2">
+        <div class="sec"><div class="lbl">Tu bando</div>
+          <div class="seg" id="sideSeg"><button type="button" data-v="auto">Automático</button><button type="button" data-v="atk">Terroristas</button><button type="button" data-v="def">Antiterroristas</button></div>
+        </div>
+        <div class="sec"><div class="lbl">Bots</div>
+          <div class="seg" id="diff"><button type="button" data-d="recluta" aria-pressed="false">Recluta</button><button type="button" data-d="veterano" aria-pressed="true">Veterano</button><button type="button" data-d="elite" aria-pressed="false">Élite</button></div>
+        </div>
+        </div>
+      <div class="small">¿Sin conexión? <button class="linkbtn" id="offline" type="button">Practica solo contra bots</button> · <button class="linkbtn" id="rangeGo" type="button">Campo de tiro</button></div>
+        <details class="howto"><summary>¿Cómo se juega?</summary>
+      <p class="lead">Los <b>terroristas</b> plantan la carga en el sitio A o B; los <b>antiterroristas</b> lo impiden o la desactivan. Una vida por ronda, sin regeneración. Gana dinero y compra tu equipo. Cada partida es <b>al mejor de 5</b>: gana el primer equipo en llegar a 3 rondas, y luego el mapa rota. Hasta 10 personas por sala; los cupos vacíos los ocupan bots.</p>
+        </details>
+      </section>
+      <section class="mtab" data-panel="social" role="tabpanel" hidden>
+      <div class="sec" id="squadBox">
+        <div class="roomsHead"><span class="lbl">Escuadra de amigos</span><span class="small" id="sqInfo">Hasta 4 · siempre en el mismo equipo</span></div>
+        <div id="sqOut" class="sqrow"><button class="go ghost sm" id="sqCreate" type="button">Crear escuadra</button><div class="join"><input id="sqCode" type="text" maxlength="5" placeholder="CÓDIGO" aria-label="Código de escuadra" autocomplete="off"><button id="sqJoin" type="button">Unirme</button></div></div>
+        <div id="sqIn" hidden>
+          <div class="sqhead">Código <code id="sqCodeV"></code><button type="button" class="linkbtn" id="sqCopy">Copiar</button><span class="small" id="sqMode"></span></div>
+          <div id="sqMembers" class="sqmem"></div>
+          <div class="sqrow"><button class="go sm" id="sqReady" type="button">Estoy listo</button><button class="go sm" id="sqStart" type="button">Entrar a partida</button><button class="go ghost sm" id="sqLeave" type="button">Salir de la escuadra</button></div>
+        </div>
+        <div class="small" id="sqErr" role="status"></div>
       </div>
-      <div id="err" role="status"></div>
-      <div id="apkUpd" class="apkUpd" hidden></div>
-      <div id="iosInst" class="apkUpd" hidden><span>Instala Puerto Ceniza en tu iPhone: toca <b>Compartir</b> <span aria-hidden="true">⎙</span> y luego <b>«Agregar a pantalla de inicio»</b>. Se abre a pantalla completa y se actualiza sola.</span><button type="button" class="linkbtn" id="iosInstX">Ahora no</button></div>
       <div class="sec" id="clanBox" hidden>
         <div class="roomsHead"><span class="lbl">Clan</span><span class="small" id="clanInfo"></span></div>
         <div id="clanOut">
@@ -678,27 +782,37 @@ tr.dead td{opacity:.5}
         </div>
         <div class="small" id="clanErr" role="status"></div>
       </div>
-      <div class="sec" id="squadBox">
-        <div class="roomsHead"><span class="lbl">Escuadra de amigos</span><span class="small" id="sqInfo">Hasta 4 · siempre en el mismo equipo</span></div>
-        <div id="sqOut" class="sqrow"><button class="go ghost sm" id="sqCreate" type="button">Crear escuadra</button><div class="join"><input id="sqCode" type="text" maxlength="5" placeholder="CÓDIGO" aria-label="Código de escuadra" autocomplete="off"><button id="sqJoin" type="button">Unirme</button></div></div>
-        <div id="sqIn" hidden>
-          <div class="sqhead">Código <code id="sqCodeV"></code><button type="button" class="linkbtn" id="sqCopy">Copiar</button><span class="small" id="sqMode"></span></div>
-          <div id="sqMembers" class="sqmem"></div>
-          <div class="sqrow"><button class="go sm" id="sqReady" type="button">Estoy listo</button><button class="go sm" id="sqStart" type="button">Entrar a partida</button><button class="go ghost sm" id="sqLeave" type="button">Salir de la escuadra</button></div>
-        </div>
-        <div class="small" id="sqErr" role="status"></div>
-      </div>
       <div class="sec" id="roomsBox">
         <div class="roomsHead"><span class="lbl">Salas públicas activas</span><button type="button" class="linkbtn" id="roomsRefresh">Actualizar</button></div>
         <div id="roomList"><div class="small">Buscando salas…</div></div>
       </div>
-      <div class="small">¿Sin conexión? <button class="linkbtn" id="offline" type="button">Practica solo contra bots</button> · <button class="linkbtn" id="rangeGo" type="button">Campo de tiro</button></div>
+      </section>
+      <section class="mtab" data-panel="perfil" role="tabpanel" hidden>
+      <div id="acctBox" class="sec"></div>
+      <div id="profBox"></div>
+      <div id="pnameWrap"><label class="field sec" for="pname"><span class="lbl small">Nombre del personaje</span><input id="pname" type="text" maxlength="14" autocomplete="nickname" placeholder="Operador"></label></div>
+      </section>
+      <section class="mtab" data-panel="ajustes" role="tabpanel" hidden>
+        <div class="setGrid">
+        <div class="sec"><div class="lbl">Controles y HUD</div><button class="go ghost sm" id="hudEdit1" type="button">Configurar HUD</button></div>
+        <div class="sec mctl" data-mctl="1" hidden></div>
+        <div class="sec retPick"></div>
+        <div class="sec"><div class="lbl">Gráficos</div><div class="seg" id="gfxSeg"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+        <div class="sec"><div class="lbl">Cuadros por segundo</div><div class="seg" id="fpsSeg"><button type="button" data-v="max">Máximo</button><button type="button" data-v="60">60 · equilibrado</button><button type="button" data-v="30">30 · ahorro de batería</button></div></div>
+        <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm1"><span>General</span><input id="volm1" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx1"><span>Disparos y efectos</span><input id="volfx1" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb1"><span>Ambiente y clima</span><input id="volamb1" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui1"><span>Radio y chat</span><input id="volui1" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
+        <label class="sec sens" for="sens"><span class="lbl">Sensibilidad</span><input id="sens" type="range" min="0.3" max="2.4" step="0.05" value="1"></label>
+        </div>
+      <div class="keys" id="keysHelp">
+        <span><kbd>WASD</kbd>mover</span><span><kbd>Shift</kbd>caminar en silencio</span><span><kbd>C</kbd>agacharse</span><span><kbd>Clic</kbd>disparar</span><span><kbd>Clic der.</kbd>apuntar con la mira / granada corta</span><span><kbd>1-4</kbd>armas</span><span><kbd>B</kbd>comprar</span><span><kbd>F</kbd>plantar / desactivar</span><span><kbd>Q</kbd><kbd>E</kbd>asomarse</span><span><kbd>X</kbd>arma anterior</span><span><kbd>G</kbd>soltar</span><span><kbd>R</kbd>recargar</span><span><kbd>Tab</kbd>marcador</span><span><kbd>Z</kbd>radio</span><span><kbd>V</kbd>/<kbd>rueda</kbd>marcar</span><span><kbd>Y</kbd>chat</span><span><kbd>L</kbd>linterna de noche</span><span><kbd>I</kbd>inspeccionar arma</span><span><kbd>T</kbd>órdenes por voz (mantén)</span>
+      </div>
+      </section>
     </div>
   </div>
 
   <div id="buy" class="ov" hidden>
     <div class="buybox">
-      <div class="buyhead"><h2>Comprar</h2><span id="buyTime"></span><span id="buyMoney">$0</span></div>
+      <div class="buyhead"><h2>Comprar</h2><span id="buyTime"></span><span id="buyMoney">$0</span><button type="button" id="buyClose" aria-label="Cerrar la compra">✕</button></div>
+      <div class="btabs" id="btabs" role="tablist" aria-label="Categorías"></div>
       <div class="bcols" id="bcols"></div>
       <div id="teamBuy" class="teamBuy"></div>
       <div class="small">Las armas nuevas reemplazan a la del mismo tipo, que queda en el suelo. <kbd class="mono">B</kbd> o <kbd class="mono">Esc</kbd> para cerrar.</div>
@@ -711,6 +825,7 @@ tr.dead td{opacity:.5}
       <p class="lead">La ronda sigue corriendo mientras estás aquí.</p>
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
+        <div class="sec"><div class="lbl small">Cuadros por segundo</div><div class="seg" id="fpsSeg2"><button type="button" data-v="max">Máximo</button><button type="button" data-v="60">60 · equilibrado</button><button type="button" data-v="30">30 · ahorro de batería</button></div></div>
       <div class="sec mixer"><div class="lbl small">Sonido</div><div class="mix"><label for="volm2"><span>General</span><input id="volm2" data-k="m" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volfx2"><span>Disparos y efectos</span><input id="volfx2" data-k="fx" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volamb2"><span>Ambiente y clima</span><input id="volamb2" data-k="amb" type="range" min="0" max="1" step="0.05" value="1"><output></output></label><label for="volui2"><span>Radio y chat</span><input id="volui2" data-k="ui" type="range" min="0" max="1" step="0.05" value="1"><output></output></label></div></div>
       <div class="sec mctl" data-mctl="2" hidden></div>
       <div class="sec retPick"></div>
@@ -804,7 +919,6 @@ tr.dead td{opacity:.5}
       <div class="btns"><button class="go" id="rgAgain" type="button">Repetir desafío</button><button class="go ghost" id="rgApply" type="button" hidden>Aplicar sensibilidad sugerida</button><button class="go ghost" id="rgQuit" type="button">Volver al menú</button></div>
     </div>
   </div>
-</div>
 <div id="hudBar" hidden role="dialog" aria-label="Configurar HUD">
   <div class="hbT"><b>Configurar HUD</b><span id="hbHint">Arrastra cualquier botón o elemento para moverlo. Toca uno para elegirlo y cambiar su tamaño.</span></div>
   <div class="hbC">
@@ -813,21 +927,12 @@ tr.dead td{opacity:.5}
     <div class="hbB"><button type="button" class="go ghost sm" id="hbMove" aria-label="Mover esta barra arriba o abajo">Barra ⇅</button><button type="button" class="go ghost sm" id="hbReset">Restablecer</button><button type="button" class="go ghost sm" id="hbCancel">Cancelar</button><button type="button" class="go sm" id="hbSave">Guardar</button></div>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+</div>
+<script src="/vendor/three-bundle.js?r=128"></script>
 <script src="/core.js?v=62"></script>
 <script src="/models.js?v=62"></script>
 <script src="/client.js?v=62"></script>
-<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
+<script>if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 <div id="rotate" aria-live="polite"><div><b>Gira el teléfono</b><span>Puerto Ceniza se juega en horizontal.</span></div></div>
 </body>
 </html>

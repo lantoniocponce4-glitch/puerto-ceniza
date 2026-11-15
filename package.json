@@ -1,17 +1,22 @@
 {
   "name": "puerto-ceniza-online",
   "version": "1.0.0",
-  "description": "Shooter 3D por equipos 4 contra 4 con multijugador en línea y bots",
+  "description": "Shooter táctico 3D por equipos 5 contra 5 con multijugador en línea y bots",
   "main": "server.js",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:maps": "node tools/validate-maps.js",
+    "test:bots": "node tools/sim-bots.js",
+    "test": "node tools/validate-maps.js && node tools/contact.js && node tools/sim-bots.js",
+    "test:contact": "node tools/contact.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "pg": "^8.23.1",
+    "three": "0.128.0",
     "ws": "^8.18.0"
   }
 }
