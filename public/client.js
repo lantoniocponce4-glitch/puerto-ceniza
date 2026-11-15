@@ -1815,6 +1815,15 @@ function drawBuy() {
   }
   $('#bcols').innerHTML = BUY.map(([title, items]) => `<div class="bcol"><div class="lbl">${title}</div>${items.map(item).join('')}</div>`).join('');
 }
+// pestañas del menú principal (se recuerda la última)
+function setMenuTab(k) {
+  if (!document.querySelector('.mtab[data-panel="' + k + '"]')) k = 'jugar';
+  for (const b of document.querySelectorAll('.mnav button')) b.setAttribute('aria-selected', b.dataset.mtab === k);
+  for (const s of document.querySelectorAll('.mtab')) s.hidden = s.dataset.panel !== k;
+  try { localStorage.setItem('pc2_mtab', k); } catch (e) { }
+}
+document.querySelector('.mnav').addEventListener('click', e => { const b = e.target.closest('button[data-mtab]'); if (b) setMenuTab(b.dataset.mtab); });
+try { setMenuTab(localStorage.getItem('pc2_mtab') || 'jugar'); } catch (e) { setMenuTab('jugar'); }
 $('#btabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (!b) return; buyTab = +b.dataset.tab; drawBuy(); $('#bcols').scrollTop = 0; });
 $('#buyClose').addEventListener('click', () => toggleBuy());
 if (isTouch) document.body.classList.add('touchUI');
