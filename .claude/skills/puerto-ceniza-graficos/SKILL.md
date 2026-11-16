@@ -55,6 +55,10 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Una animación nueva: curva suave (seno o `e*e*(3-2e)`), duración corta (0,2 a 0,7 s), y que vuelva exactamente a la pose base.
 
 ## Efectos
+- Trazadoras: cilindro con degradado (punta casi blanca, cola naranja que se apaga) y un halo ancho y tenue; destello de 70 ms al impactar en metal, piedra o vidrio (`hitFlash`).
+- Fachadas de ciudad (`texFacade`): marco, reflejo del cielo, alféizar y un mapa emisivo con las ventanas que se encienden de noche (`MAT.city.emissiveIntensity` en `applyCond`). Las casas del desierto llevan alféizares y algunas ventanas de vidrio (`MAT.winLit`) que brillan de noche.
+- Cables entre edificios enfrentados (`hangCables`): solo adorno, más de 3,2 m de altura, máximo 18 por mapa, sin sombras.
+- Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 
 - Fogonazo con llamas en cruz, casquillos, chispas e impactos por material, humo volumétrico con sprites, rastros de bala. Los efectos de partículas usan grupos fijos reciclados (sin crear objetos por disparo).
 - En «Livianos» o con `perf.level` alto, recorta la cantidad de partículas, no la claridad del efecto.

@@ -105,6 +105,10 @@ async function api(req, res, url) {
       const b = await body(req); if (!ACC.setLook(a, { card: b.card, title: b.title })) return json(res, 400, { error: 'Ese premio aún no lo ganas en el pase de temporada.' });
       return json(res, 200, { me: ACC.view(a) });
     }
+    if (req.method === 'POST' && p === '/api/settings') {
+      const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' });
+      const b = await body(req); return ACC.setSettings(a, b.set, b.t) ? json(res, 200, { ok: true, t: a.profile.set.t }) : json(res, 400, { error: 'Ajustes no válidos' });
+    }
     if (req.method === 'POST' && p === '/api/name') {
       const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' });
       const b = await body(req); const r = await ACC.rename(a, b.name); if (r.error) return json(res, 400, { error: r.error });
