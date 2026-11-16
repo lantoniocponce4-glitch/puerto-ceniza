@@ -3237,10 +3237,30 @@ function frame(now) {
     post.vmPass.enabled = showVm; const u = post.grade.uniforms; u.time.value = now * .001 % 100; u.sat.value = post.sat;
     u.dof.value = kcActive() || (G.state === 'playing' && !me.alive && me.deadT < 1.2) ? 1 : lerp(u.dof.value, 0, .2); u.px.value.set(1 / Math.max(1, VW()), 1 / Math.max(1, VH()));
     u.hurt.value = G.state === 'playing' && me.alive ? clamp((nowS() - (me.lastHurt || -9) < .4 ? .8 : 0) + (me.hp < 30 ? .35 : 0), 0, 1) : 0;
-    SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); post.composer.render();
-  } else { SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
+    SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); if (renderer.shadowMap.needsUpdate) shadowFollow(); post.composer.render();
+  } else { SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); if (renderer.shadowMap.needsUpdate) shadowFollow(); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }
 }
 // cada cuántos cuadros se recalculan las sombras: Ultra en todos, normal cada 2, celular lento cada 3; en el nivel 3 casi nunca
+// Sombras nítidas: en partida, la caja de sombras del sol cubre solo los alrededores del jugador (más resolución por metro)
+// y se mueve en pasos de un texel en el espacio de la luz, para que los bordes no titilen al caminar.
+// En los menús vuelve a cubrir todo el mapa.
+const SHB = { on: false, H: 0 }, _sd = new THREE.Vector3(), _sr = new THREE.Vector3(), _su = new THREE.Vector3(), _sc = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0);
+function shadowFollow() {
+  if (!WORLD || !G.sunBase) return; const cam = sun.shadow.camera;
+  _sd.subVectors(sun.position, sun.target.position).normalize();
+  if (G.state !== 'playing') {
+    if (!SHB.on) return; SHB.on = false; const [x0, z0, x1, z1] = WORLD.map.bounds, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, Rr = Math.hypot((x1 - x0) / 2 + 6, (z1 - z0) / 2 + 6);
+    Object.assign(cam, { left: -Rr, right: Rr, top: Rr, bottom: -Rr }); cam.updateProjectionMatrix(); sun.target.position.set(cx, 0, cz); sun.position.copy(sun.target.position).addScaledVector(_sd, 120); return;
+  }
+  const H = prefs.gfx === 'ultra' ? 46 : isTouch ? 32 : 40;
+  if (!SHB.on || SHB.H !== H) { SHB.on = true; SHB.H = H; Object.assign(cam, { left: -H, right: H, top: H, bottom: -H }); cam.updateProjectionMatrix(); }
+  // centro algo adelantado hacia donde mira la cámara, alineado a la cuadrícula de texeles de la luz
+  _sc.set(camera.position.x - Math.sin(camYaw) * H * .35, 0, camera.position.z - Math.cos(camYaw) * H * .35);
+  _sr.crossVectors(_UP, _sd).normalize(); _su.crossVectors(_sd, _sr);
+  const tx = (2 * H) / sun.shadow.mapSize.x, r = Math.round(_sc.dot(_sr) / tx) * tx, u = Math.round(_sc.dot(_su) / tx) * tx, f = _sc.dot(_sd);
+  _sc.copy(_sr).multiplyScalar(r).addScaledVector(_su, u).addScaledVector(_sd, f);
+  sun.target.position.copy(_sc); sun.position.copy(_sc).addScaledVector(_sd, 120); sun.target.updateMatrixWorld();
+}
 function shadowDue() {
   if (G.state !== 'playing') return SHF % 2 === 0;
   if (perf.level >= 3) return SHF === 0 && Math.random() < .15;
