@@ -86,11 +86,17 @@ function addRim(mat, team) {
   mat.onBeforeCompile = sh => {
     sh.uniforms.rimCol = { value: RIMCOL[team] }; sh.uniforms.rimK = RIMK[team];
     sh.fragmentShader = 'uniform vec3 rimCol; uniform float rimK;\n' + sh.fragmentShader.replace('#include <tonemapping_fragment>',
-      'float rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0); gl_FragColor.rgb += rimCol * min(rimK, 0.5) * pow(rimF, 3.0); gl_FragColor.rgb = mix(gl_FragColor.rgb, rimCol * 1.15, clamp((rimK - 0.5) * 0.45, 0.0, 0.85) * smoothstep(0.35, 0.85, rimF));\n#include <tonemapping_fragment>');
+      'vec3 wN = inverseTransformDirection(normalize(normal), viewMatrix); gl_FragColor.rgb *= mix(0.66, 1.0, smoothstep(-0.75, 0.35, wN.y));\nfloat rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0); gl_FragColor.rgb += rimCol * min(rimK, 0.5) * pow(rimF, 3.0); gl_FragColor.rgb = mix(gl_FragColor.rgb, rimCol * 1.15, clamp((rimK - 0.5) * 0.45, 0.0, 0.85) * smoothstep(0.35, 0.85, rimF));\n#include <tonemapping_fragment>');
   };
   mat.customProgramCacheKey = () => 'rim' + team;
   return mat;
 }
+// Desgaste de las armas: rayones y bordes gastados en el mapa de rugosidad (donde hay rayón el metal queda más liso
+// y brilla con la luz), igual que un arma usada. Una sola textura compartida por todas las armas.
+const TXWEAR = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 260; i++) { const g = (rand(70, 170)) | 0; x.strokeStyle = `rgba(${g},${g},${g},${rand(.35, .8)})`; x.lineWidth = rand(.4, 1.4); x.beginPath(); const px = rand(0, 256), py = rand(0, 256), a = rand(0, 6.28), L = rand(4, 26); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * L, py + Math.sin(a) * L); x.stroke(); }
+  for (let i = 0; i < 40; i++) { const g = (rand(120, 200)) | 0; x.fillStyle = `rgba(${g},${g},${g},.35)`; x.beginPath(); x.arc(rand(0, 256), rand(0, 256), rand(3, 12), 0, 7); x.fill(); }
+  const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; return t; })();
 const MG = {
   metal: S({ color: 0x33363a, map: TXW, metalness: .85, roughness: .32 }),
   park: S({ color: 0x45484c, map: TXW, metalness: .55, roughness: .52 }),
@@ -106,6 +112,7 @@ const MG = {
   rubber: S({ color: 0x141414, roughness: .95 }),
   brass: S({ color: 0xc9a043, metalness: .9, roughness: .3 })
 };
+for (const k of ['metal', 'park', 'poly', 'tan', 'od']) { MG[k].roughnessMap = TXWEAR; if (k !== 'metal') MG[k].roughness = Math.min(1, MG[k].roughness + .08); }
 
 for (const k of ['poly', 'tan', 'od']) withN(MG[k], NSTIPPLE, .55);
 for (const k of ['metal', 'park']) withN(MG[k], NBRUSH, .3);

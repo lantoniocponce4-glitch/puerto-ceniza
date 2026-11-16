@@ -26,6 +26,13 @@ Capas, cada una con su función:
 4. **Retumbe lejano** (más de 25 m): ruido muy grave con ataque lento.
 5. **Reverberación** del entorno, más fuerte bajo techo.
 
+Capas agregadas (`shotExtras`):
+
+6. **Ataque**: estallido de 8-14 ms en 2,1-3,3 kHz; es el «golpe» que hace que suene a disparo y no a soplido.
+7. **Ladrido**: banda media en `cut × 0,32` que da el carácter del arma a media distancia.
+8. **Chasquido supersónico**: a más de 18 m, las armas con `vol` ≥ 0,9 crujen **antes** del estampido (la bala llega antes que el sonido). Da dirección y distancia.
+9. **Solo el arma propia**: saturación suave (`WaveShaper` con curva en caché), patada grave de 62 Hz, mecanismo (corredera, cerrojo, bomba, cerrojo manual según el arma) y casquillos que tintinean al caer (no en arena, nieve ni agua; en automáticas, uno de cada tres). El cuerpo del disparo propio va al 60 % para que las capas extra no suban el volumen total.
+
 Además: retardo por la velocidad del sonido, atenuación por distancia, filtro de oclusión si hay una pared de por medio y variación aleatoria de ±7 % en tono y filtro en cada disparo (sin ella, una ráfaga suena a máquina).
 
 Parámetros por arma en `WEAPONS[id].snd` (`core.js`):
@@ -41,6 +48,16 @@ Parámetros por arma en `WEAPONS[id].snd` (`core.js`):
 | Silenciada | `sup: 1`, `cut` 1500-1700, `dec` .07-.08 | | 0 | .38 |
 
 Regla: dos armas de la misma categoría deben diferenciarse en al menos un parámetro notorio (`cut` ±400 Hz o `dec` ±0,05 s), para reconocerlas de oído.
+
+## Pasos (`sStep(v, pan, superficie, distancia)`)
+
+- Dos golpes: talón y, 65-85 ms después, punta o roce; el pie izquierdo y el derecho alternan con un tono 12 % distinto (sin eso suenan a metrónomo).
+- A lo lejos pierden agudos (`lp`); cerca se suma un golpe grave de peso del cuerpo y, al correr, a veces el roce de correas y hebillas.
+- Superficie: metal resuena, madera golpea hueco, nieve cruje, agua salpica, arena y tierra raspan, piedra suena seca.
+
+## Medir sin parlantes
+
+Con `?debug=1`, `PCDBG.sndTest(() => PCDBG.sShot(...), segundos)` genera el sonido en un `OfflineAudioContext` y devuelve el pico y el nivel medio (RMS). Compara con la versión anterior antes de subir un cambio: una capa nueva no debe subir el RMS del disparo propio más de un 20 %.
 
 ## Mezcla
 

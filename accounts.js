@@ -267,6 +267,23 @@ class Accounts {
   }
   async topClans() { await this.ready; if (!this.ok) return { season: seasonId(), top: [] }; await this.checkChampion(); await this.flush(); const sid = seasonId(); const rows = await this.store.topClans(sid, 50); return { season: sid, top: rows.map((r, i) => ({ pos: i + 1, name: r.name, tag: r.tag, xp: (r.data.season || {}).xp || 0, kills: (r.data.season || {}).kills || 0, wins: (r.data.season || {}).wins || 0 })) }; }
   // Tarjeta de presentación y título (solo los ganados en el pase)
+  // Ajustes del jugador (sensibilidad, controles táctiles, HUD, accesibilidad, volumen...) guardados en la cuenta, para
+  // recuperarlos en otro dispositivo o tras reinstalar la app. Solo datos simples, con límite de tamaño y profundidad.
+  setSettings(a, set, t) {
+    const KEYS = ['sens', 'mc', 'hudL', 'acc', 'vol', 'ret', 'voice', 'vib', 'pose', 'charm', 'outfit', 'extras'];
+    const clean = (v, d) => {
+      if (v === null || typeof v === 'boolean') return v;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      if (typeof v === 'string') return v.slice(0, 64);
+      if (d > 5 || typeof v !== 'object') return undefined;
+      if (Array.isArray(v)) return v.slice(0, 64).map(x => clean(x, d + 1));
+      const o = {}; let n = 0; for (const k of Object.keys(v)) { if (++n > 80 || k.length > 32 || k === '__proto__' || k === 'constructor' || k === 'prototype') continue; const c = clean(v[k], d + 1); if (c !== undefined) o[k] = c; } return o;
+    };
+    if (!set || typeof set !== 'object') return false;
+    const out = {}; for (const k of KEYS) if (set[k] !== undefined) { const c = clean(set[k], 0); if (c !== undefined) out[k] = c; }
+    if (JSON.stringify(out).length > 24000) return false;
+    const tt = Number(t); a.profile.set = { t: Number.isFinite(tt) && tt > 0 ? Math.min(tt, Date.now() + 60e3) : Date.now(), v: out }; a.dirty = true; return true;
+  }
   setLook(a, b) {
     const own = a.profile.owned || [];
     if (b.card !== undefined) { if (b.card === null || b.card === '') a.profile.card = null; else if (own.includes('card:' + b.card)) a.profile.card = b.card; else return false; }

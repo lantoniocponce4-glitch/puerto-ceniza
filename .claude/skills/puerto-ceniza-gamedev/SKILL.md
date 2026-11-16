@@ -75,9 +75,15 @@ Ya existen: control de spray con patrones, imprecisión al moverse, saltar y ate
 - Las mallas estáticas del mapa se funden por material (`mergeStatic`): los objetos nuevos deben usar materiales compartidos (`shMat`) y geometrías en `geoCache` para no multiplicar las llamadas de dibujo.
 - No reescribas el DOM del HUD en cada cuadro: usa `setTxt`/`setCls` o compara antes de asignar `innerHTML`.
 
+## Ajustes guardados (que no se pierdan)
+
+- `savePrefs()` escribe en `localStorage` (más una copia `pc2_prefs_bak`) y marca `prefs.setT`. Con cuenta, además sube a `/api/settings` (`SYNC_KEYS`: sensibilidad, controles táctiles, HUD, accesibilidad, volumen, retícula, voz, vibración, pose, amuleto, atuendo, extras). Al ingresar, gana la copia más reciente (`syncSettings`).
+- Ajustes → «Respaldo de ajustes»: copiar o pegar un código `PC1:` (sirve sin cuenta).
+- Nunca descartes lo que el jugador guardó: si cambia la distribución por defecto del HUD, la suya sigue mandando (`hudLayout` usa la clave nueva o, si no existe, la anterior). No subas `hudKey()` sin migrar.
+
 ## HUD
 
-- Táctil: la distribución por defecto está en `HUD_TOUCH` (posiciones en % del centro de cada elemento). Pulgar derecho: disparo, mira, recarga, salto, agacharse. Izquierda: joystick libre y segundo disparo. Arriba: asomarse, pausa y tabla. La comunicación va dentro de «más». Las armas se tocan abajo al centro. Si cambias la distribución de forma importante, sube la versión de `hudKey()` para que reemplace las guardadas.
+- Táctil: la distribución por defecto está en `HUD_TOUCH` (posiciones en % del centro de cada elemento). Pulgar derecho: disparo, mira, recarga, salto, agacharse. Izquierda: joystick libre y segundo disparo. Arriba: asomarse, pausa y tabla. La comunicación va dentro de «más». Las armas se tocan abajo al centro. Si cambias la distribución por defecto, **no** reemplaces la que guardó el jugador (ver «Ajustes guardados»).
 - Botones de al menos 44 px, con íconos (`ICO`) y una etiqueta corta solo si el ícono no se entiende solo.
 - Revisa siempre en horizontal (915×412) **y** en vertical: si la pantalla está vertical y no se puede bloquear, el juego se dibuja girado 90° (`FL.on`). Usa `px(e)`, `py(e)`, `VW()` y `VH()` en lugar de `clientX` e `innerWidth`.
 - Giroscopio: estilo visor de PUBG (girar a la derecha mira a la derecha; inclinar hacia adelante baja la mira). Cada teléfono reporta los ejes distinto: por eso existe la calibración (`gcalStart`) y no se deben fijar signos a mano.
