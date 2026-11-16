@@ -19,6 +19,8 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Sol direccional con sombras + hemisférica + entorno de reflejos (PMREM) para los metales.
 - Corrección de color: con posproceso la hace `GradeShader` (curva ACES parcial, saturación, contraste, viñeta, grano). **Sin posproceso** (celular en «Altos», o «Livianos») la hace la GPU con `THREE.ACESFilmicToneMapping` (`syncToneMap()`). Nunca las dos a la vez (oscurece y apaga los colores).
 - Si cambias `renderer.toneMapping`, marca `material.needsUpdate = true` en las escenas (lo hace `syncToneMap`).
+- **Exposición** (`EXPO = 0,9`, antes 1,12): en celular la usa el mapeo ACES de la GPU y en PC el `GradeShader` comprime los brillos con ACES al 90 %. Si la arena o las paredes al sol se ven blancas sin textura, la escena está sobreexpuesta y **los soldados dejan de leerse**: baja la luz o el color base de la superficie, no subas la exposición. Arena del desierto con color `0xc9bfae` y yeso de paredes ligeramente gris.
+- Los uniformes deben contrastar con el mapa donde juegan: Cobra usa tierra/coyote oscuro (no beige claro como la arena).
 - Condiciones: día, atardecer, noche y clima por mapa (`pickCond`, `applyCond`). Prueba cada cambio de iluminación en las cuatro.
 
 ## Sombras nítidas (caja que sigue al jugador)
@@ -31,7 +33,7 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 ## Luz de contorno (rim light)
 
 - `addRim(material, equipo)` en `models.js` agrega un borde suave del color del equipo donde la superficie queda de canto a la cámara (`onBeforeCompile`, antes de `tonemapping_fragment`). Mejora la lectura de la silueta sin luces extra.
-- El color y la intensidad son uniformes **compartidos por equipo** (`RIMCOL[t]`, `RIMK[t]`): `PCM.setRim(equipo, k, color)` y `PCM.setTeamColors([c0, c1])` los cambian en vivo sin recompilar. Con `k` ≤ 0,5 suma un brillo suave (lo normal: 0,32); con `k` mayor, además pinta el borde con el color (es el «resaltar enemigos» de accesibilidad, `k` 2,6 en magenta `#ff2bd6`).
+- El color y la intensidad son uniformes **compartidos por equipo** (`RIMCOL[t]`, `RIMK[t]`): `PCM.setRim(equipo, k, color)` y `PCM.setTeamColors([c0, c1])` los cambian en vivo sin recompilar. Con `k` ≤ 0,5 suma un brillo suave (lo normal: 0,42); con `k` mayor, además pinta el borde con el color (es el «resaltar enemigos» de accesibilidad, `k` 2,6 en magenta `#ff2bd6`).
 - Los materiales clonados (atuendos) no heredan `onBeforeCompile`: hay que volver a llamar a `addRim`.
 
 ## Accesibilidad visual
@@ -58,6 +60,11 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Trazadoras: cilindro con degradado (punta casi blanca, cola naranja que se apaga) y un halo ancho y tenue; destello de 70 ms al impactar en metal, piedra o vidrio (`hitFlash`).
 - Fachadas de ciudad (`texFacade`): marco, reflejo del cielo, alféizar y un mapa emisivo con las ventanas que se encienden de noche (`MAT.city.emissiveIntensity` en `applyCond`). Las casas del desierto llevan alféizares y algunas ventanas de vidrio (`MAT.winLit`) que brillan de noche.
 - Cables entre edificios enfrentados (`hangCables`): solo adorno, más de 3,2 m de altura, máximo 18 por mapa, sin sombras.
+- Armas: `bx()` hace cajas con aristas biseladas (salvo piezas de menos de 8 mm), y cada arma tiene el ánima oscura en la boca del cañón (`BOREG`). Tras una ráfaga larga o un disparo de escopeta o francotirador sale humo del cañón en primera persona (`vm.heat`).
+- Muerte en dos tiempos (`client.js`, actores sin vida): ceden las rodillas en 0,18 s y luego cae el cuerpo flojo, con la cabeza vencida y el arma soltada (`m.hand.visible`). Al reaparecer se restablece todo en la rama de vivos.
+- Impacto en un soldado (`bodyHitFx`): nube corta oscura detrás del golpe; en el casco, chispas, destello y un «tink». Con el modo calmo la nube es gris.
+- Casquillos expulsados (`ejectCasing`/`updateCasings`): 28 en un grupo reciclado, salen a la derecha, rebotan con tintineo (no en arena, nieve ni agua) y desaparecen a los 2,6 s. En «Livianos» solo queda el sonido sintético.
+- Soldados: rostros pintados a 512×256 (poros, mejillas, ojos con iris y brillo, cejas por trazos, labios, barba o barba de días, cicatriz) con un leve mapa normal; tela con pliegues y costuras (`NCLOTH`); cordones en las botas y correa en las rodilleras.
 - Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 
 - Fogonazo con llamas en cruz, casquillos, chispas e impactos por material, humo volumétrico con sprites, rastros de bala. Los efectos de partículas usan grupos fijos reciclados (sin crear objetos por disparo).
