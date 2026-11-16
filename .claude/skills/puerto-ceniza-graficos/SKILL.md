@@ -19,6 +19,8 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Sol direccional con sombras + hemisférica + entorno de reflejos (PMREM) para los metales.
 - Corrección de color: con posproceso la hace `GradeShader` (curva ACES parcial, saturación, contraste, viñeta, grano). **Sin posproceso** (celular en «Altos», o «Livianos») la hace la GPU con `THREE.ACESFilmicToneMapping` (`syncToneMap()`). Nunca las dos a la vez (oscurece y apaga los colores).
 - Si cambias `renderer.toneMapping`, marca `material.needsUpdate = true` en las escenas (lo hace `syncToneMap`).
+- **Exposición** (`EXPO = 0,9`, antes 1,12): en celular la usa el mapeo ACES de la GPU y en PC el `GradeShader` comprime los brillos con ACES al 90 %. Si la arena o las paredes al sol se ven blancas sin textura, la escena está sobreexpuesta y **los soldados dejan de leerse**: baja la luz o el color base de la superficie, no subas la exposición. Arena del desierto con color `0xc9bfae` y yeso de paredes ligeramente gris.
+- Los uniformes deben contrastar con el mapa donde juegan: Cobra usa tierra/coyote oscuro (no beige claro como la arena).
 - Condiciones: día, atardecer, noche y clima por mapa (`pickCond`, `applyCond`). Prueba cada cambio de iluminación en las cuatro.
 
 ## Sombras nítidas (caja que sigue al jugador)
@@ -31,7 +33,7 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 ## Luz de contorno (rim light)
 
 - `addRim(material, equipo)` en `models.js` agrega un borde suave del color del equipo donde la superficie queda de canto a la cámara (`onBeforeCompile`, antes de `tonemapping_fragment`). Mejora la lectura de la silueta sin luces extra.
-- El color y la intensidad son uniformes **compartidos por equipo** (`RIMCOL[t]`, `RIMK[t]`): `PCM.setRim(equipo, k, color)` y `PCM.setTeamColors([c0, c1])` los cambian en vivo sin recompilar. Con `k` ≤ 0,5 suma un brillo suave (lo normal: 0,32); con `k` mayor, además pinta el borde con el color (es el «resaltar enemigos» de accesibilidad, `k` 2,6 en magenta `#ff2bd6`).
+- El color y la intensidad son uniformes **compartidos por equipo** (`RIMCOL[t]`, `RIMK[t]`): `PCM.setRim(equipo, k, color)` y `PCM.setTeamColors([c0, c1])` los cambian en vivo sin recompilar. Con `k` ≤ 0,5 suma un brillo suave (lo normal: 0,42); con `k` mayor, además pinta el borde con el color (es el «resaltar enemigos» de accesibilidad, `k` 2,6 en magenta `#ff2bd6`).
 - Los materiales clonados (atuendos) no heredan `onBeforeCompile`: hay que volver a llamar a `addRim`.
 
 ## Accesibilidad visual

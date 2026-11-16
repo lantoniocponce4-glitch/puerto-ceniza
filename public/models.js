@@ -25,7 +25,7 @@ function texCamo(team) {
     x.fillStyle = '#5b6773'; x.fillRect(0, 0, 256, 256); const cols = ['#3e4955', '#7c8995', '#2f363f', '#66727e'];
     for (let i = 0; i < 520; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; let px = (Math.random() * 64 | 0) * 4, py = (Math.random() * 64 | 0) * 4; const n = 2 + (Math.random() * 6 | 0); for (let k = 0; k < n; k++) { x.fillRect(px, py, 4, 4); if (Math.random() < .5) px += 4; else py += 4; } }
   } else {
-    x.fillStyle = '#b39b70'; x.fillRect(0, 0, 256, 256); const cols = ['#8c7350', '#cdb68d', '#6c5739', '#a48a5f'];
+    x.fillStyle = '#8a7350'; x.fillRect(0, 0, 256, 256); const cols = ['#6a5436', '#a68c62', '#4c3c27', '#7b6544'];
     for (let i = 0; i < 70; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; x.save(); x.translate(rand(0, 256), rand(0, 256)); x.rotate(rand(0, 3)); x.beginPath(); x.ellipse(0, 0, rand(10, 30), rand(5, 14), 0, 0, 7); x.fill(); x.restore(); }
   }
   speck(x, 256, 256, 5000, .1); for (let i = 0; i < 256; i += 2) { x.fillStyle = 'rgba(0,0,0,.04)'; x.fillRect(0, i, 256, 1); }
@@ -86,7 +86,7 @@ const S = (o) => new T.MeshStandardMaterial(Object.assign({ roughness: .8, metal
 // Separa la silueta del soldado del fondo (sobre todo de noche o contra paredes del mismo tono) sin luces extra:
 // es una línea más en el sombreador de la propia pieza.
 // color e intensidad compartidos por equipo: el modo daltónico y el resaltado de enemigos los cambian en vivo
-const RIMCOL = [new T.Color(0x5cc8e0), new T.Color(0xef6a45)], RIMK = [{ value: .32 }, { value: .32 }];
+const RIMCOL = [new T.Color(0x5cc8e0), new T.Color(0xef6a45)], RIMK = [{ value: .42 }, { value: .42 }];
 function addRim(mat, team) {
   mat.onBeforeCompile = sh => {
     sh.uniforms.rimCol = { value: RIMCOL[team] }; sh.uniforms.rimK = RIMK[team];
@@ -480,7 +480,7 @@ function cylY(r0, r1, h, seg = 14) { const key = ['cy', r0, r1, h, seg].join(); 
 function sphG(r, w = 16, hs = 12) { const key = ['sp', r, w, hs].join(); if (!GC[key]) GC[key] = new T.SphereGeometry(r, w, hs); return GC[key]; }
 const LOOK = [
   { vest: 0x262b31, pad: 0x1d2024, boot: 0x1b1b1b, glove: 0x1c1c1c, helm: 0x4b5661, belt: 0x1d1f22, pack: 0x30353b, cap: 0x2a2f36, skins: [0xc9a07e, 0x8d6248, 0xb88a68, 0x6e4a34] },
-  { vest: 0x7a6446, pad: 0x5e4b33, boot: 0x8a7353, glove: 0x3a3226, helm: 0x9f8a62, belt: 0x5e4b33, pack: 0x6b5a40, wrap: 0xb8a27a, skins: [0xd2ab8a, 0x9b7052, 0x7f5a40, 0xc49572] }
+  { vest: 0x5a4831, pad: 0x45372a, boot: 0x5a4834, glove: 0x2e271e, helm: 0x76664a, belt: 0x45372a, pack: 0x524330, wrap: 0x8c7856, skins: [0xd2ab8a, 0x9b7052, 0x7f5a40, 0xc49572] }
 ];
 const TEAMC = [0x5cc8e0, 0xef6a45];
 const SCARF = [0x4a4f3a, 0x262626, 0x8a7350, 0x6b3a2e].map(c => S({ map: TXCLOTH, color: c, roughness: .95 }));

@@ -125,16 +125,18 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 48, 24), new THREE.Shad
     'gl_FragColor=vec4(c,1.);}'].join('\n')
 }));
 sky.renderOrder = -1; scene.add(sky);
+// exposición base: más baja que antes (1,12) para que la arena y las paredes al sol no se quemen en blanco y los soldados se lean
+const EXPO = .9;
 const hemi = new THREE.HemisphereLight(0xbfd8f5, 0x9c8160, .75); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.0); sun.castShadow = true;
 const SM = prefs.gfx === 'ultra' ? 4096 : prefs.gfx !== 'low' && !isTouch ? 2048 : 1024; sun.shadow.mapSize.set(SM, SM); sun.shadow.bias = -.0006; sun.shadow.normalBias = .03;
 scene.add(sun); scene.add(sun.target);
 const THEMES = {
-  desert: { top: [.30, .52, .80], hor: [.88, .82, .72], fog: 0xd8cbb0, fogD: .0058, sun: [.42, .62, .32], sunC: 0xffe8c8, sunI: 1.55, hs: 0xb4cce6, hg: 0x8a704f, hi: .55 },
+  desert: { top: [.30, .52, .80], hor: [.88, .82, .72], fog: 0xd8cbb0, fogD: .0058, sun: [.42, .62, .32], sunC: 0xffe8c8, sunI: 1.38, hs: 0xb4cce6, hg: 0x8a704f, hi: .55 },
   rural: { top: [.12, .36, .84], hor: [.68, .8, .95], fog: 0xb6c8de, fogD: .0042, sun: [.32, .86, .38], sunC: 0xfff4e2, sunI: 1.4, hs: 0xbad4f4, hg: 0x6c7448, hi: .55, sat: 1.12 },
   city: { top: [.30, .40, .56], hor: [.70, .74, .80], fog: 0x8d97a6, fogD: .0075, sun: [.55, .55, -.45], sunC: 0xffe6c4, sunI: 1.3, hs: 0xa8bcd8, hg: 0x4a4e56, hi: .7, sat: 1.0 },
   snow: { top: [.34, .52, .78], hor: [.86, .9, .95], fog: 0xd8e2ec, fogD: .0065, sun: [-.5, .42, .5], sunC: 0xfff0dc, sunI: 1.25, hs: 0xd4e4f8, hg: 0x8a96a8, hi: .78, sat: .96 },
-  port: { top: [.24, .32, .46], hor: [.84, .62, .45], fog: 0xd09a70, fogD: .0095, sun: [-.78, .28, .34], sunC: 0xffc690, sunI: 1.9, hs: 0xb8cce2, hg: 0x7a5c40, hi: .88 },
+  port: { top: [.24, .32, .46], hor: [.84, .62, .45], fog: 0xd09a70, fogD: .0095, sun: [-.78, .28, .34], sunC: 0xffc690, sunI: 1.7, hs: 0xb8cce2, hg: 0x7a5c40, hi: .88 },
   refinery: { top: [.2, .2, .36], hor: [1.0, .56, .32], fog: 0xb4795a, fogD: .0088, sun: [.82, .2, -.3], sunC: 0xffa25e, sunI: 1.85, hs: 0xffc6a0, hg: 0x4a3628, hi: .82, sat: 1.1 }
 };
 
@@ -261,7 +263,7 @@ const CONT_COL = { blue: 0x2f5f80, red: 0x8c3a2b, green: 0x3d6b4c, orange: 0xb56
 const MAT = {};
 function buildMats() {
   Object.assign(MAT, {
-    bld: std({ map: TX.plaster }), bld2: std({ map: TX.plaster2 }), stone: std({ map: TX.stone }), wood: std({ map: TX.wood }), crate: std({ map: TX.crate }), plank: std({ map: TX.plank, roughness: .85 }),
+    bld: std({ map: TX.plaster, color: 0xe2dbd0 }), bld2: std({ map: TX.plaster2, color: 0xe8e2d8 }), stone: std({ map: TX.stone }), wood: std({ map: TX.wood }), crate: std({ map: TX.crate }), plank: std({ map: TX.plank, roughness: .85 }),
     roof: std({ map: TX.roof, roughness: .6, metalness: .4 }), ware: std({ map: TX.ware, roughness: .55, metalness: .5 }), ware2: std({ map: TX.ware2, roughness: .6, metalness: .45 }),
     concrete: std({ map: TX.concrete, color: 0xc8beb0 }), dark: std({ color: 0x2a2c2e, roughness: .6, metalness: .6 }), yellow: std({ color: 0xd29a2a, roughness: .6, metalness: .4 }),
     shutter: std({ map: TX.shutter }), door: std({ map: TX.door }), roll: std({ map: TX.roll, metalness: .4, roughness: .6 }), cornice: std({ color: 0xbfa985 }), cornice2: std({ color: 0x5b5f63, metalness: .5, roughness: .5 })
@@ -363,7 +365,7 @@ function buildWorld(mapId) {
   const R = Math.hypot(hw, hd); Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: 20, far: 300 }); sun.shadow.camera.updateProjectionMatrix();
   vmSun.color.setHex(T.sunC); vmHemi.color.setHex(T.hs); vmHemi.groundColor.setHex(T.hg);
   // suelo
-  const gt = desert ? TX.sand : rural ? TX.gravel : city ? TX.asphalt : snow ? TX.snow : TX.concrete; const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std({ map: gt, color: desert || city || snow ? 0xffffff : rural ? 0x8f8676 : 0xb9ab96, roughness: city ? .55 : 1, metalness: city ? .15 : 0 }));
+  const gt = desert ? TX.sand : rural ? TX.gravel : city ? TX.asphalt : snow ? TX.snow : TX.concrete; const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std({ map: gt, color: desert ? 0xc9bfae : city || snow ? 0xffffff : rural ? 0x8f8676 : 0xb9ab96, roughness: city ? .55 : 1, metalness: city ? .15 : 0 }));
   ground.material.map = gt.clone(); ground.material.map.needsUpdate = true; ground.material.map.repeat.set(400 / 7, 400 / 7);
   if (prefs.gfx !== 'low') { const nm = normalOf(gt, desert ? 1.4 : snow ? 1 : 2.4); if (nm) { const n2 = nm.clone(); n2.needsUpdate = true; n2.repeat.set(400 / 7, 400 / 7); ground.material.normalMap = n2; ground.material.normalScale = new THREE.Vector2(.7, .7); } }
   G.groundMat = ground.material; G.groundBase = { r: ground.material.roughness, m: ground.material.metalness }; ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground);
@@ -2453,9 +2455,9 @@ function applyAcc() {
   // resaltado: el equipo rival lleva un contorno intenso y claro, visible a distancia y de noche
   const enemy = me.team === 0 || me.team === 1 ? 1 - me.team : 1;
   // contorno magenta: contrasta con arena, hormigón, nieve y de noche, y se distingue en los tres tipos de daltonismo
-  if (PCM.setRim) { PCM.setRim(1 - enemy, .32, pal[1 - enemy]); PCM.setRim(enemy, A.hl ? 2.6 : .32, A.hl ? '#ff2bd6' : pal[enemy]); }
+  if (PCM.setRim) { PCM.setRim(1 - enemy, .42, pal[1 - enemy]); PCM.setRim(enemy, A.hl ? 2.6 : .42, A.hl ? '#ff2bd6' : pal[enemy]); }
   document.documentElement.style.setProperty('--uiS', A.ui || 1); document.documentElement.classList.toggle('calm', !!A.calm);
-  if (typeof syncToneMap === 'function') renderer.toneMappingExposure = (renderer.toneMapping === THREE.NoToneMapping ? 1 : 1.12) * (A.bright || 1);
+  if (typeof syncToneMap === 'function') renderer.toneMappingExposure = (renderer.toneMapping === THREE.NoToneMapping ? 1 : EXPO) * (A.bright || 1);
 }
 function drawAcc() {
   const A = prefs.acc, box = $('#accBox'); if (!box) return;
@@ -3145,7 +3147,7 @@ function applyCond(cond) {
   const T = THEMES[WORLD.map.theme];
   skyU.top.value.set(...T.top); skyU.hor.value.set(...T.hor); scene.fog.color.setHex(T.fog); scene.fog.density = T.fogD; hemi.color.setHex(T.hs); hemi.groundColor.setHex(T.hg); hemi.intensity = T.hi; sun.color.setHex(T.sunC); sun.intensity = T.sunI;
   if (envGroup) { scene.remove(envGroup); envGroup.traverse(o => { if (o.geometry && !o.isSprite) o.geometry.dispose(); if (o.material) o.material.dispose(); }); } envGroup = new THREE.Group(); scene.add(envGroup); weatherFx = null; stopWeatherSound();
-  let th = .93;
+  let th = .96;
   // posición del sol (el atardecer lo baja hacia el horizonte)
   if (G.sunBase) { const b = G.sunBase, d = c.dusk ? [b.d[0], .11, b.d[2]] : b.d; skyU.sunDir.value.set(...d).normalize(); const v = skyU.sunDir.value; sun.position.set(b.c[0] + v.x * 120, v.y * 120 + (c.dusk ? 8 : 0), b.c[1] + v.z * 120); sun.target.position.set(b.c[0], 0, b.c[1]); }
   if (c.dusk) { skyU.top.value.set(.24, .27, .46); skyU.hor.value.set(1.02, .6, .36); scene.fog.color.setHex(0xc4865e); scene.fog.density = .0085; sun.color.setHex(0xffa860); sun.intensity = 1.75; hemi.color.setHex(0xffb98a); hemi.groundColor.setHex(0x4a3428); hemi.intensity = .55; th = .8; }
@@ -3251,7 +3253,7 @@ const GradeShader = {
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader: 'uniform sampler2D tDiffuse;uniform float expo,time,sat,contrast,vig,grain,hurt,dof;uniform vec2 px;varying vec2 vUv;' +
     'vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}' +
-    'void main(){vec3 c=texture2D(tDiffuse,vUv).rgb*expo;if(dof>.001){float r=dof*smoothstep(.12,.55,distance(vUv,vec2(.5)))*6.;vec3 b=c;for(int i=0;i<8;i++){float a=float(i)*.785;b+=texture2D(tDiffuse,vUv+vec2(cos(a),sin(a))*px*r).rgb+texture2D(tDiffuse,vUv+vec2(cos(a+.39),sin(a+.39))*px*r*2.).rgb;}c=b/17.;}c=mix(c,aces(c*1.08),.55);float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,sat);c=(c-.5)*contrast+.5;' +
+    'void main(){vec3 c=texture2D(tDiffuse,vUv).rgb*expo;if(dof>.001){float r=dof*smoothstep(.12,.55,distance(vUv,vec2(.5)))*6.;vec3 b=c;for(int i=0;i<8;i++){float a=float(i)*.785;b+=texture2D(tDiffuse,vUv+vec2(cos(a),sin(a))*px*r).rgb+texture2D(tDiffuse,vUv+vec2(cos(a+.39),sin(a+.39))*px*r*2.).rgb;}c=b/17.;}c=mix(c,aces(c*.98),.9);float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,sat);c=(c-.5)*contrast+.5;' +
     'c+=mix(vec3(-.012,.0,.022),vec3(.022,.012,-.012),smoothstep(.15,.85,l));float d=distance(vUv,vec2(.5));c*=1.-vig*smoothstep(.42,.9,d);' +
     'c=mix(c,c*vec3(1.25,.55,.5),hurt*smoothstep(.3,.8,d));float n=fract(sin(dot(vUv*vec2(12.9898,78.233)+time,vec2(1.,1.)))*43758.5453);c+=(n-.5)*grain;gl_FragColor=vec4(clamp(c,0.,1.),1.);}'
 };
@@ -3272,7 +3274,7 @@ function setupPost() {
     if (prefs.gfx === 'ultra' && !(perf.level >= 1) && !isTouch && THREE.SSAOPass) { try { const ao = new THREE.SSAOPass(scene, camera, VW(), VH()); ao.kernelRadius = .6; ao.minDistance = .0008; ao.maxDistance = .04; ao.output = THREE.SSAOPass.OUTPUT.Default; c.addPass(ao); post.ao = ao; } catch (e) { post.ao = null; } }
     if (!post.ao) c.addPass(new THREE.RenderPass(scene, camera));
     const vp = new THREE.RenderPass(vmScene, vmCam); vp.clear = false; vp.clearDepth = true; c.addPass(vp); post.vmPass = vp;
-    post.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(VW(), VH()), .28, .45, .93); c.addPass(post.bloom);
+    post.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(VW(), VH()), .18, .45, .96); c.addPass(post.bloom);
     post.grade = new THREE.ShaderPass(GradeShader); c.addPass(post.grade);
     if (!rt && THREE.FXAAShader) { post.fxaa = new THREE.ShaderPass(THREE.FXAAShader); c.addPass(post.fxaa); }
     post.composer = c; resizePost();
@@ -3282,7 +3284,7 @@ function setupPost() {
 // sin pasadas extra. Con posproceso lo hace el sombreador de color, así que la GPU no debe aplicarlo dos veces.
 function syncToneMap() {
   const want = post.composer ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; if (renderer.toneMapping === want) return;
-  renderer.toneMapping = want; renderer.toneMappingExposure = 1.12 * (prefs.acc.bright || 1);
+  renderer.toneMapping = want; renderer.toneMappingExposure = EXPO * (prefs.acc.bright || 1);
   for (const sc of [scene, vmScene]) sc.traverse(o => { for (const m of [].concat(o.material || [])) m.needsUpdate = true; });
 }
 function resizePost() {
