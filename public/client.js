@@ -782,7 +782,33 @@ const decalGeo = new THREE.PlaneGeometry(.11, .11); const decalMat = new THREE.M
 const DECALS = 200; const decalIM = new THREE.InstancedMesh(decalGeo, decalMat, DECALS); decalIM.frustumCulled = false; { const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); } scene.add(decalIM);
 const _dO = new THREE.Object3D(); const _dC = new THREE.Color(1, 1, 1); for (let i = 0; i < DECALS; i++) decalIM.setColorAt(i, _dC);
 const _v = new THREE.Vector3();
-function clearDecals() { const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); decalIM.instanceMatrix.needsUpdate = true; fx.di = 0; }
+// Explosión: bola de fuego que crece y se apaga, onda expansiva sobre el suelo, columna de humo que se queda y marca quemada.
+const BOOMV = { fire: [], rings: [], scorch: [], smoke: [], si: 0, mi: 0 };
+{
+  const fm = () => new THREE.SpriteMaterial({ map: TX.flash, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+  for (let i = 0; i < 3; i++) { const s = new THREE.Sprite(fm()); s.visible = false; scene.add(s); const s2 = new THREE.Sprite(fm()); s2.visible = false; scene.add(s2); BOOMV.fire.push({ s, s2, t: 0 }); }
+  for (let i = 0; i < 16; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.smoke, color: 0x37332f, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; scene.add(sp); BOOMV.smoke.push({ s: sp, t: 0, max: 1, sz: 1, vx: 0, vz: 0 }); }
+  const rg = new THREE.RingGeometry(.82, 1, 40).rotateX(-Math.PI / 2);
+  for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.visible = false; scene.add(m); BOOMV.rings.push({ m, t: 0 }); }
+  const [c, x] = cnv(128, 128, true); const g = x.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(8,6,4,.85)'); g.addColorStop(.45, 'rgba(18,14,10,.6)'); g.addColorStop(.8, 'rgba(30,24,18,.2)'); g.addColorStop(1, 'rgba(30,24,18,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 22; i++) { x.strokeStyle = 'rgba(10,8,6,.5)'; x.lineWidth = rand(1, 3); x.beginPath(); x.moveTo(64, 64); const a = rand(0, 6.28), r = rand(30, 62); x.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); x.stroke(); }
+  const st = new THREE.CanvasTexture(c), sg = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), sm = new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(sg, sm); m.visible = false; m.renderOrder = 1; scene.add(m); BOOMV.scorch.push(m); }
+}
+function boomFx(p, big) {
+  const gy = WORLD ? WORLD.groundAt(p.x, p.z, p.y + .5) : 0, few = prefs.gfx === 'low';
+  const f = BOOMV.fire.find(q => q.t <= 0) || BOOMV.fire[0]; f.s.position.set(p.x, gy + (big ? 1.4 : .8), p.z); f.s2.position.set(p.x, gy + (big ? 1.1 : .6), p.z); f.t = big ? .55 : .4; f.max = f.t; f.big = big; f.s.visible = f.s2.visible = true; f.s.material.rotation = Math.random() * 6; f.s2.material.rotation = Math.random() * 6;
+  if (!few) { const r = BOOMV.rings.find(q => q.t <= 0) || BOOMV.rings[0]; r.m.position.set(p.x, gy + .06, p.z); r.t = .38; r.big = big; r.m.visible = true;
+    for (let i = 0; i < (big ? 8 : 5); i++) { const m = BOOMV.smoke[BOOMV.mi++ % BOOMV.smoke.length]; m.s.position.set(p.x + rand(-1, 1) * (big ? 1.4 : .8), gy + rand(.4, big ? 2.2 : 1.3), p.z + rand(-1, 1) * (big ? 1.4 : .8)); m.max = m.t = rand(3.5, 5.5) * (big ? 1.3 : 1); m.sz = big ? rand(3.5, 5) : rand(2.2, 3.2); m.vx = rand(-.25, .25); m.vz = rand(-.25, .25); m.s.material.rotation = Math.random() * 6; m.s.visible = true; } }
+  const sc = BOOMV.scorch[BOOMV.si++ % BOOMV.scorch.length]; const sz = big ? 4.2 : 2.4; sc.scale.set(sz, 1, sz); sc.rotation.y = Math.random() * 6; sc.position.set(p.x, gy + .03, p.z); sc.visible = true;
+}
+function updateBoomFx(dt) {
+  for (const f of BOOMV.fire) if (f.t > 0) { f.t -= dt; const k = 1 - f.t / f.max, sc = (f.big ? 9 : 5.5) * (.35 + Math.sqrt(k) * .9); f.s.scale.set(sc, sc, sc); f.s2.scale.set(sc * .6, sc * .6, sc * .6); const o = Math.max(0, 1 - k * k); f.s.material.opacity = o; f.s2.material.opacity = o; f.s.material.color.setRGB(1.6, 1.05 - k * .5, .5 - k * .35); f.s2.material.color.setRGB(1.8, 1.5 - k * .6, 1 - k * .6); if (f.t <= 0) f.s.visible = f.s2.visible = false; }
+  // humo de la explosión: crece, sube despacio, deriva con el viento y se disipa en varios segundos
+  for (const m of BOOMV.smoke) if (m.t > 0) { m.t -= dt; const k = 1 - m.t / m.max; m.s.position.x += m.vx * dt + LIFE.wind[0] * dt * .4; m.s.position.z += m.vz * dt + LIFE.wind[1] * dt * .4; m.s.position.y += dt * (.6 - k * .4); const sc = m.sz * (.45 + Math.sqrt(k) * .9); m.s.scale.set(sc, sc, sc); m.s.material.opacity = Math.sin(Math.min(1, k * 6) * Math.PI / 2) * (1 - k * k) * .9; if (m.t <= 0) m.s.visible = false; }
+  for (const r of BOOMV.rings) if (r.t > 0) { r.t -= dt; const k = 1 - r.t / .38, sc = (r.big ? 10 : 5.5) * (.15 + k); r.m.scale.set(sc, 1, sc); r.m.material.opacity = (1 - k) * (1 - k) * .3; if (r.t <= 0) r.m.visible = false; }
+}
+function clearDecals() { for (const m of BOOMV.scorch) m.visible = false; const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); decalIM.instanceMatrix.needsUpdate = true; fx.di = 0; }
 function decal(p, n, tint) { const i = fx.di++ % DECALS; _dO.position.set(p.x + n[0] * .012, p.y + n[1] * .012, p.z + n[2] * .012); _v.set(_dO.position.x + n[0], _dO.position.y + n[1], _dO.position.z + n[2]); _dO.lookAt(_v); _dO.rotateZ(Math.random() * 6); _dO.scale.setScalar(rand(.8, 1.2)); _dO.updateMatrix(); decalIM.setMatrixAt(i, _dO.matrix); decalIM.instanceMatrix.needsUpdate = true; const tc = tint || [1, 1, 1]; _dC.setRGB(tc[0], tc[1], tc[2]); decalIM.setColorAt(i, _dC); decalIM.instanceColor.needsUpdate = true; }
 const PN = 700; const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pLife = new Float32Array(PN); let pI = 0;
 for (let i = 0; i < PN; i++) pPos[i * 3 + 1] = -999;
@@ -926,7 +952,7 @@ function buildDust(on) {
 }
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
-  updateCasings(dt); updateSup(dt); updateFlare(dt);
+  updateCasings(dt); updateBoomFx(dt); updateSup(dt); updateFlare(dt);
   { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
   roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); setReverb(roofedNow ? 'indoor' : (WORLD && WORLD.map.theme) || 'open'); }
@@ -1121,7 +1147,20 @@ function sShot(s, dist, pan, occ, w) {
 function killSound(head) { sNoise(.09, .45, 160, 0, 0, .8); sTone(620, .09, .16, 'triangle', 0, .02); sTone(930, .14, .16, 'triangle', 0, .08); sTone(1240, .22, .12, 'sine', 0, .14); if (head) { sTone(3100, .35, .1, 'sine', 2900, .05); sNoise(.12, .25, 5200, .05, 0, 4); } }
 function sTone(freq, dur, vol, type = 'sine', slide, delay = 0) { if (!AC) return; const t = AC.currentTime + delay; const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(OUT()); o.start(t); o.stop(t + dur + .02); }
 function sNoise(dur, vol, freq, delay = 0, pan = 0, q = 1.2) { if (!AC) return; const t = AC.currentTime + delay; const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); const p = panNode(pan); s.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); s.start(t, Math.random(), dur + .05); }
-function sBoom(dist, big) { if (!AC) return; const t = AC.currentTime; const vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1); const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(big ? 1600 : 2200, t); f.frequency.exponentialRampToValueAtTime(80, t + (big ? 2 : 1)); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + (big ? 2.4 : 1.2)); s.connect(f); f.connect(g); g.connect(OUT()); revSend(g, roofedNow ? .9 : .6); s.start(t, 0, 2.5); const o = AC.createOscillator(); o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(25, t + .6); const og = AC.createGain(); og.gain.setValueAtTime(vol * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .8); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9); }
+// Explosión en capas: estallido seco inicial, cuerpo que se apaga hacia los graves, golpe sub-grave que se siente en el pecho,
+// escombros que caen después y retumbe lejano. Llega con retardo (velocidad del sonido), pierde agudos con la distancia
+// y viene del lado correcto. Bajo techo suena más encerrada (más reverberación).
+function sBoom(dist, big, pan, occ) {
+  if (!AC) return; pan = pan || 0; const t = AC.currentTime + Math.min(.35, dist / 343), far = clamp(dist / 120, 0, 1), vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1) * (occ ? .7 : 1);
+  const lp = (big ? 1700 : 2400) * (1 - far * .75) * (occ ? .45 : 1);
+  const noise = (type, f0, f1, q, v, dur, sendRev, p) => { const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur * .8); const g = AC.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); const pn = panNode(p === undefined ? pan : p); s.connect(f); f.connect(g); g.connect(pn); pn.connect(OUT()); if (sendRev) revSend(g, sendRev); s.start(t, Math.random(), dur + .1); return g; };
+  if (dist < 70) noise('highpass', 1800, 0, .7, vol * .7 * (1 - far), .03); // estallido
+  noise('lowpass', lp, 70, .8, vol, big ? 2.4 : 1.3, roofedNow ? 1 : .65); // cuerpo
+  noise('bandpass', 380 * (1 - far * .5), 140, .9, vol * .45, big ? 1.4 : .8); // medio que "empuja"
+  const o = AC.createOscillator(); o.frequency.setValueAtTime(big ? 62 : 75, t); o.frequency.exponentialRampToValueAtTime(24, t + .7); const og = AC.createGain(); og.gain.setValueAtTime(vol * .95, t); og.gain.exponentialRampToValueAtTime(.001, t + .85); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9);
+  if (dist > 30) noise('lowpass', 160, 0, .7, vol * .5, 2.6, .8); // retumbe lejano
+  if (dist < 45 && voice(1.6)) { const n = big ? 14 : 8; for (let i = 0; i < n; i++) { const dt0 = .18 + Math.random() * (big ? 1.3 : .8), tt = t + dt0, s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = rand(1800, 5200) * (1 - far); f.Q.value = 5; const g = AC.createGain(); g.gain.setValueAtTime(vol * rand(.03, .09) * (1 - dist / 45), tt); g.gain.exponentialRampToValueAtTime(.0005, tt + .05); const pn = panNode(clamp((+pan || 0) + rand(-.4, .4), -1, 1)); s.connect(f); f.connect(g); g.connect(pn); pn.connect(OUT()); s.start(tt, Math.random(), .07); } } // escombros
+}
 function surfAtFeet(x, z, y) {
   if (!WORLD) return 'stone'; let best = null; for (const b of WORLD.colliders) if (b.mat !== 'perim' && x > b.minX - .05 && x < b.maxX + .05 && z > b.minZ - .05 && z < b.maxZ + .05 && Math.abs(b.maxY - y) < .2) { best = b; break; }
   if (best) { const k = SURF_OF[best.mat]; return k === 'metal' || best.mat === 'metalP' ? 'metal' : k === 'wood' ? 'wood' : k === 'snow' ? 'snow' : 'stone'; }
@@ -1147,7 +1186,7 @@ function sStep(v, pan, surf, dist) {
 // ¿bajo techo? (eco corto y seco) o al aire libre (cola larga)
 function roofed(x, y, z) { if (!WORLD) return false; for (const b of WORLD.colliders) if (b.mat !== 'perim' && b.minY > y + .3 && b.minY < y + 7 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true; return false; }
 let roofedNow = false, roofedT = 0;
-const sReload = (w) => { const R = w.reload, rifle = w.slot === 1; sNoise(.05, .32, 2400, R * .12, 0, 3); sTone(780, .03, .08, 'square', 0, R * .14); sNoise(.12, .14, 900, R * .3, 0, .8); sNoise(.04, .42, 1700, R * .64, 0, 2.5); sTone(320, .05, .14, 'triangle', 0, R * .645); if (rifle) { sNoise(.08, .38, 2900, R * .84, 0, 2.2); sTone(1100, .04, .08, 'square', 0, R * .85); sNoise(.06, .32, 2200, R * .9, 0, 2.2); } else { sNoise(.06, .35, 3200, R * .86, 0, 2.5); sTone(1400, .03, .07, 'square', 0, R * .87); } };
+const sReload = (w) => { const R = w.reload, rifle = w.slot === 1; /* cuerpo: roce de tela al empezar, golpe sordo del cargador al entrar y golpe metálico al soltar el cerrojo */ sNoise(.22, .08, 700, 0, 0, .5); sTone(150, .07, .2, 'sine', 90, R * .64); if (rifle) { sTone(210, .06, .16, 'triangle', 120, R * .86); sNoise(.03, .3, 5200, R * .86, 0, 3); } sNoise(.05, .32, 2400, R * .12, 0, 3); sTone(780, .03, .08, 'square', 0, R * .14); sNoise(.12, .14, 900, R * .3, 0, .8); sNoise(.04, .42, 1700, R * .64, 0, 2.5); sTone(320, .05, .14, 'triangle', 0, R * .645); if (rifle) { sNoise(.08, .38, 2900, R * .84, 0, 2.2); sTone(1100, .04, .08, 'square', 0, R * .85); sNoise(.06, .32, 2200, R * .9, 0, 2.2); } else { sNoise(.06, .35, 3200, R * .86, 0, 2.5); sTone(1400, .03, .07, 'square', 0, R * .87); } };
 
 /* ================= ESTADO ================= */
 const G = { reveal: 0, drone: 0, state: 'menu', phase: 'buy', pt: 0, rd: 0, sc: [0, 0], s0: 'def', bomb: ['carried', 0, 0, 0, -1, 0, 0, 0, ''], roster: [], code: '', mapId: 'alcazaba', pub: true };
@@ -1337,8 +1376,8 @@ function handleEvent(e) {
     case 'planting': { const a = actors[e.v]; if (a) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 25) sNoise(.3, .25, 1800, 0, p.pan, 4); } break; }
     case 'defusing': { const a = actors[e.v]; if (a) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 30) { sNoise(.08, .4, 3000, 0, p.pan, 3); sNoise(.08, .4, 2400, .12, p.pan, 3); } } break; }
     case 'defused': announce('Carga desactivada', nameOf(e.v) + ' cortó el cable a tiempo', 2.5, 'var(--t0)'); sTone(520, .2, .2, 'sine', 780); break;
-    case 'boom': { const p = { x: e.p[0], y: e.p[1] + 1, z: e.p[2] }; boomLight.position.set(p.x, p.y + 2, p.z); boomLight.intensity = 30; for (let i = 0; i < 6; i++) burst(p, [0, 1, 0], [1, .6, .25], 14, 40); burst(p, [0, 1, 0], [.3, .28, .25], 8, 60); sBoom(posAudio(p.x, p.z).d, true); shake = 1.2; break; }
-    case 'boomhe': { const p = { x: e.p[0], y: e.p[1] + .2, z: e.p[2] }; boomLight.position.set(p.x, p.y + 1, p.z); boomLight.intensity = 12; burst(p, [0, 1, 0], [1, .65, .3], 9, 40); burst(p, [0, 1, 0], [.35, .32, .28], 5, 30); const d = posAudio(p.x, p.z).d; sBoom(d, false); if (d < 12) shake = .6 * (1 - d / 12); break; }
+    case 'boom': { const p = { x: e.p[0], y: e.p[1] + 1, z: e.p[2] }; boomLight.position.set(p.x, p.y + 2, p.z); boomLight.intensity = 30; for (let i = 0; i < 6; i++) burst(p, [0, 1, 0], [1, .6, .25], 14, 40); burst(p, [0, 1, 0], [.3, .28, .25], 8, 60); boomFx(p, true); { const pa = posAudio(p.x, p.z); sBoom(pa.d, true, pa.pan, pa.d > 4 && !WORLD.visible([camera.position.x, camera.position.y, camera.position.z], [p.x, p.y + .5, p.z], [])); } shake = 1.2; break; }
+    case 'boomhe': { const p = { x: e.p[0], y: e.p[1] + .2, z: e.p[2] }; boomLight.position.set(p.x, p.y + 1, p.z); boomLight.intensity = 12; burst(p, [0, 1, 0], [1, .65, .3], 9, 40); burst(p, [0, 1, 0], [.35, .32, .28], 5, 30); boomFx(p, false); const pa = posAudio(p.x, p.z), d = pa.d; sBoom(d, false, pa.pan, d > 4 && !WORLD.visible([camera.position.x, camera.position.y, camera.position.z], [p.x, p.y + .5, p.z], [])); if (d < 12) shake = .6 * (1 - d / 12); break; }
     case 'flash': onFlash(e.p); break;
     case 'fire': makeFire(e.id, e.p[0], e.p[1], e.p[2], e.r || 2.6, e.d || 7); break;
     case 'fireout': if (fires.has(e.id)) killFire(e.id, true); else if (e.p) { burst({ x: e.p[0], y: .4, z: e.p[2] }, [0, 1, 0], [.8, .8, .8], 2, 10); } break;
@@ -3163,6 +3202,10 @@ function startAmbience() {
   const bed = (type, freq, q, vol, lfoF, lfoD) => { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.value = vol;
     if (lfoF) { const l = AC.createOscillator(); l.frequency.value = lfoF; const lg = AC.createGain(); lg.gain.value = vol * lfoD; l.connect(lg); lg.connect(g.gain); l.start(); src.push(l); } s.connect(f); f.connect(g); g.connect(bus.amb); s.start(0, Math.random() * 1.5); src.push(s); };
   const hum = (freq, vol) => { const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 240; const g = AC.createGain(); g.gain.value = vol; o.connect(f); f.connect(g); g.connect(bus.amb); o.start(); src.push(o); };
+  // ancho estéreo: una segunda cama igual pero desfasada a cada lado, y ráfagas de viento que van y vienen de un lado a otro
+  const wide = (type, freq, q, vol, lfoF) => { for (const pv of [-.75, .75]) { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq * (pv < 0 ? .93 : 1.07); f.Q.value = q; const g = AC.createGain(); g.gain.value = vol * .6; const l = AC.createOscillator(); l.frequency.value = lfoF * (pv < 0 ? .83 : 1.21); const lg = AC.createGain(); lg.gain.value = vol * .55; l.connect(lg); lg.connect(g.gain); l.start(); const pn = AC.createStereoPanner ? AC.createStereoPanner() : AC.createGain(); if (pn.pan) pn.pan.value = pv; s.connect(f); f.connect(g); g.connect(pn); pn.connect(bus.amb); s.start(0, Math.random() * 1.5); src.push(s, l); } };
+  if (th === 'desert' || th === 'snow' || th === 'rural') wide('bandpass', th === 'snow' ? 520 : 760, .7, th === 'rural' ? .01 : .022, .07);
+  else if (th === 'port') wide('lowpass', 240, .7, .03, .06); else if (th === 'city') wide('lowpass', 210, .6, .028, .05); else wide('lowpass', 180, .7, .02, .05);
   if (th === 'port') { bed('lowpass', 180, .7, .05, .08, .6); bed('bandpass', 500, .5, .012, .13, .8); }
   else if (th === 'snow') { bed('bandpass', 420, .8, .045, .11, .9); }
   else if (th === 'rural') { bed('lowpass', 300, .5, .012, .05, .5); }
@@ -3390,7 +3433,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
