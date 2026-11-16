@@ -64,6 +64,9 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Muerte en dos tiempos (`client.js`, actores sin vida): ceden las rodillas en 0,18 s y luego cae el cuerpo flojo, con la cabeza vencida y el arma soltada (`m.hand.visible`). Al reaparecer se restablece todo en la rama de vivos.
 - Impacto en un soldado (`bodyHitFx`): nube corta oscura detrás del golpe; en el casco, chispas, destello y un «tink». Con el modo calmo la nube es gris.
 - Casquillos expulsados (`ejectCasing`/`updateCasings`): 28 en un grupo reciclado, salen a la derecha, rebotan con tintineo (no en arena, nieve ni agua) y desaparecen a los 2,6 s. En «Livianos» solo queda el sonido sintético.
+- Polvo bajo los pies (`stepDust`): solo al correr sobre arena, tierra o nieve (caminar o agacharse no levanta polvo), hasta 55 m. Es información táctica: delata a quien corre.
+- Bala cercana (`nearMiss`): si el disparo enemigo pasa a menos de 2,4 m, zumbido con barrido de 2,6 a 0,7 kHz (y chasquido si es fusil) desde ese lado, y la vista se cierra un instante (`#supOv`, no en modo calmo).
+- Destello del sol (`updateFlare`): capas CSS en `#flare` sobre la línea sol-centro, solo de día y sin clima, se apaga si algo tapa el sol (rayo cada 0,12 s). Mantenerlo sutil: un destello fuerte tapa enemigos.
 - Soldados: rostros pintados a 512×256 (poros, mejillas, ojos con iris y brillo, cejas por trazos, labios, barba o barba de días, cicatriz) con un leve mapa normal; tela con pliegues y costuras (`NCLOTH`); cordones en las botas y correa en las rodilleras.
 - Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 

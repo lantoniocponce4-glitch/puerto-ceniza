@@ -842,6 +842,50 @@ function updateCasings(dt) {
         if (c.b >= 3) { c.m.rotation.set(Math.PI / 2, rand(0, 6), 0); } } }
   }
 }
+// Polvo bajo los pies: quien corre sobre arena, tierra o nieve levanta una nube baja (caminar o agacharse no la levanta).
+// Ayuda a ver a un enemigo que corre a lo lejos, igual que en la vida real.
+const STEP_COL = { sand: [.78, .68, .52], dirt: [.55, .47, .36], snow: [.92, .94, .98] };
+function stepDust(a, sf) {
+  const c = STEP_COL[sf]; if (!c || prefs.gfx === 'low' || perf.level >= 2) return;
+  const d = Math.hypot(a.pos.x - camera.position.x, a.pos.z - camera.position.z); if (d > 55 || d < 1.5) return;
+  const dir = [-(a.vx || 0) * .1, .25, -(a.vz || 0) * .1]; dustPuff({ x: a.pos.x, y: a.pos.y + .04, z: a.pos.z }, dir, c, .55 + Math.min(.3, d * .006), .6);
+}
+// Bala que pasa cerca: zumbido (o chasquido supersónico de fusil) desde el lado por donde pasó y la vista se cierra un instante.
+// Es la información de "me están disparando y fallaron por poco" que dan los shooters tácticos.
+const _sa = new THREE.Vector3(), _sb = new THREE.Vector3(), _sc2 = new THREE.Vector3();
+let supT = 0, supEl = null;
+function nearMiss(from, end, w, a) {
+  if (!me.alive || !w || w.melee || a.team === me.team) return;
+  const cam = camera.position; _sa.subVectors(end, from); const L = _sa.length(); if (L < 1) return; _sa.multiplyScalar(1 / L);
+  const t = clamp(_sb.subVectors(cam, from).dot(_sa), 0, L); if (t < 3 || t > L + 1.5) return; _sc2.copy(from).addScaledVector(_sa, t);
+  const d = _sc2.distanceTo(cam); if (d > 2.4 || end.distanceTo(cam) < .6) return;
+  const k = 1 - d / 2.4, pa = posAudio(_sc2.x, _sc2.z), pan = pa.d < .5 ? new Pan(clamp(_sa.x * Math.cos(camYaw) - _sa.z * Math.sin(camYaw), -1, 1) * .8, Math.atan2(-(_sc2.x - cam.x), -(_sc2.z - cam.z)) - camYaw) : pa.pan;
+  if (AC) { const t0 = AC.currentTime;
+    if (w.snd && w.snd.vol >= .9) sNoise(.02, .55 * k, 4200, 0, pan, .6); // chasquido supersónico
+    const src = AC.createBufferSource(); src.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 4; f.frequency.setValueAtTime(2600, t0); f.frequency.exponentialRampToValueAtTime(700, t0 + .16);
+    const g = AC.createGain(); g.gain.setValueAtTime(.0001, t0); g.gain.linearRampToValueAtTime(.4 * k, t0 + .03); g.gain.exponentialRampToValueAtTime(.001, t0 + .18); const pn = panNode(pan); src.connect(f); f.connect(g); g.connect(pn); pn.connect(OUT()); src.start(t0, Math.random(), .2); }
+  if (!(prefs.acc && prefs.acc.calm)) supT = Math.min(1, supT + .35 * k + .15);
+}
+function updateSup(dt) {
+  if (!supEl) { supEl = document.createElement('div'); supEl.id = 'supOv'; $('#app').appendChild(supEl); }
+  supT = Math.max(0, supT - dt * 1.6); const o = (supT * .55).toFixed(2); if (supEl._o !== o) { supEl._o = o; supEl.style.opacity = o; }
+}
+// Destello del sol: al mirar hacia el sol aparece un resplandor y reflejos de lente sobre la línea sol-centro; si algo lo tapa, se apaga.
+let flareEls = null, flareVis = 0, flareT = 0;
+function updateFlare(dt) {
+  if (!flareEls) { const box = document.createElement('div'); box.id = 'flare'; $('#tags').appendChild(box); flareEls = [['f0', 0], ['f1', .55], ['f2', .9], ['f3', 1.35], ['f4', 1.75]].map(([c, t]) => { const e = document.createElement('i'); e.className = c; box.appendChild(e); return { e, t }; }); flareEls.box = box; }
+  const on = G.state === 'playing' && !G.night && !(G.cond && G.cond.weather) && prefs.gfx !== 'low' && me.scopeK < .5 && !kcActive();
+  let want = 0; const sd = skyU.sunDir.value; _p.copy(camera.position).addScaledVector(sd, 400).project(camera);
+  if (on && _p.z < 1 && Math.abs(_p.x) < 1.25 && Math.abs(_p.y) < 1.25) {
+    flareT -= dt; if (flareT <= 0) { flareT = .12; const c = camera.position; flareVis = WORLD && WORLD.visible([c.x, c.y, c.z], [c.x + sd.x * 70, c.y + sd.y * 70, c.z + sd.z * 70], []) ? 1 : 0; }
+    want = flareVis * (1 - Math.min(1, Math.hypot(_p.x, _p.y) / 1.25));
+  }
+  const box = flareEls.box; box._v = lerp(box._v || 0, want, 1 - Math.exp(-dt * 8)); const v = box._v;
+  if (v < .01) { if (box.style.display !== 'none') box.style.display = 'none'; return; } box.style.display = '';
+  const sx = (_p.x * .5 + .5) * VW(), sy = (-_p.y * .5 + .5) * VH(), cx = VW() / 2, cy = VH() / 2;
+  for (const f of flareEls) { const x = sx + (cx - sx) * f.t * 2 * (f.t ? 1 : 0), y = sy + (cy - sy) * f.t * 2 * (f.t ? 1 : 0); f.e.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`; }
+  box.style.opacity = (v * .7).toFixed(2);
+}
 function bodyHitFx(V, e) {
   if (!V.pos) return; const A = e.a === me.id ? { x: camera.position.x, z: camera.position.z } : actors[e.a] && actors[e.a].pos; if (!A) return;
   const head = e.z === 'h', y = V.pos.y + (head ? (V.h || 1.8) - .14 : (V.h || 1.8) * .62); let nx = V.pos.x - A.x, nz = V.pos.z - A.z; const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L;
@@ -882,7 +926,7 @@ function buildDust(on) {
 }
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
-  updateCasings(dt);
+  updateCasings(dt); updateSup(dt); updateFlare(dt);
   { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
   roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); setReverb(roofedNow ? 'indoor' : (WORLD && WORLD.map.theme) || 'open'); }
@@ -1358,7 +1402,7 @@ function onShotEvent(e) {
   if (e.s === me.id) return;
   const a = actors[e.s]; if (!a || !a.model) return; const w = WEAPONS[e.w]; if (a.model.act) a.model.act('fire');
   const mw = new THREE.Vector3(); a.model.muzzle.getWorldPosition(mw);
-  const end = new THREE.Vector3(e.e[0], e.e[1], e.e[2]); a.flashT = w && w.sup ? 0 : .05; if (w && Math.hypot(a.pos.x - camera.position.x, a.pos.z - camera.position.z) < 16 && (!w.pellets || Math.random() < .5)) ejectFrom(a, w); if (!(w && w.sup)) lifeShot(a.pos.x, a.pos.z);
+  const end = new THREE.Vector3(e.e[0], e.e[1], e.e[2]); nearMiss(mw, end, w, a); a.flashT = w && w.sup ? 0 : .05; if (w && Math.hypot(a.pos.x - camera.position.x, a.pos.z - camera.position.z) < 16 && (!w.pellets || Math.random() < .5)) ejectFrom(a, w); if (!(w && w.sup)) lifeShot(a.pos.x, a.pos.z);
   if (!me.alive && !kcActive() && me.deadT > 1.2 && specTarget() === a && vm.spec) { vm.kick = 1; vm.flashT = .05; tracer(vmMuzzleWorld(), end); } else tracer(mw, end);
   if (e.n) impactFx(end, e.n, stopAt(end, e.n), .7);
   const p = posAudio(a.pos.x, a.pos.z); const occ = p.d > 3 && !WORLD.visible([camera.position.x, camera.position.y, camera.position.z], [a.pos.x, a.pos.y + 1.4, a.pos.z], []); sShot(w && w.snd, p.d, p.pan, occ, w);
@@ -1782,7 +1826,7 @@ function updateRemotes(dt) {
     setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
     a.flashT = (a.flashT || 0) - dt; m.flash.visible = a.flashT > 0; if (m.flash.visible) { if (!m.flash.userData.flame) addFlames(m.flash); jitterFlash(m.flash); }
     // pasos audibles
-    if (spd > 2.8 && !(a.flags & 2) && cr < .3 && Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) < .1) { a.stepT -= dt * spd; if (a.stepT <= 0) { a.stepT = 2.3; const p = posAudio(a.pos.x, a.pos.z); if (p.d < 28) sStep(.22 * (1 - p.d / 28) * (a.team === me.team ? .6 : 1), p.pan, surfAtFeet(a.pos.x, a.pos.z, a.pos.y), Math.max(.01, p.d)); } }
+    if (spd > 2.8 && !(a.flags & 2) && cr < .3 && Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) < .1) { a.stepT -= dt * spd; if (a.stepT <= 0) { a.stepT = 2.3; const sfA = surfAtFeet(a.pos.x, a.pos.z, a.pos.y); stepDust(a, sfA); const p = posAudio(a.pos.x, a.pos.z); if (p.d < 28) sStep(.22 * (1 - p.d / 28) * (a.team === me.team ? .6 : 1), p.pan, sfA, Math.max(.01, p.d)); } }
   }
   for (const m of nadeMeshes.values()) { const t = m.userData.t; if (t) { m.position.x = lerp(m.position.x, t[0], .35); m.position.y = lerp(m.position.y, t[1], .35); m.position.z = lerp(m.position.z, t[2], .35); m.rotation.x += dt * 8; } }
   // carga
@@ -3346,7 +3390,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
