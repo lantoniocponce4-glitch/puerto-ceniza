@@ -61,6 +61,9 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Fachadas de ciudad (`texFacade`): marco, reflejo del cielo, alféizar y un mapa emisivo con las ventanas que se encienden de noche (`MAT.city.emissiveIntensity` en `applyCond`). Las casas del desierto llevan alféizares y algunas ventanas de vidrio (`MAT.winLit`) que brillan de noche.
 - Cables entre edificios enfrentados (`hangCables`): solo adorno, más de 3,2 m de altura, máximo 18 por mapa, sin sombras.
 - Armas: `bx()` hace cajas con aristas biseladas (salvo piezas de menos de 8 mm), y cada arma tiene el ánima oscura en la boca del cañón (`BOREG`). Tras una ráfaga larga o un disparo de escopeta o francotirador sale humo del cañón en primera persona (`vm.heat`).
+- Muerte en dos tiempos (`client.js`, actores sin vida): ceden las rodillas en 0,18 s y luego cae el cuerpo flojo, con la cabeza vencida y el arma soltada (`m.hand.visible`). Al reaparecer se restablece todo en la rama de vivos.
+- Impacto en un soldado (`bodyHitFx`): nube corta oscura detrás del golpe; en el casco, chispas, destello y un «tink». Con el modo calmo la nube es gris.
+- Casquillos expulsados (`ejectCasing`/`updateCasings`): 28 en un grupo reciclado, salen a la derecha, rebotan con tintineo (no en arena, nieve ni agua) y desaparecen a los 2,6 s. En «Livianos» solo queda el sonido sintético.
 - Soldados: rostros pintados a 512×256 (poros, mejillas, ojos con iris y brillo, cejas por trazos, labios, barba o barba de días, cicatriz) con un leve mapa normal; tela con pliegues y costuras (`NCLOTH`); cordones en las botas y correa en las rodilleras.
 - Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 

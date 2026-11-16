@@ -819,6 +819,36 @@ function stopAt(p, n) { if (!WORLD || !WORLD.colliders) return null; const x = p
 const dpuffs = []; for (let i = 0; i < 28; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.smoke, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; scene.add(sp); dpuffs.push({ s: sp, life: 0, max: 1, sz: 1 }); } let dpI = 0;
 function dustPuff(p, n, col, sz, life) { const q = dpuffs[dpI++ % dpuffs.length]; q.s.position.set(p.x + n[0] * .12, p.y + n[1] * .12, p.z + n[2] * .12); q.s.material.color.setRGB(col[0], col[1], col[2]); q.s.material.rotation = Math.random() * 6; q.life = q.max = life; q.sz = sz; q.s.visible = true; q.s.scale.setScalar(sz * .25); }
 const DECAL_TINT = { metal: [1.6, 1.6, 1.7], wood: [1.15, .85, .6], glass: [2.2, 2.4, 2.6], stone: [1, 1, 1], ground: [.9, .85, .8], snow: [.8, .85, .95], soft: [1, 1, 1] };
+// impacto en un soldado: nube corta y oscura (tela y polvo) hacia atrás del golpe; si la bala pega en el casco, chispas y un "tink"
+// Casquillos: salen a la derecha del arma girando, caen con gravedad, rebotan en el suelo con un tintineo y desaparecen.
+// Grupo fijo reciclado (sin crear objetos por disparo).
+const CAS = { list: [], i: 0 }; {
+  const geo = new THREE.CylinderGeometry(.0055, .0055, .024, 8), mat = new THREE.MeshStandardMaterial({ color: 0xc9a043, metalness: .9, roughness: .3 });
+  for (let i = 0; i < 28; i++) { const m = new THREE.Mesh(geo, mat); m.visible = false; scene.add(m); CAS.list.push({ m, v: new THREE.Vector3(), w: new THREE.Vector3(), t: 0, b: 0 }); }
+}
+function ejectCasing(w) {
+  if (prefs.gfx === 'low' || perf.level >= 2) return; const c = CAS.list[CAS.i++ % CAS.list.length], mw = vmMuzzleWorld();
+  const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw), rx = Math.cos(camYaw), rz = -Math.sin(camYaw), back = w.slot === 2 ? .16 : .32;
+  c.m.position.set(mw.x - fx * back + rx * .04, mw.y - .02, mw.z - fz * back + rz * .04);
+  const sp = rand(1.6, 2.4); c.v.set(rx * sp + fx * rand(-.3, .4), rand(1.4, 2.2), rz * sp + fz * rand(-.3, .4)); c.v.x += me.vel.x; c.v.z += me.vel.z;
+  c.w.set(rand(-20, 20), rand(-20, 20), rand(-20, 20)); c.t = 2.6; c.b = 0; c.m.visible = true; c.m.scale.setScalar(w.slot === 2 ? .8 : 1);
+}
+function updateCasings(dt) {
+  for (const c of CAS.list) { if (!c.m.visible) continue; c.t -= dt; if (c.t <= 0) { c.m.visible = false; continue; }
+    if (c.b < 3) { c.v.y -= 11 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += c.w.x * dt; c.m.rotation.y += c.w.y * dt; c.m.rotation.z += c.w.z * dt;
+      const g = WORLD ? WORLD.groundAt(c.m.position.x, c.m.position.z, c.m.position.y + .3) : 0;
+      if (c.m.position.y <= g + .006 && c.v.y < 0) { c.m.position.y = g + .006; c.b++; c.v.y *= -.32; if (c.v.y < .5) c.b = 3; c.v.x *= .45; c.v.z *= .45; c.w.multiplyScalar(.4);
+        if (c.b === 1) { const sf = surfAtFeet(c.m.position.x, c.m.position.z, g); if (sf !== 'sand' && sf !== 'snow' && sf !== 'water') sTone(rand(3400, 4600), .05, .04, 'sine'); }
+        if (c.b >= 3) { c.m.rotation.set(Math.PI / 2, rand(0, 6), 0); } } }
+  }
+}
+function bodyHitFx(V, e) {
+  if (!V.pos) return; const A = e.a === me.id ? { x: camera.position.x, z: camera.position.z } : actors[e.a] && actors[e.a].pos; if (!A) return;
+  const head = e.z === 'h', y = V.pos.y + (head ? (V.h || 1.8) - .14 : (V.h || 1.8) * .62); let nx = V.pos.x - A.x, nz = V.pos.z - A.z; const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L;
+  const p = { x: V.pos.x - nx * .18, y, z: V.pos.z - nz * .18 }, n = [nx, .15, nz];
+  if (head && (V.flags & 128)) { sparks(p, [-nx, .4, -nz], prefs.gfx === 'low' ? 3 : 7); hitFlash(p, [-nx, 0, -nz], .7); const pa = posAudio(p.x, p.z); if (pa.d < 40) sNoise(.09, .32 * (1 - pa.d / 40), 4200, 0, pa.pan, 9); }
+  else { const c = prefs.acc && prefs.acc.calm ? [.42, .38, .34] : [.38, .1, .08]; burst(p, n, c, 1.8, prefs.gfx === 'low' ? 3 : 6); if (prefs.gfx !== 'low') dustPuff(p, n, c, .32, .32); }
+}
 function impactFx(end, n, stop, scale = 1) {
   const kind = surfOf(stop), few = prefs.gfx === 'low';
   if (kind !== 'soft') decal(end, n, DECAL_TINT[kind]);
@@ -852,6 +882,7 @@ function buildDust(on) {
 }
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
+  updateCasings(dt);
   { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
   roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); setReverb(roofedNow ? 'indoor' : (WORLD && WORLD.map.theme) || 'open'); }
@@ -1020,7 +1051,8 @@ function shotExtras(s, w, dist, pan, t, vol, far, occ) {
   else if (w.rpm < 60) { mech(.42, 2600, 5, .2, .04); mech(.62, 1800, 4, .24, .05); }
   else if (w.slot === 2) mech(.028, 3600, 5, .12 * s.vol, .025);
   else mech(.04, 2900, 4, .1 * s.vol, .03);
-  // casquillos que caen (no en arena ni nieve; en automáticas, uno de cada tres)
+  // casquillos que caen (no en arena ni nieve; en automáticas, uno de cada tres). Con gráficos completos suena el casquillo real al rebotar (ejectCasing)
+  if (prefs.gfx !== 'low' && perf.level < 2) return;
   if (w.pellets && w.rpm < 80) return; if (w.auto && (casingN++ % 3)) return;
   const sf = surfAtFeet(me.pos.x, me.pos.z, me.pos.y); if (sf === 'sand' || sf === 'snow' || sf === 'water') return;
   const ct = t + .38 + Math.random() * .15, base = sf === 'wood' ? 2200 : 3600 + Math.random() * 900;
@@ -1241,7 +1273,7 @@ function handleEvent(e) {
     case 'live': announce('En marcha', G.mode === 'elim' ? 'Sin carga: gana el bando que elimine al otro' : sideOf(me.team) === 'atk' ? 'Planta la carga en A o B' : 'Que no planten la carga', 1.6); sTone(660, .12, .12, 'square'); break;
     case 'shot': onShotEvent(e); break;
     case 'slash': { const a = actors[e.s]; if (a && e.s !== me.id && a.model && a.model.act) a.model.act('slash'); if (a && e.s !== me.id) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 20) sNoise(.12, .3 * (1 - p.d / 20), 3000, 0, p.pan); } break; }
-    case 'hit': { { const V = actors[e.v]; if (V && V.alive) { V.flinchT = .22; V.flinchH = e.z === 'h'; } } if (e.v === me.id && e.a !== me.id) me.tagT = e.z === 'h' ? .5 : .35;
+    case 'hit': { { const V = actors[e.v]; if (V && V.alive) { V.flinchT = .22; V.flinchH = e.z === 'h'; } if (V && e.v !== me.id) bodyHitFx(V, e); } if (e.v === me.id && e.a !== me.id) me.tagT = e.z === 'h' ? .5 : .35;
       if (e.a === me.id) buzz(e.x ? 28 : 10); else if (e.v === me.id) buzz(18);
       if (e.a === me.id) { showHit(e.z === 'h', e.x); if (e.z === 'h') { me.heads++; sTone(e.x ? 2600 : 2100, .06, .2, 'square'); } else sTone(1500, .04, .15, 'square'); me.hits++; }
       if (e.v === me.id) { const a = actors[e.a]; if (a) addDmgDir(a.pos); sNoise(.12, .35, 300); me.lastHurt = t; if (e.z === 'h') sTone(3200, .25, .12, 'sine', 2600); }
@@ -1639,7 +1671,7 @@ function traceShot(o, d, maxT) {
   return { wt, hit, t, zone };
 }
 function shoot(w, am) {
-  am.mag--; me.lastShot = nowS(); me.shots++; vm.heat = Math.min(10, (vm.heat || 0) + (w.pellets ? 3 : w.rpm < 120 ? 2 : 1)); lifeShot(me.pos.x, me.pos.z); const sprIdx = me.sprayI;
+  am.mag--; me.lastShot = nowS(); me.shots++; if (!w.melee && !(w.rpm < 80 && w.pellets) && !(w.rpm < 60)) ejectCasing(w); vm.heat = Math.min(10, (vm.heat || 0) + (w.pellets ? 3 : w.rpm < 120 ? 2 : 1)); lifeShot(me.pos.x, me.pos.z); const sprIdx = me.sprayI;
   const pat = pattern(w, me.sprayI); me.sprayI++;
   const o = [camera.position.x, camera.position.y, camera.position.z]; const mw = vmMuzzleWorld();
   const n = w.pellets || 1; const pel = []; let main = null; let anyRange = false;
@@ -1735,8 +1767,16 @@ function updateRemotes(dt) {
     }
     m.g.position.set(a.pos.x, a.pos.y, a.pos.z); m.g.rotation.y = a.yaw;
     const specMe = !me.alive && specTarget() === a;
-    if (!a.alive) { a.deadT += dt; const dur = a.fallH ? .32 : .55, k = Math.min(1, a.deadT / dur), e2 = k * k * (3 - 2 * k), bounce = k >= 1 ? Math.max(0, Math.sin(Math.min(1, (a.deadT - dur) / .25) * Math.PI)) * .04 : 0; m.body.rotation.x = lerp(0, a.fallX === undefined ? 1.5 : a.fallX, e2) - bounce * Math.sign(a.fallX || 1); m.body.rotation.z = lerp(0, a.fallZ || 0, e2); m.body.position.y = -.05 * k - (a.fallH ? .25 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2) * (1 - k) : 0); m.g.visible = a.deadT < 6; continue; }
-    m.g.visible = !specMe; m.body.rotation.x = 0; m.body.rotation.z = 0; m.body.position.y = 0; a.fallX = undefined;
+    if (!a.alive) {
+      // muerte en dos tiempos: primero ceden las rodillas (0,18 s) y luego el cuerpo cae flojo; la cabeza se vence y el arma se suelta
+      a.deadT += dt; const dur = a.fallH ? .32 : .55, bk = Math.min(1, a.deadT / .18), b2 = bk * bk * (3 - 2 * bk), k = clamp((a.deadT - (a.fallH ? 0 : .1)) / dur, 0, 1), e2 = k * k * (3 - 2 * k);
+      const bounce = k >= 1 ? Math.max(0, Math.sin(Math.min(1, (a.deadT - dur - .1) / .25) * Math.PI)) * .04 : 0;
+      m.body.rotation.x = lerp(0, a.fallX === undefined ? 1.5 : a.fallX, e2) - bounce * Math.sign(a.fallX || 1); m.body.rotation.z = lerp(0, a.fallZ || 0, e2);
+      m.body.position.y = -.26 * b2 * (1 - e2) - .05 * e2 - (a.fallH ? .25 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2) * (1 - k) : 0);
+      for (let i = 0; i < m.legs.length; i++) { const L = m.legs[i]; L.hip.rotation.x = (i ? .7 : 1.0) * b2 * (1 - e2 * .55); L.knee.rotation.x = -(i ? 1.2 : 1.6) * b2 * (1 - e2 * .5); }
+      m.head.rotation.x = .55 * e2 * Math.sign(a.fallX === undefined ? 1 : a.fallX); m.head.rotation.z = (a.fallZ || 0) * .5 * e2; m.upper.rotation.z = 0;
+      m.hand.visible = a.deadT < .14; m.g.visible = a.deadT < 6; continue; }
+    m.g.visible = !specMe; m.body.rotation.x = 0; m.body.rotation.z = 0; m.body.position.y = 0; a.fallX = undefined; m.hand.visible = true; m.head.rotation.z = 0;
     const spd = Math.hypot(a.vx, a.vz); a.walkPh += dt * spd * 2.2; const cr = clamp((1.8 - a.h) / .58, 0, 1);
     const sy = Math.sin(a.yaw), cy = Math.cos(a.yaw); m.animate(spd, a.walkPh, cr, a.pitch, { dt, yaw: a.yaw, reload: !!(a.flags & 1024), plant: !!(a.flags & 8) && spd < .5, fw: -a.vx * sy - a.vz * cy, sd: a.vx * cy - a.vz * sy, walk: !!(a.flags & 2), air: Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) > .2 }); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42; if (a.flinchT > 0) { a.flinchT -= dt; const f = Math.sin(a.flinchT / .22 * Math.PI) * (a.flinchH ? .22 : .12); m.upper.rotation.x -= f; if (a.flinchH) m.head.rotation.x -= f * 1.4; }
     setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
@@ -3306,7 +3346,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sndTest, sShot, sStep, WEAPONS, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
