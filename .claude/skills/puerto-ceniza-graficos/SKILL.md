@@ -21,6 +21,19 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Si cambias `renderer.toneMapping`, marca `material.needsUpdate = true` en las escenas (lo hace `syncToneMap`).
 - Condiciones: día, atardecer, noche y clima por mapa (`pickCond`, `applyCond`). Prueba cada cambio de iluminación en las cuatro.
 
+## Sombras nítidas (caja que sigue al jugador)
+
+- En partida, la cámara de sombras del sol cubre solo los alrededores del jugador (`shadowFollow`, semiancho 32 m en celular, 40 en PC y 46 en «Ultra») y se recoloca solo en los cuadros en que se actualizan las sombras. Con el mismo mapa de sombras, cada texel pasa de ~6,8 cm a ~3,9 cm en PC y de ~13,7 a ~6,3 cm en celular.
+- El centro se alinea a la cuadrícula de texeles **en el espacio de la luz** (proyectando sobre los ejes derecha/arriba de la luz y redondeando al tamaño del texel): así los bordes no titilan al caminar ("shadow swimming").
+- En los menús vuelve a cubrir el mapa entero. Si cambias el sol (`applyCond`), `shadowFollow` conserva la dirección nueva porque la lee de `sun.position - sun.target.position`.
+- Fuentes: guía de sombras de Three.js en skills.sh («frustum lo más ajustado posible», texel snapping contra el titileo) y el hilo del foro de Three.js sobre mover el frustum de la luz con la cámara.
+
+## Luz de contorno (rim light)
+
+- `addRim(material, colorDelEquipo, k)` en `models.js` agrega un borde suave del color del equipo donde la superficie queda de canto a la cámara (`onBeforeCompile`, antes de `tonemapping_fragment`). Mejora la lectura de la silueta sin luces extra.
+- Mantener `k` bajo (0,25-0,35): más alto se ve caricaturesco. Usa `customProgramCacheKey` para que cada color compile su propio programa.
+- Los materiales clonados (atuendos) no heredan `onBeforeCompile`: hay que volver a llamar a `addRim`.
+
 ## Materiales y texturas
 
 - Texturas procedurales en canvas (`TX.*`) y mapas normales calculados con Sobel (`normalOf`). Reutiliza las existentes antes de crear otras.

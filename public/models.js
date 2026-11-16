@@ -77,6 +77,19 @@ function camoTex(id) {
 
 /* ---------- Materiales ---------- */
 const S = (o) => new T.MeshStandardMaterial(Object.assign({ roughness: .8, metalness: 0 }, o));
+// Luz de contorno (rim light): un borde suave del color del equipo donde la superficie queda de canto a la cámara.
+// Separa la silueta del soldado del fondo (sobre todo de noche o contra paredes del mismo tono) sin luces extra:
+// es una línea más en el sombreador de la propia pieza.
+function addRim(mat, hex, k = .32) {
+  const col = new T.Color(hex);
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.rimCol = { value: col }; sh.uniforms.rimK = { value: k };
+    sh.fragmentShader = 'uniform vec3 rimCol; uniform float rimK;\n' + sh.fragmentShader.replace('#include <tonemapping_fragment>',
+      'float rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0); gl_FragColor.rgb += rimCol * rimK * pow(rimF, 3.0);\n#include <tonemapping_fragment>');
+  };
+  mat.customProgramCacheKey = () => 'rim' + hex.toString(16) + k;
+  return mat;
+}
 const MG = {
   metal: S({ color: 0x33363a, map: TXW, metalness: .85, roughness: .32 }),
   park: S({ color: 0x45484c, map: TXW, metalness: .55, roughness: .52 }),
@@ -469,7 +482,8 @@ function teamMatsFor(team, o) {
   if (!o || !OUTFIT_DEF[o]) return teamMats[team]; const k = team + o; if (OUTMATS[k]) return OUTMATS[k];
   const D = OUTFIT_DEF[o], B = teamMats[team], C = Object.assign({}, B);
   C.camo = withN(S({ map: outfitCamo(team, o), roughness: .92 }), NWEAVE, .28);
-  for (const [key, col] of [['vest', D.vest], ['helm', D.helm], ['pad', D.pad], ['pack', D.pack]]) { C[key] = B[key].clone(); C[key].color.setHex(col); }
+  for (const [key, col] of [['vest', D.vest], ['helm', D.helm], ['pad', D.pad], ['pack', D.pack]]) { C[key] = B[key].clone(); C[key].color.setHex(col); addRim(C[key], TEAMC[team]); }
+  addRim(C.camo, TEAMC[team]);
   if (D.glow) { C.tag = B.tag.clone(); C.tag.emissiveIntensity = 1.6; C.glow = true; }
   return (OUTMATS[k] = C);
 }
@@ -483,6 +497,7 @@ const teamMats = [0, 1].map(t => {
     wrap: S({ map: TXCLOTH, color: L.wrap || 0x999999, roughness: .95 }), cap: S({ map: TXCLOTH, color: L.cap || 0x333333, roughness: .9, side: T.DoubleSide }), buckle: S({ color: 0x777777, metalness: .8, roughness: .35 })
   };
   for (const k of ['camo', 'vest', 'pack', 'glove', 'wrap', 'cap']) withN(o[k], NWEAVE, .28); withN(o.helm, NSTIPPLE, .4); withN(o.boot, NSTIPPLE, .6);
+  for (const k of ['camo', 'vest', 'pack', 'helm', 'wrap', 'cap', 'pad', 'boot']) addRim(o[k], TEAMC[t]);
   return o;
 });
 const skinMats = {};
