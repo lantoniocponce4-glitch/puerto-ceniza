@@ -30,13 +30,20 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 
 ## Luz de contorno (rim light)
 
-- `addRim(material, colorDelEquipo, k)` en `models.js` agrega un borde suave del color del equipo donde la superficie queda de canto a la cámara (`onBeforeCompile`, antes de `tonemapping_fragment`). Mejora la lectura de la silueta sin luces extra.
-- Mantener `k` bajo (0,25-0,35): más alto se ve caricaturesco. Usa `customProgramCacheKey` para que cada color compile su propio programa.
+- `addRim(material, equipo)` en `models.js` agrega un borde suave del color del equipo donde la superficie queda de canto a la cámara (`onBeforeCompile`, antes de `tonemapping_fragment`). Mejora la lectura de la silueta sin luces extra.
+- El color y la intensidad son uniformes **compartidos por equipo** (`RIMCOL[t]`, `RIMK[t]`): `PCM.setRim(equipo, k, color)` y `PCM.setTeamColors([c0, c1])` los cambian en vivo sin recompilar. Con `k` ≤ 0,5 suma un brillo suave (lo normal: 0,32); con `k` mayor, además pinta el borde con el color (es el «resaltar enemigos» de accesibilidad, `k` 2,6 en magenta `#ff2bd6`).
 - Los materiales clonados (atuendos) no heredan `onBeforeCompile`: hay que volver a llamar a `addRim`.
+
+## Accesibilidad visual
+
+- Ajustes → «Accesibilidad visual» (`prefs.acc`, `applyAcc()` en `client.js`): modos daltónicos (`CB_PAL`: protanopia/deuteranopia azul y ámbar, tritanopia turquesa y rosa), resaltar enemigos (contorno magenta), brillo (exposición del mapeo de tonos y uniforme `expo` del `GradeShader`), tamaño de la interfaz (variable CSS `--uiS`) y modo calmo (sin sacudidas, destello de cegadora al 70 %, sin grano).
+- Todo color de equipo nuevo debe leer `TEAMC` (cliente) o las variables CSS `--t0`/`--t1`, nunca un valor fijo: así respeta el modo daltónico.
+- Nunca distingas equipos solo por color: acompaña con forma o texto (nombres, íconos).
 
 ## Materiales y texturas
 
 - Texturas procedurales en canvas (`TX.*`) y mapas normales calculados con Sobel (`normalOf`). Reutiliza las existentes antes de crear otras.
+- En PC con gráficos Altos o Ultra, `cnv(w, h)` crea el lienzo al doble de resolución (`HIRES`) y escala el contexto: dibuja siempre en coordenadas de 256/512. Para leer o escribir píxeles usa `cnv(w, h, true)` (tamaño exacto) y para copiar una textura en otra pasa el tamaño de destino a `drawImage`.
 - Objetos repetidos: material compartido con `shMat(clave, () => std({...}))` y geometría en `geoCache`. `mergeStatic` funde las mallas estáticas por material: un material nuevo por objeto = una llamada de dibujo más por objeto.
 - Lo que se rompe (`BRKM`) queda como malla propia y no se funde.
 - Metales: `metalness` alto + `roughness` 0,3-0,5 se ven bien solo con entorno; sin entorno («Livianos») baja el metalness o se ven negros.

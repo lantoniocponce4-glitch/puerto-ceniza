@@ -595,8 +595,8 @@
   // defensores 6-9 s, primer duelo a los 6-8 s). Los edificios, calles y muros se agrandan; los objetos sueltos (cajas, barriles,
   // sacos, autos, contenedores) conservan su tamaño real y solo cambian de lugar; los muros delgados conservan su grosor.
   const PROP = m => /^(crate|wood|barrel|sandbag|bench|planter|dumpster|tank|tarp|snowpile|kiosk|stoneC|barrier)$/.test(m) || /^(car|cont|wagon):/.test(m);
-  function scaleMap(M, f) {
-    if (!M || M.scale) return; M.scale = f;
+  function scaleMap(M, f, again) {
+    if (!M || (M.scale && !again)) return; M.scale = (M.scale || 1) * f;
     const sp = v => Math.round(v * f * 100) / 100;
     M.bounds = M.bounds.map(sp);
     M.boxes = M.boxes.map(b => {
@@ -710,9 +710,59 @@
   }
   // escala después de sumar las coberturas extra (así todo el mapa crece junto)
   scaleMap(MAPS.alcazaba, 1.25); scaleMap(MAPS.muelle, 1.3); scaleMap(MAPS.distrito, 1.25); scaleMap(MAPS.oasis, 1.1);
-  holdCover(MAPS.alcazaba); holdCover(MAPS.distrito); holdCover(MAPS.oasis);
+  holdCover(MAPS.alcazaba); holdCover(MAPS.distrito); holdCover(MAPS.oasis); holdCover(MAPS.muelle);
   // Alcazaba: las posiciones que miran la calle larga de A y la salida del túnel de B quedaban sobre la ruta atacante y sin cobertura
   { const M = MAPS.alcazaba; M.holds.A[0] = [37.6, -10.4, Math.PI]; M.holds.B[0] = [-33.8, -12.4, Math.PI]; M.boxes.push([36.4, -8.6, 38.8, -7.8, 1.15, 'sandbag'], [-35, -10.6, -32.6, -9.8, 1.15, 'sandbag']); }
+  // ---------- Pasadizos secretos ----------
+  // Se excavan dentro de los edificios (coordenadas del plano actual, antes del último agrandado):
+  //  · 'crawl': túnel de techo bajo (1,3 m) que solo se cruza agachado. Los bots no lo usan: es una ruta de flanqueo para personas.
+  //  · 'door': pasillo de altura normal tapiado con tablas en ambos extremos. Hay que romper las tablas (balas, cuchillo o granada)
+  //    para abrirlo; hace ruido y deja la entrada a la vista. Una vez abierto, los bots también lo usan. Las tablas vuelven cada ronda.
+  // Cada tramo es [x0, z0, x1, z1]; varios tramos forman un pasadizo en L.
+  function carve(M, kind, segs) {
+    for (const r of segs) {
+      const [x0, z0, x1, z1] = r, cut = [], keep = [];
+      for (const b of M.boxes) {
+        const bx0 = Math.min(b[0], b[2]), bx1 = Math.max(b[0], b[2]), bz0 = Math.min(b[1], b[3]), bz1 = Math.max(b[1], b[3]);
+        const big = b[4] >= 2.6 && !b[6] && !PROP(b[5]) && b[5] !== 'plank'; // edificios y sus muros de fachada
+        if (!big || x0 >= bx1 || x1 <= bx0 || z0 >= bz1 || z1 <= bz0) { keep.push(b); continue; }
+        // la caja se parte en hasta cuatro trozos alrededor del pasillo
+        const ix0 = Math.max(x0, bx0), ix1 = Math.min(x1, bx1), iz0 = Math.max(z0, bz0), iz1 = Math.min(z1, bz1), h = b[4], m = b[5];
+        if (ix0 > bx0) keep.push([bx0, bz0, ix0, bz1, h, m]);
+        if (ix1 < bx1) keep.push([ix1, bz0, bx1, bz1, h, m]);
+        if (iz0 > bz0) keep.push([ix0, bz0, ix1, iz0, h, m]);
+        if (iz1 < bz1) keep.push([ix0, iz1, ix1, bz1, h, m]);
+        const top = kind === 'crawl' ? 1.3 : 2.7; if (h > top + .2) keep.push([ix0, iz0, ix1, iz1, h - top, m, top]);
+        cut.push([ix0, iz0, ix1, iz1]);
+      }
+      M.boxes = keep;
+      if (kind === 'door' && cut.length) {
+        // tablas en los dos extremos del tramo, un poco más anchas que el pasillo para que no queden rendijas
+        const along = x1 - x0 > z1 - z0, lo = Math.min(...cut.map(c => along ? c[0] : c[1])), hi = Math.max(...cut.map(c => along ? c[2] : c[3]));
+        for (const e of [lo + .15, hi - .15]) M.boxes.push(along ? [e - .1, z0 - .35, e + .1, z1 + .35, 2.7, 'plank'] : [x0 - .35, e - .1, x1 + .35, e + .1, 2.7, 'plank']);
+      }
+      (M.secrets || (M.secrets = [])).push({ kind, r: [x0, z0, x1, z1] });
+    }
+  }
+  // Alcazaba: pasillo tapiado del medio al flanco de B y túnel en L del medio hacia la calle corta de A
+  carve(MAPS.alcazaba, 'door', [[-22.6, -14.4, -4.8, -12]]);
+  carve(MAPS.alcazaba, 'crawl', [[4.6, -4.7, 14.1, -3.3], [12.7, -10.6, 14.1, -3.3]]);
+  // Muelle 9: pasillo tapiado del medio al sitio A por dentro de la bodega; túnel del medio al sitio B
+  carve(MAPS.muelle, 'door', [[22.8, -18.6, 25.2, -4.4]]);
+  carve(MAPS.muelle, 'crawl', [[22.3, 4.4, 23.7, 15.6]]);
+  // Distrito Lumen: pasillo tapiado entre el callejón del medio y el de A; túnel entre el medio y el callejón de B
+  carve(MAPS.distrito, 'door', [[4.4, 17.8, 25.6, 20.2]]);
+  carve(MAPS.distrito, 'crawl', [[-27.6, 14.3, -4.4, 15.7]]);
+  // Fundición: pasillo tapiado del medio al sitio A; túnel del medio al sitio B
+  carve(MAPS.fundicion, 'door', [[20.8, -18.6, 23.2, -3.4]]);
+  carve(MAPS.fundicion, 'crawl', [[24.3, 3.4, 25.7, 18.6]]);
+  // Oasis: pasillo tapiado entre los carriles del lado atacante (izquierda), túnel a la derecha y túnel corto del medio al sitio A
+  carve(MAPS.oasis, 'door', [[-34.6, 16.8, -13.4, 19.2]]);
+  carve(MAPS.oasis, 'crawl', [[12.4, 17.3, 33.6, 18.7]]);
+  carve(MAPS.oasis, 'crawl', [[-25.7, -17.6, -24.3, -10.4]]);
+  // un poco más grandes (las tablas y los muros delgados conservan su grosor)
+  scaleMap(MAPS.alcazaba, 1.08, true); scaleMap(MAPS.muelle, 1.08, true); scaleMap(MAPS.distrito, 1.08, true); scaleMap(MAPS.oasis, 1.08, true); scaleMap(MAPS.fundicion, 1.1);
+  for (const k of ['alcazaba', 'muelle', 'distrito', 'oasis', 'fundicion']) { const g = k === 'fundicion' ? 1.1 : 1.08; for (const q of MAPS[k].secrets) q.r = q.r.map(v => Math.round(v * g * 100) / 100); }
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
   const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena', fundicion: 'lluvia', oasis: 'arena' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
@@ -822,6 +872,8 @@
         }
       }
     }
+    // ¿hay un techo bajo (túnel para pasar agachado) sobre esta posición?
+    lowCeil(x, z, y) { for (const b of this.colliders) { if (b.minY < y + 1.2 || b.minY > y + 1.85) continue; if (x > b.minX - .34 && x < b.maxX + .34 && z > b.minZ - .34 && z < b.maxZ + .34) return true; } return false; }
     groundAt(x, z, y) { let g = 0; for (const b of this.colliders) { if (b.maxY > y + .36 || b.maxY <= g) continue; if (x > b.minX - .2 && x < b.maxX + .2 && z > b.minZ - .2 && z < b.maxZ + .2) g = b.maxY; } return g; }
     moveActor(a, dt) {
       a.pos.x += a.vel.x * dt; a.pos.z += a.vel.z * dt; this.resolve(a);

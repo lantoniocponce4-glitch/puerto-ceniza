@@ -664,6 +664,23 @@ body.touchUI #teamBuy,body.touchUI .buybox>.small{display:none}
 #vs .vsSkip{font-size:12px;color:var(--dim)}
 @media (max-height:520px){#vs{gap:6px;padding-block:8px}#vs .vsP{min-height:38px;padding:3px 10px}#vs .vsLvl{width:28px;height:28px;font-size:14px}#vs .vsName b{font-size:13px}#vs .vsName span{display:none}#vs .vsMap{font-size:24px}}
 @media (prefers-reduced-motion:reduce){#vs,#vs .vsP,#vs .vsX{animation:none;opacity:1}}
+
+/* ---------- Accesibilidad visual ---------- */
+#accBox{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid rgba(242,179,61,.35);background:rgba(242,179,61,.05)}
+#accBox .accRow{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--sand)}
+#accBox .accRow.chk{flex-direction:row;align-items:center;gap:10px;min-height:36px}
+#accBox .accRow.chk input{width:22px;height:22px;accent-color:var(--amber)}
+#accBox select{min-height:40px;background:var(--panel2);color:var(--sand);border:1px solid var(--line);font:inherit;padding:0 8px}
+#accBox input[type=range]{accent-color:var(--amber);min-height:28px}
+/* tamaño de la interfaz: escala los paneles del HUD desde su propia esquina */
+#topbar{scale:var(--uiS,1);transform-origin:50% 0}
+#leftbot{scale:var(--uiS,1);transform-origin:0 100%}
+#rightbot{scale:var(--uiS,1);transform-origin:100% 100%}
+#radar{scale:var(--uiS,1);transform-origin:0 0}
+#feed{scale:var(--uiS,1);transform-origin:100% 0}
+#announce,#toast,#chatBox,#killcam .kcb{scale:var(--uiS,1)}
+/* modo calmo: sin animaciones bruscas en la interfaz */
+html.calm #hud *{animation-duration:.01s!important}
 </style>
 </head>
 <body>
@@ -833,6 +850,7 @@ body.touchUI #teamBuy,body.touchUI .buybox>.small{display:none}
       <div id="pnameWrap"><label class="field sec" for="pname"><span class="lbl small">Nombre del personaje</span><input id="pname" type="text" maxlength="14" autocomplete="nickname" placeholder="Operador"></label></div>
       </section>
       <section class="mtab" data-panel="ajustes" role="tabpanel" hidden>
+        <div class="sec" id="accBox"></div>
         <div class="setGrid">
         <div class="sec"><div class="lbl">Controles y HUD</div><button class="go ghost sm" id="hudEdit1" type="button">Configurar HUD</button></div>
         <div class="sec mctl" data-mctl="1" hidden></div>

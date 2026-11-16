@@ -47,7 +47,7 @@ const GUN_IDS = Object.keys(WEAPONS).concat(NADE_IDS);
 /* ---------- Preferencias ---------- */
 let prefs = { name: '', sens: 1, map: 'alcazaba', diff: 'veterano', side: 'auto', gm: 'bomb', gfx: isTouch ? 'low' : 'high' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('pc2_prefs') || '{}')); } catch (e) { }
-if (!MAPS[prefs.map] || MAPS[prefs.map].hidden) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high'; if (!['max', '60', '30'].includes(prefs.fps)) prefs.fps = 'max';
+if (!MAPS[prefs.map] || MAPS[prefs.map].hidden) prefs.map = 'alcazaba'; prefs.vol = Object.assign({ m: 1, fx: 1, amb: 1, ui: 1 }, prefs.vol || {}); prefs.mc = Object.assign({ sensT: 1, gyro: 'off', gyroS: 1, gyroSA: .8, gyroInv: false, gyroInvX: false, gyroMap: null, autoFire: false }, prefs.mc || {}); if (!['low', 'high', 'ultra'].includes(prefs.gfx)) prefs.gfx = 'high'; if (!['max', '60', '30'].includes(prefs.fps)) prefs.fps = 'max'; prefs.acc = Object.assign({ cb: 'off', hl: false, bright: 1, ui: 1, calm: false }, prefs.acc || {});
 if (isTouch && prefs.gfxV !== 2) { if (prefs.gfx === 'low') prefs.gfx = 'high'; prefs.gfxV = 2; try { localStorage.setItem('pc2_prefs', JSON.stringify(prefs)); } catch (e) { } }
 let prof = { xp: 0, lvl: 1, camo: null, day: '', ch: [] };
 try { Object.assign(prof, JSON.parse(localStorage.getItem('pc2_prof') || '{}')); } catch (e) { }
@@ -118,7 +118,10 @@ const THEMES = {
 };
 
 /* ---------- Texturas procedurales ---------- */
-function cnv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+// Texturas de estructuras al doble de resolución en PC con gráficos Altos o Ultra (mismo dibujo, el doble de detalle);
+// en celular se mantienen para no gastar memoria. raw = lienzo de tamaño exacto (para leer o escribir píxeles).
+const HIRES = !isTouch && prefs.gfx !== 'low';
+function cnv(w, h, raw) { const k = !raw && HIRES ? 2 : 1, c = document.createElement('canvas'); c.width = w * k; c.height = h * k; const x = c.getContext('2d'); if (k !== 1) x.scale(k, k); return [c, x]; }
 function speck(x, w, h, n, a, dark) { for (let i = 0; i < n; i++) { const v = dark || Math.random() < .5 ? 0 : 255; x.fillStyle = `rgba(${v},${v},${v},${Math.random() * a})`; const s = Math.random() * 2.5 + .5; x.fillRect(Math.random() * w, Math.random() * h, s, s); } }
 function blotch(x, w, h, n, col, rmin, rmax) { for (let i = 0; i < n; i++) { const r = rand(rmin, rmax); const px = rand(0, w), py = rand(0, h); const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(px - r, py - r, r * 2, r * 2); } }
 function tex(c, rep = true) { const t = new THREE.CanvasTexture(c); if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; } t.anisotropy = MAXA; return t; }
@@ -139,7 +142,19 @@ function texStone() {
   x.fillStyle = 'rgba(60,45,30,.0)'; return tex(c);
 }
 function texWood() { const [c, x] = cnv(256, 256); x.fillStyle = '#8a6a44'; x.fillRect(0, 0, 256, 256); for (let i = 0; i < 8; i++) { const v = rand(-14, 14); x.fillStyle = `rgb(${138 + v},${106 + v},${68 + v})`; x.fillRect(0, i * 32 + 1, 256, 30); } for (let i = 0; i < 1600; i++) { x.fillStyle = `rgba(50,32,15,${Math.random() * .2})`; x.fillRect(rand(0, 256), rand(0, 256), rand(6, 40), 1); } x.fillStyle = 'rgba(30,20,10,.5)'; for (let i = 0; i < 8; i++) x.fillRect(0, i * 32, 256, 2); return tex(c); }
-function texCrate() { const [c, x] = cnv(256, 256); x.drawImage(texWood().image, 0, 0); x.strokeStyle = '#4a3218'; x.lineWidth = 18; x.strokeRect(9, 9, 238, 238); x.lineWidth = 14; x.beginPath(); x.moveTo(16, 16); x.lineTo(240, 240); x.stroke(); x.fillStyle = 'rgba(20,14,8,.6)'; x.font = 'bold 26px monospace'; x.fillText('FRÁGIL', 70, 140); for (const [px, py] of [[9, 9], [247, 9], [9, 247], [247, 247]]) { x.fillStyle = '#3b3b3b'; x.beginPath(); x.arc(px, py, 6, 0, 7); x.fill(); } return tex(c, false); }
+function texCrate() { const [c, x] = cnv(256, 256); x.drawImage(texWood().image, 0, 0, 256, 256); x.strokeStyle = '#4a3218'; x.lineWidth = 18; x.strokeRect(9, 9, 238, 238); x.lineWidth = 14; x.beginPath(); x.moveTo(16, 16); x.lineTo(240, 240); x.stroke(); x.fillStyle = 'rgba(20,14,8,.6)'; x.font = 'bold 26px monospace'; x.fillText('FRÁGIL', 70, 140); for (const [px, py] of [[9, 9], [247, 9], [9, 247], [247, 247]]) { x.fillStyle = '#3b3b3b'; x.beginPath(); x.arc(px, py, 6, 0, 7); x.fill(); } return tex(c, false); }
+// tablas clavadas de un pasadizo tapiado: tablones disparejos con rendijas oscuras, clavos y una marca pintada,
+// para que se lean como "esto se puede romper" incluso de lejos
+function texPlank() {
+  const [c, x] = cnv(256, 256); x.fillStyle = '#120c08'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 6; i++) { const y = i * 43 + rand(-3, 3), v = rand(-18, 14), hh = rand(32, 38); x.fillStyle = `rgb(${120 + v},${88 + v},${56 + v})`; x.fillRect(rand(-6, 4), y, 266, hh);
+    for (let k = 0; k < 14; k++) { x.strokeStyle = `rgba(60,40,20,${rand(.12, .3)})`; x.lineWidth = rand(.6, 1.6); x.beginPath(); const yy = y + rand(2, hh - 2); x.moveTo(0, yy); x.bezierCurveTo(80, yy + rand(-3, 3), 170, yy + rand(-3, 3), 256, yy + rand(-2, 2)); x.stroke(); }
+    for (const nx of [14, 242]) { x.fillStyle = '#3a3a3a'; x.beginPath(); x.arc(nx, y + hh / 2, 3, 0, 7); x.fill(); x.fillStyle = 'rgba(120,70,30,.5)'; x.fillRect(nx - 2, y + hh / 2 + 2, 4, rand(6, 14)); } }
+  // tablón cruzado y una flecha pintada con aerosol
+  x.save(); x.translate(128, 128); x.rotate(-.5); x.fillStyle = '#6e4e2e'; x.fillRect(-150, -16, 300, 32); x.strokeStyle = 'rgba(30,18,8,.6)'; x.lineWidth = 2; x.strokeRect(-150, -16, 300, 32); x.restore();
+  x.strokeStyle = 'rgba(242,179,61,.85)'; x.lineWidth = 9; x.lineCap = 'round'; x.beginPath(); x.moveTo(70, 200); x.lineTo(186, 200); x.moveTo(160, 178); x.lineTo(188, 200); x.lineTo(160, 222); x.stroke();
+  return tex(c);
+}
 function texGround(kind) {
   const [c, x] = cnv(512, 512);
   if (kind === 'sand') { x.fillStyle = '#c9b089'; x.fillRect(0, 0, 512, 512); blotch(x, 512, 512, 40, 'rgba(150,120,80,.22)', 20, 90); blotch(x, 512, 512, 30, 'rgba(240,225,195,.2)', 20, 80); speck(x, 512, 512, 30000, .12); for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(${rand(90, 140)},${rand(80, 110)},${rand(60, 80)},.5)`; x.beginPath(); x.arc(rand(0, 512), rand(0, 512), rand(1, 3.5), 0, 7); x.fill(); } }
@@ -201,7 +216,7 @@ function texWagon(col) {
 const TX = {};
 function texAll() {
   Object.assign(TX, {
-    plaster: texPlaster('#c9b28c'), plaster2: texPlaster('#b8915f'), stone: texStone(), wood: texWood(), crate: texCrate(), sand: texGround('sand'), concrete: texGround('concrete'),
+    plaster: texPlaster('#c9b28c'), plaster2: texPlaster('#b8915f'), stone: texStone(), wood: texWood(), crate: texCrate(), plank: texPlank(), sand: texGround('sand'), concrete: texGround('concrete'),
     ware: texCorr('#7d8a92', 'rgba(140,70,30,.35)'), ware2: texCorr('#8c4a36', 'rgba(60,30,15,.35)'), roof: texCorr('#8a7b66', 'rgba(110,60,25,.4)'), ribs: texRibs(),
     shutter: texShutter(), door: texDoor(), roll: texRoll(), awn1: texAwning('#b9442f', '#e7dcc4'), awn2: texAwning('#2f5f80', '#e7dcc4'), awn3: texAwning('#5d7a3a', '#e3c27a'),
     gravel: texGround('gravel'), grass: texGround('grass'), hedge: texHedge(), ao: texAO(), blinds: texBlinds(), bark: texBark(), tuft: texTuft(), corrDark: texCorr('#25324a', 'rgba(20,30,60,.3)'), roofDark: texCorr('#3b3f42', 'rgba(90,50,25,.35)'), shadowBlob: texSpot('rgba(0,0,0,0.6)', .5),
@@ -215,7 +230,7 @@ const CONT_COL = { blue: 0x2f5f80, red: 0x8c3a2b, green: 0x3d6b4c, orange: 0xb56
 const MAT = {};
 function buildMats() {
   Object.assign(MAT, {
-    bld: std({ map: TX.plaster }), bld2: std({ map: TX.plaster2 }), stone: std({ map: TX.stone }), wood: std({ map: TX.wood }), crate: std({ map: TX.crate }),
+    bld: std({ map: TX.plaster }), bld2: std({ map: TX.plaster2 }), stone: std({ map: TX.stone }), wood: std({ map: TX.wood }), crate: std({ map: TX.crate }), plank: std({ map: TX.plank, roughness: .85 }),
     roof: std({ map: TX.roof, roughness: .6, metalness: .4 }), ware: std({ map: TX.ware, roughness: .55, metalness: .5 }), ware2: std({ map: TX.ware2, roughness: .6, metalness: .45 }),
     concrete: std({ map: TX.concrete, color: 0xc8beb0 }), dark: std({ color: 0x2a2c2e, roughness: .6, metalness: .6 }), yellow: std({ color: 0xd29a2a, roughness: .6, metalness: .4 }),
     shutter: std({ map: TX.shutter }), door: std({ map: TX.door }), roll: std({ map: TX.roll, metalness: .4, roughness: .6 }), cornice: std({ color: 0xbfa985 }), cornice2: std({ color: 0x5b5f63, metalness: .5, roughness: .5 })
@@ -245,16 +260,16 @@ function normalOf(t, str) {
   if (NMC.has(t)) return NMC.get(t); const img = t.image; if (!img || !img.getContext) return null;
   const w = img.width, h = img.height, src = img.getContext('2d').getImageData(0, 0, w, h).data, Lm = new Float32Array(w * h);
   for (let k = 0, p = 0; k < Lm.length; k++, p += 4) Lm[k] = (src[p] * .3 + src[p + 1] * .59 + src[p + 2] * .11) / 255;
-  const [c, x] = cnv(w, h), out = x.createImageData(w, h), D = out.data, L = (i, j) => Lm[((j + h) % h) * w + ((i + w) % w)];
+  const [c, x] = cnv(w, h, true), out = x.createImageData(w, h), D = out.data, L = (i, j) => Lm[((j + h) % h) * w + ((i + w) % w)];
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const dx = (L(i + 1, j - 1) + 2 * L(i + 1, j) + L(i + 1, j + 1)) - (L(i - 1, j - 1) + 2 * L(i - 1, j) + L(i - 1, j + 1));
     const dy = (L(i - 1, j + 1) + 2 * L(i, j + 1) + L(i + 1, j + 1)) - (L(i - 1, j - 1) + 2 * L(i, j - 1) + L(i + 1, j - 1));
-    const nx = -dx * str, ny = dy * str, l = Math.hypot(nx, ny, 1), k = (j * w + i) * 4;
+    const nx = -dx * str * (w > 600 ? 1.6 : 1), ny = dy * str * (w > 600 ? 1.6 : 1), l = Math.hypot(nx, ny, 1), k = (j * w + i) * 4;
     D[k] = (nx / l * .5 + .5) * 255; D[k + 1] = (ny / l * .5 + .5) * 255; D[k + 2] = (1 / l * .5 + .5) * 255; D[k + 3] = 255;
   }
   x.putImageData(out, 0, 0); const n = tex(c); n.repeat.copy(t.repeat); NMC.set(t, n); return n;
 }
-const NML = { bld: 2, bld2: 2, stone: 3, wood: 1.6, crate: 1.6, concrete: 2.2, slab: 2, ware: 2.6, ware2: 2.6, roof: 2.6, wareDark: 2.6, roofDark: 2.6, city: 1.2, city2: 1.2, stationH: 3, concrete2: 2, stoneC: 2.2, bench: 1.6, vine: 2, hedge: 2, snowpile: 1.2 };
+const NML = { plank: 2.4, bld: 2, bld2: 2, stone: 3, wood: 1.6, crate: 1.6, concrete: 2.2, slab: 2, ware: 2.6, ware2: 2.6, roof: 2.6, wareDark: 2.6, roofDark: 2.6, city: 1.2, city2: 1.2, stationH: 3, concrete2: 2, stoneC: 2.2, bench: 1.6, vine: 2, hedge: 2, snowpile: 1.2 };
 function applyNormals(on) {
   for (const k in NML) { const m = MAT[k]; if (!m || !m.map) continue; const n = on ? normalOf(m.map, NML[k]) : null; if (m.normalMap !== n) { m.normalMap = n; if (n) m.normalScale = new THREE.Vector2(.85, .85); m.needsUpdate = true; } }
 }
@@ -391,7 +406,10 @@ function roofTop(b, desert) {
     const fx = b.minX + 1 + rnd() * (W - 2), fz = b.minZ + 1 + rnd() * (D - 2); boxAt(fx - .4, y, fz - .4, fx + .4, y + .55, fz + .4, MAT.metalP || MAT.dark, 0, true);
   }
 }
+// ¿este punto está en la boca o dentro de un pasadizo secreto? (ahí no van puertas ni ventanas de adorno)
+function nearSecret(x, z, m = 1.4) { const S = WORLD && WORLD.map.secrets; if (!S) return false; for (const q of S) { const r = q.r; if (x > r[0] - m && x < r[2] + m && z > r[1] - m && z < r[3] + m) return true; } return false; }
 function decorateBuilding(b, desert) {
+  if (b.minY > 0) return; // techo de un pasadizo: sin fachada propia
   const h = b.maxY - b.minY;
   // zócalo y cornisa
   boxAt(b.minX - .05, 0, b.minZ - .05, b.maxX + .05, .7, b.maxZ + .05, desert ? MAT.stone : MAT.concrete, 3, false);
@@ -405,7 +423,7 @@ function decorateBuilding(b, desert) {
     const L = a1 - a0; if (L < 4) continue; const cnt = Math.floor(L / 4.2);
     for (let i = 0; i < cnt; i++) {
       const a = a0 + (i + .5) * (L / cnt); const ox = axis === 0 ? a : at + sg * .6, oz = axis === 0 ? at + sg * .6 : a;
-      if (solidAt(ox, oz, 1.5) || Math.abs(ox) > 60 || Math.abs(oz) > 60) continue;
+      if (solidAt(ox, oz, 1.5) || Math.abs(ox) > 60 || Math.abs(oz) > 60 || nearSecret(ox, oz, 2.2)) continue;
       n++;
       const place = (w, hh, y, mat, depth) => { const px = axis === 0 ? a : at + sg * depth / 2, pz = axis === 0 ? at + sg * depth / 2 : a; const m = addMesh(uvBox(axis === 0 ? w : depth, hh, axis === 0 ? depth : w, 0), mat, px, y, pz, false); return m; };
       if (desert) {
@@ -1045,7 +1063,7 @@ function onMsg(m) {
       if (net.retry) { toast('Reconectado a la sala ' + m.code); net.retry = 0; }
       setBusy(false); G.code = m.code; G.mapId = m.map; G.pub = m.pub; G.mode = m.gm === 'comp' ? 'bomb' : m.gm || 'bomb'; G.comp = m.gm === 'comp' || (net.mode === 'offline' && prefs.gm === 'comp'); G.cond = m.cond || null; G.diff = m.diff; me.id = m.you; me.team = m.team;
       buildWorld(m.map); PCM.setFpTeam(me.team, myOutfit()); for (const a of actors) if (a && a.model) scene.remove(a.model.g); actors.length = 0;
-      enterGame(); if (['tdm', 'gg', 'waves'].includes(G.mode)) setTimeout(showVersus, 900); break;
+      enterGame(); applyAcc(); if (['tdm', 'gg', 'waves'].includes(G.mode)) setTimeout(showVersus, 900); break;
     }
     case 'r': {
       G.roster = m.r; if (m.gm) G.mode = m.gm; if (m.rules) { G.rules = m.rules; G.comp = m.rules.rounds === 24; } if (m.map && m.map !== CURMAP) buildWorld(m.map); if (m.brk) { for (const id of m.brk) applyBreak(id, false); if (!m.brk.length && WORLD.breakables.some(b => b.gone)) restoreBreaks(); } if (m.cond) G.cond = m.cond; if (G.state === 'playing') applyCond(G.cond);
@@ -1411,7 +1429,7 @@ function updateLocal(dt) {
   // sin deslizamiento: agacharse corriendo solo agacha (mecánica clásica de shooter táctico)
   const spd0 = Math.hypot(me.vel.x, me.vel.z);
   if (false && crouchIn && !me.crouchPrev && me.grounded && spd0 > 4 && !me.walkHeld && !frozen && !(me.slideT > 0)) { me.slideT = .8; me.slideDir = [me.vel.x / spd0, me.vel.z / spd0]; sNoise(.5, .22, 700, 0, 0, .7); sNoise(.25, .12, 2400, .05, 0, 1); }
-  me.crouchPrev = crouchIn; me.crouch = crouchIn || me.slideT > 0;
+  me.crouchPrev = crouchIn; me.crouch = crouchIn || me.slideT > 0 || (me.h < 1.6 && WORLD.lowCeil(me.pos.x, me.pos.z, me.pos.y)); // bajo un túnel no se puede parar
   // asomarse: Q / E (o los botones táctiles), sin atravesar paredes
   const leanWant = clamp((keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0) + (me.touchLean || 0), -1, 1);
   let leanMax = 1; if (leanWant) { const eye = [me.pos.x, me.pos.y + me.h - .14, me.pos.z], d = [Math.cos(me.yaw) * Math.sign(leanWant), 0, -Math.sin(me.yaw) * Math.sign(leanWant)]; const r = WORLD.traceWorld(eye, d, .5); leanMax = clamp((r.t - .12) / .32, 0, 1); }
@@ -1744,7 +1762,7 @@ function updateHUD(dt) {
   $('#adsDot').style.opacity = 0;
   if (hitT > 0) { hitT -= dt; $('#hit').style.opacity = clamp(hitT / .1, 0, 1); } else $('#hit').style.opacity = 0; setCls('#xh', hitT > 0 ? ($('#hit').className === 'kill' ? 'hk' : 'hh') : '');
   $('#vign').style.opacity = me.alive && t - (me.lastHurt || 0) < .5 ? .7 : me.alive && hp < 30 ? .45 : 0;
-  flashT = Math.max(0, flashT - dt); $('#flashOv').style.opacity = clamp(flashT / 1.2, 0, 1);
+  flashT = Math.max(0, flashT - dt); $('#flashOv').style.opacity = clamp(flashT / 1.2, 0, prefs.acc.calm ? .7 : 1);
   for (let i = dmgDirs.length - 1; i >= 0; i--) { const d = dmgDirs[i]; d.life -= dt; if (d.life <= 0) { d.el.remove(); dmgDirs.splice(i, 1); continue; } const ang = Math.atan2(-(d.src.x - me.pos.x), -(d.src.z - me.pos.z)); d.el.style.transform = `rotate(${-angDiff(me.yaw, ang)}rad)`; d.el.style.opacity = Math.min(1, d.life); }
   if (annT > 0) { annT -= dt; if (annT <= 0) $('#announce').classList.remove('on'); }
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('#toast').classList.remove('on'); }
@@ -2324,6 +2342,35 @@ function kcRender(dt) {
   }
   kc.lastRt = rt;
 }
+
+/* ================= ACCESIBILIDAD VISUAL ================= */
+// Modos daltónicos con pares de colores que se distinguen en cada tipo; resaltado de enemigos con contorno fuerte;
+// brillo; tamaño de la interfaz; y modo calmo (sin sacudidas, destellos atenuados).
+const CB_PAL = { off: ['#5cc8e0', '#ef6a45'], prot: ['#4ea3ff', '#ffb000'], deut: ['#4ea3ff', '#ffb000'], trit: ['#00c2a8', '#ff4f8b'] };
+function applyAcc() {
+  const A = prefs.acc, pal = CB_PAL[A.cb] || CB_PAL.off;
+  TEAMC[0] = pal[0]; TEAMC[1] = pal[1]; document.documentElement.style.setProperty('--t0', pal[0]); document.documentElement.style.setProperty('--t1', pal[1]);
+  if (PCM.setTeamColors) PCM.setTeamColors(pal);
+  // resaltado: el equipo rival lleva un contorno intenso y claro, visible a distancia y de noche
+  const enemy = me.team === 0 || me.team === 1 ? 1 - me.team : 1;
+  // contorno magenta: contrasta con arena, hormigón, nieve y de noche, y se distingue en los tres tipos de daltonismo
+  if (PCM.setRim) { PCM.setRim(1 - enemy, .32, pal[1 - enemy]); PCM.setRim(enemy, A.hl ? 2.6 : .32, A.hl ? '#ff2bd6' : pal[enemy]); }
+  document.documentElement.style.setProperty('--uiS', A.ui || 1); document.documentElement.classList.toggle('calm', !!A.calm);
+  if (typeof syncToneMap === 'function') renderer.toneMappingExposure = (renderer.toneMapping === THREE.NoToneMapping ? 1 : 1.12) * (A.bright || 1);
+}
+function drawAcc() {
+  const A = prefs.acc, box = $('#accBox'); if (!box) return;
+  box.innerHTML = `<div class="lbl">Accesibilidad visual</div>
+    <label class="accRow"><span>Modo de color (daltonismo)</span><select data-acc="cb"><option value="off">Normal</option><option value="prot">Protanopia (rojo)</option><option value="deut">Deuteranopia (verde)</option><option value="trit">Tritanopia (azul)</option></select></label>
+    <label class="accRow chk"><input type="checkbox" data-acc="hl"${A.hl ? ' checked' : ''}> Resaltar enemigos con contorno de alto contraste</label>
+    <label class="accRow"><span>Brillo <b>${Math.round(A.bright * 100)} %</b></span><input type="range" data-acc="bright" min="0.8" max="1.6" step="0.05" value="${A.bright}"></label>
+    <label class="accRow"><span>Tamaño de la interfaz <b>${Math.round(A.ui * 100)} %</b></span><input type="range" data-acc="ui" min="0.9" max="1.5" step="0.05" value="${A.ui}"></label>
+    <label class="accRow chk"><input type="checkbox" data-acc="calm"${A.calm ? ' checked' : ''}> Modo calmo: sin sacudidas de cámara, destellos atenuados y sin grano</label>`;
+  box.querySelector('select[data-acc="cb"]').value = A.cb;
+}
+document.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.acc; if (!k) return; const v = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'range' ? +e.target.value : e.target.value; prefs.acc[k] = v; savePrefs(); applyAcc(); if (e.target.type === 'range') { const b = e.target.parentElement.querySelector('b'); if (b) b.textContent = Math.round(v * 100) + ' %'; } });
+document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.acc; if (!k || e.target.type === 'range') return; prefs.acc[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; savePrefs(); applyAcc(); });
+drawAcc(); applyAcc();
 
 /* ================= PRESENTACIÓN DE LOS EQUIPOS ================= */
 // Al comenzar la partida: tu equipo a la izquierda, el rival a la derecha, con nivel, nombre, clan, título y si es persona o bot
@@ -3085,11 +3132,11 @@ function updateLife(dt) {
 /* ================= POSPROCESADO ================= */
 const post = { composer: null, grade: null, fxaa: null, vmPass: null, bloom: null, sat: 1.06 };
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, sat: { value: 1.06 }, contrast: { value: 1.07 }, vig: { value: .32 }, grain: { value: .025 }, hurt: { value: 0 }, dof: { value: 0 }, px: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
+  uniforms: { tDiffuse: { value: null }, expo: { value: 1 }, time: { value: 0 }, sat: { value: 1.06 }, contrast: { value: 1.07 }, vig: { value: .32 }, grain: { value: .025 }, hurt: { value: 0 }, dof: { value: 0 }, px: { value: new THREE.Vector2(1 / 1280, 1 / 720) } },
   vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-  fragmentShader: 'uniform sampler2D tDiffuse;uniform float time,sat,contrast,vig,grain,hurt,dof;uniform vec2 px;varying vec2 vUv;' +
+  fragmentShader: 'uniform sampler2D tDiffuse;uniform float expo,time,sat,contrast,vig,grain,hurt,dof;uniform vec2 px;varying vec2 vUv;' +
     'vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}' +
-    'void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;if(dof>.001){float r=dof*smoothstep(.12,.55,distance(vUv,vec2(.5)))*6.;vec3 b=c;for(int i=0;i<8;i++){float a=float(i)*.785;b+=texture2D(tDiffuse,vUv+vec2(cos(a),sin(a))*px*r).rgb+texture2D(tDiffuse,vUv+vec2(cos(a+.39),sin(a+.39))*px*r*2.).rgb;}c=b/17.;}c=mix(c,aces(c*1.08),.55);float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,sat);c=(c-.5)*contrast+.5;' +
+    'void main(){vec3 c=texture2D(tDiffuse,vUv).rgb*expo;if(dof>.001){float r=dof*smoothstep(.12,.55,distance(vUv,vec2(.5)))*6.;vec3 b=c;for(int i=0;i<8;i++){float a=float(i)*.785;b+=texture2D(tDiffuse,vUv+vec2(cos(a),sin(a))*px*r).rgb+texture2D(tDiffuse,vUv+vec2(cos(a+.39),sin(a+.39))*px*r*2.).rgb;}c=b/17.;}c=mix(c,aces(c*1.08),.55);float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,sat);c=(c-.5)*contrast+.5;' +
     'c+=mix(vec3(-.012,.0,.022),vec3(.022,.012,-.012),smoothstep(.15,.85,l));float d=distance(vUv,vec2(.5));c*=1.-vig*smoothstep(.42,.9,d);' +
     'c=mix(c,c*vec3(1.25,.55,.5),hurt*smoothstep(.3,.8,d));float n=fract(sin(dot(vUv*vec2(12.9898,78.233)+time,vec2(1.,1.)))*43758.5453);c+=(n-.5)*grain;gl_FragColor=vec4(clamp(c,0.,1.),1.);}'
 };
@@ -3120,7 +3167,7 @@ function setupPost() {
 // sin pasadas extra. Con posproceso lo hace el sombreador de color, así que la GPU no debe aplicarlo dos veces.
 function syncToneMap() {
   const want = post.composer ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping; if (renderer.toneMapping === want) return;
-  renderer.toneMapping = want; renderer.toneMappingExposure = 1.12;
+  renderer.toneMapping = want; renderer.toneMappingExposure = 1.12 * (prefs.acc.bright || 1);
   for (const sc of [scene, vmScene]) sc.traverse(o => { for (const m of [].concat(o.material || [])) m.needsUpdate = true; });
 }
 function resizePost() {
@@ -3218,6 +3265,7 @@ function frame(now) {
       }
     }
     if (window.PCDBG && PCDBG.cam) { const c = PCDBG.cam; camera.position.set(c[0], c[1], c[2]); camera.rotation.set(c[4] || -.15, c[3], 0); vm.group.visible = false; }
+    if (prefs.acc.calm) shake = 0;
     if (shake > 0) { shake = Math.max(0, shake - dt * 2); camera.rotation.x += gauss() * shake * .03; camera.rotation.y += gauss() * shake * .03; }
     const w = WEAPONS[me.cur]; const adsF = w && w.adsF ? w.adsF : w && w.auto ? 58 : 64; const fovT = kcActive() && kc.fov ? kc.fov : w && w.scope ? lerp(74, w.zoom || 26, me.scopeK) : lerp(74, adsF, me.adsK || 0); if (Math.abs(camera.fov - fovT) > .01) { camera.fov = fovT; camera.updateProjectionMatrix(); }
     if (me.alive && me.scopeK > .5) { const tt = nowS(), mv = Math.min(1, Math.hypot(me.vel.x, me.vel.z) / 3); camera.rotation.x += Math.sin(tt * 1.3) * .0012 * (1 + mv * 4); camera.rotation.y += Math.sin(tt * .9) * .0014 * (1 + mv * 4); }
@@ -3236,6 +3284,7 @@ function frame(now) {
     skyU.time.value = now * .001;
     post.vmPass.enabled = showVm; const u = post.grade.uniforms; u.time.value = now * .001 % 100; u.sat.value = post.sat;
     u.dof.value = kcActive() || (G.state === 'playing' && !me.alive && me.deadT < 1.2) ? 1 : lerp(u.dof.value, 0, .2); u.px.value.set(1 / Math.max(1, VW()), 1 / Math.max(1, VH()));
+    u.expo.value = prefs.acc.bright || 1; if (prefs.acc.calm) u.grain.value = 0;
     u.hurt.value = G.state === 'playing' && me.alive ? clamp((nowS() - (me.lastHurt || -9) < .4 ? .8 : 0) + (me.hp < 30 ? .35 : 0), 0, 1) : 0;
     SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); if (renderer.shadowMap.needsUpdate) shadowFollow(); post.composer.render();
   } else { SHF = (SHF + 1) % 6; renderer.shadowMap.needsUpdate = shadowDue(); if (renderer.shadowMap.needsUpdate) shadowFollow(); renderer.clear(); renderer.render(scene, camera); if (showVm) { renderer.clearDepth(); renderer.render(vmScene, vmCam); } }

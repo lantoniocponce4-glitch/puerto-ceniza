@@ -80,14 +80,15 @@ const S = (o) => new T.MeshStandardMaterial(Object.assign({ roughness: .8, metal
 // Luz de contorno (rim light): un borde suave del color del equipo donde la superficie queda de canto a la cámara.
 // Separa la silueta del soldado del fondo (sobre todo de noche o contra paredes del mismo tono) sin luces extra:
 // es una línea más en el sombreador de la propia pieza.
-function addRim(mat, hex, k = .32) {
-  const col = new T.Color(hex);
+// color e intensidad compartidos por equipo: el modo daltónico y el resaltado de enemigos los cambian en vivo
+const RIMCOL = [new T.Color(0x5cc8e0), new T.Color(0xef6a45)], RIMK = [{ value: .32 }, { value: .32 }];
+function addRim(mat, team) {
   mat.onBeforeCompile = sh => {
-    sh.uniforms.rimCol = { value: col }; sh.uniforms.rimK = { value: k };
+    sh.uniforms.rimCol = { value: RIMCOL[team] }; sh.uniforms.rimK = RIMK[team];
     sh.fragmentShader = 'uniform vec3 rimCol; uniform float rimK;\n' + sh.fragmentShader.replace('#include <tonemapping_fragment>',
-      'float rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0); gl_FragColor.rgb += rimCol * rimK * pow(rimF, 3.0);\n#include <tonemapping_fragment>');
+      'float rimF = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0); gl_FragColor.rgb += rimCol * min(rimK, 0.5) * pow(rimF, 3.0); gl_FragColor.rgb = mix(gl_FragColor.rgb, rimCol * 1.15, clamp((rimK - 0.5) * 0.45, 0.0, 0.85) * smoothstep(0.35, 0.85, rimF));\n#include <tonemapping_fragment>');
   };
-  mat.customProgramCacheKey = () => 'rim' + hex.toString(16) + k;
+  mat.customProgramCacheKey = () => 'rim' + team;
   return mat;
 }
 const MG = {
@@ -482,8 +483,8 @@ function teamMatsFor(team, o) {
   if (!o || !OUTFIT_DEF[o]) return teamMats[team]; const k = team + o; if (OUTMATS[k]) return OUTMATS[k];
   const D = OUTFIT_DEF[o], B = teamMats[team], C = Object.assign({}, B);
   C.camo = withN(S({ map: outfitCamo(team, o), roughness: .92 }), NWEAVE, .28);
-  for (const [key, col] of [['vest', D.vest], ['helm', D.helm], ['pad', D.pad], ['pack', D.pack]]) { C[key] = B[key].clone(); C[key].color.setHex(col); addRim(C[key], TEAMC[team]); }
-  addRim(C.camo, TEAMC[team]);
+  for (const [key, col] of [['vest', D.vest], ['helm', D.helm], ['pad', D.pad], ['pack', D.pack]]) { C[key] = B[key].clone(); C[key].color.setHex(col); addRim(C[key], team); }
+  addRim(C.camo, team);
   if (D.glow) { C.tag = B.tag.clone(); C.tag.emissiveIntensity = 1.6; C.glow = true; }
   return (OUTMATS[k] = C);
 }
@@ -497,7 +498,7 @@ const teamMats = [0, 1].map(t => {
     wrap: S({ map: TXCLOTH, color: L.wrap || 0x999999, roughness: .95 }), cap: S({ map: TXCLOTH, color: L.cap || 0x333333, roughness: .9, side: T.DoubleSide }), buckle: S({ color: 0x777777, metalness: .8, roughness: .35 })
   };
   for (const k of ['camo', 'vest', 'pack', 'glove', 'wrap', 'cap']) withN(o[k], NWEAVE, .28); withN(o.helm, NSTIPPLE, .4); withN(o.boot, NSTIPPLE, .6);
-  for (const k of ['camo', 'vest', 'pack', 'helm', 'wrap', 'cap', 'pad', 'boot']) addRim(o[k], TEAMC[t]);
+  for (const k of ['camo', 'vest', 'pack', 'helm', 'wrap', 'cap', 'pad', 'boot']) addRim(o[k], t);
   return o;
 });
 const skinMats = {};
@@ -794,6 +795,9 @@ function addCharm(gun, id) {
 window.PCM = {
   buildGun, buildSoldier, fpArms, setFpTeam, poseReload, tickCamo, addCharm, setReticle(shape, color) { drawReticle(shape); RETMAT.color.setHex(color); }, camoFor, camoSwatch: (id) => CAMO_SW[id] || '', gunInfo: (id) => gunParts(id).info, toLocal, merge,
   setEnv(env) { for (const m of Object.values(MCAMO).concat(Object.values(MG))) if (m && m.isMeshStandardMaterial && m.metalness > .3) { m.envMap = env; m.envMapIntensity = .9; m.needsUpdate = true; } },
-  setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } }
+  setAniso(n) { ANISO = n; for (const t of texs) { t.anisotropy = n; t.needsUpdate = true; } },
+  // accesibilidad: colores de equipo (modo daltónico) e intensidad del contorno por equipo (resaltar enemigos)
+  setTeamColors(cols) { for (const t of [0, 1]) { const c = new T.Color(cols[t]); if (fpMats.tag.color.getHex() === TEAMC[t]) { fpMats.tag.color.copy(c); fpMats.tag.emissive.copy(c); } TEAMC[t] = c.getHex(); RIMCOL[t].copy(c); teamMats[t].tag.color.copy(c); teamMats[t].tag.emissive.copy(c); } for (const k in OUTMATS) { const t = +k[0]; if (OUTMATS[k].tag !== teamMats[t].tag) { OUTMATS[k].tag.color.copy(RIMCOL[t]); OUTMATS[k].tag.emissive.copy(RIMCOL[t]); } } },
+  setRim(team, k, hex) { RIMK[team].value = k; if (hex !== undefined) RIMCOL[team].set(hex); }
 };
 })();
