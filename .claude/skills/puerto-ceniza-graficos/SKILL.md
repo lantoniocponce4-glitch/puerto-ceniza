@@ -58,6 +58,8 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Trazadoras: cilindro con degradado (punta casi blanca, cola naranja que se apaga) y un halo ancho y tenue; destello de 70 ms al impactar en metal, piedra o vidrio (`hitFlash`).
 - Fachadas de ciudad (`texFacade`): marco, reflejo del cielo, alféizar y un mapa emisivo con las ventanas que se encienden de noche (`MAT.city.emissiveIntensity` en `applyCond`). Las casas del desierto llevan alféizares y algunas ventanas de vidrio (`MAT.winLit`) que brillan de noche.
 - Cables entre edificios enfrentados (`hangCables`): solo adorno, más de 3,2 m de altura, máximo 18 por mapa, sin sombras.
+- Armas: `bx()` hace cajas con aristas biseladas (salvo piezas de menos de 8 mm), y cada arma tiene el ánima oscura en la boca del cañón (`BOREG`). Tras una ráfaga larga o un disparo de escopeta o francotirador sale humo del cañón en primera persona (`vm.heat`).
+- Soldados: rostros pintados a 512×256 (poros, mejillas, ojos con iris y brillo, cejas por trazos, labios, barba o barba de días, cicatriz) con un leve mapa normal; tela con pliegues y costuras (`NCLOTH`); cordones en las botas y correa en las rodilleras.
 - Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 
 - Fogonazo con llamas en cruz, casquillos, chispas e impactos por material, humo volumétrico con sprites, rastros de bala. Los efectos de partículas usan grupos fijos reciclados (sin crear objetos por disparo).

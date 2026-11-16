@@ -1637,7 +1637,7 @@ function traceShot(o, d, maxT) {
   return { wt, hit, t, zone };
 }
 function shoot(w, am) {
-  am.mag--; me.lastShot = nowS(); me.shots++; lifeShot(me.pos.x, me.pos.z); const sprIdx = me.sprayI;
+  am.mag--; me.lastShot = nowS(); me.shots++; vm.heat = Math.min(10, (vm.heat || 0) + (w.pellets ? 3 : w.rpm < 120 ? 2 : 1)); lifeShot(me.pos.x, me.pos.z); const sprIdx = me.sprayI;
   const pat = pattern(w, me.sprayI); me.sprayI++;
   const o = [camera.position.x, camera.position.y, camera.position.z]; const mw = vmMuzzleWorld();
   const n = w.pellets || 1; const pel = []; let main = null; let anyRange = false;
@@ -3457,6 +3457,9 @@ function updateVM(dt) {
   if (vm.spec) { vm.spec = null; vm.specTeam = null; PCM.setFpTeam(me.team, myOutfit()); showVM(me.cur); }
   const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5;
   vm.kick = lerp(vm.kick, 0, 1 - Math.exp(-dt * 18)); vm.swing = Math.max(0, vm.swing - dt * 3); vm.throwT = Math.max(0, vm.throwT - dt * 2.5);
+  // humo del cañón: tras una ráfaga larga o un disparo de escopeta o francotirador, sale un hilo de humo que sube
+  vm.heat = Math.max(0, (vm.heat || 0) - dt * 1.4);
+  if (vm.heat > 2.5 && prefs.gfx !== 'low' && perf.level < 2 && nowS() - (me.lastShot || 0) > .14 && vm.group.visible) { vm.smT = (vm.smT || 0) - dt; if (vm.smT <= 0) { vm.smT = .07; const p = vmMuzzleWorld(); dustPuff(p, [0, .4, 0], [.74, .74, .76], .22 + Math.min(.35, vm.heat * .03), .7 + Math.random() * .4); } }
   const isKnife = !!(WEAPONS[me.cur] && WEAPONS[me.cur].melee), bobK = isKnife ? 1.9 : 1;
   const spd = Math.hypot(me.vel.x, me.vel.z); const bx = Math.sin(vm.bobT) * .011 * bobK * Math.min(1, spd / 4), by = Math.abs(Math.cos(vm.bobT)) * .009 * bobK * Math.min(1, spd / 4);
   // movimiento propio: tajo, estocada, respiración del cuchillo e inspección

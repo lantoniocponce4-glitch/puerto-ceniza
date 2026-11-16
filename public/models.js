@@ -46,6 +46,11 @@ function nrm(drawH, size, str, rep) {
 const NSTIPPLE = nrm((x, n) => { x.fillStyle = '#808080'; x.fillRect(0, 0, n, n); for (let i = 0; i < n * n / 9; i++) { const v = rand(90, 200) | 0; x.fillStyle = `rgb(${v},${v},${v})`; x.beginPath(); x.arc(rand(0, n), rand(0, n), rand(.6, 1.6), 0, 7); x.fill(); } }, 128, 2.2, 9);
 const NBRUSH = nrm((x, n) => { x.fillStyle = '#808080'; x.fillRect(0, 0, n, n); for (let i = 0; i < 900; i++) { const v = rand(100, 160) | 0; x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(0, rand(0, n), n, rand(.4, 1.2)); } for (let i = 0; i < 40; i++) { x.strokeStyle = 'rgb(60,60,60)'; x.lineWidth = rand(.5, 1.4); x.beginPath(); const px = rand(0, n), py = rand(0, n); x.moveTo(px, py); x.lineTo(px + rand(-10, 10), py + rand(-3, 3)); x.stroke(); } }, 128, 1.6, 5);
 const NWEAVE = nrm((x, n) => { x.fillStyle = '#7a7a7a'; x.fillRect(0, 0, n, n); for (let i = 0; i < n; i += 4) { x.fillStyle = 'rgb(150,150,150)'; x.fillRect(0, i, n, 2); x.fillStyle = 'rgb(115,115,115)'; x.fillRect(i, 0, 2, n); } for (let i = 0; i < n; i += 32) { x.fillStyle = 'rgb(185,185,185)'; x.fillRect(0, i, n, 1); x.fillRect(i, 0, 1, n); } }, 128, 2.6, 6);
+// tela con pliegues: el mismo tejido fino más arrugas suaves y costuras (en mangas, pantalón y torso)
+const NCLOTH = nrm((x, n) => { x.fillStyle = '#7a7a7a'; x.fillRect(0, 0, n, n);
+  for (let i = 0; i < n; i += 5) { x.fillStyle = 'rgb(140,140,140)'; x.fillRect(0, i, n, 2); x.fillStyle = 'rgb(112,112,112)'; x.fillRect(i, 0, 2, n); }
+  for (let i = 0; i < 26; i++) { const y = rand(0, n), a = rand(-.25, .25), L = rand(n * .2, n * .6), x0 = rand(0, n); const g = x.createLinearGradient(0, y - 7, 0, y + 7); g.addColorStop(0, 'rgba(122,122,122,0)'); g.addColorStop(.5, `rgba(${rand(150, 190) | 0},${rand(150, 190) | 0},${rand(150, 190) | 0},.55)`); g.addColorStop(1, 'rgba(122,122,122,0)'); x.save(); x.translate(x0, y); x.rotate(a); x.fillStyle = g; x.fillRect(-L / 2, -7, L, 14); x.restore(); }
+  x.fillStyle = 'rgba(70,70,70,.8)'; for (let i = 0; i < n; i += n / 2) x.fillRect(0, i, n, 1.5); }, 512, 2.4, 2);
 function withN(m, t, k) { m.normalMap = t; m.normalScale = new T.Vector2(k, k); return m; }
 /* ---------- Camuflajes de armas ---------- */
 function blobs(x, base, cols, n, rmin, rmax) { x.fillStyle = base; x.fillRect(0, 0, 256, 256); for (let i = 0; i < n; i++) { x.fillStyle = cols[(Math.random() * cols.length) | 0]; x.save(); x.translate(rand(0, 256), rand(0, 256)); x.rotate(rand(0, 3)); x.beginPath(); x.ellipse(0, 0, rand(rmin, rmax), rand(rmin * .5, rmax * .55), 0, 0, 7); x.fill(); x.restore(); } }
@@ -138,7 +143,13 @@ function ex(pts, w, z = 0, bev = .0025, holes) {
 }
 function cyl(r0, r1, x0, x1, y, z = 0, seg = 18) { const g = new T.CylinderGeometry(r1, r0, x1 - x0, seg); g.rotateZ(-Math.PI / 2); g.translate((x0 + x1) / 2, y, z); return g; }
 function vcyl(r0, r1, y0, y1, x = 0, z = 0, seg = 18) { const g = new T.CylinderGeometry(r1, r0, y1 - y0, seg); g.translate(x, (y0 + y1) / 2, z); return g; }
-function bx(x0, y0, x1, y1, w, z = 0) { const g = new T.BoxGeometry(x1 - x0, y1 - y0, w); g.translate((x0 + x1) / 2, (y0 + y1) / 2, z); return g; }
+// cajas con las aristas biseladas: el borde atrapa la luz y la pieza deja de verse como un bloque plano
+// (las piezas diminutas, como los dientes del riel, quedan rectas para no gastar vértices)
+function bx(x0, y0, x1, y1, w, z = 0) {
+  const a = Math.min(x0, x1), b = Math.max(x0, x1), c = Math.min(y0, y1), d = Math.max(y0, y1), m = Math.min(b - a, d - c, w);
+  if (m < .008) { const g = new T.BoxGeometry(b - a, d - c, w); g.translate((a + b) / 2, (c + d) / 2, z); return g; }
+  const v = Math.min(.0016, m * .18); return ex([[a + v, c + v], [b - v, c + v], [b - v, d - v], [a + v, d - v]], w, z, v);
+}
 function sph(r, x, y, z, sx = 1, sy = 1, sz = 1, seg = 16) { const g = new T.SphereGeometry(r, seg, Math.max(8, seg * .7 | 0)); g.scale(sx, sy, sz); g.translate(x, y, z); return g; }
 function tor(r, t, x, y, z, rx = 0) { const g = new T.TorusGeometry(r, t, 8, 22); g.rotateX(rx); g.translate(x, y, z); return g; }
 function merge(list) {
@@ -443,11 +454,14 @@ function drawReticle(shape) {
 }
 const RETTEX = new T.CanvasTexture(RETCV[0]); RETTEX.anisotropy = 4; drawReticle('holo');
 const RETMAT = new T.MeshBasicMaterial({ map: RETTEX, color: 0xff2414, transparent: true, opacity: .95, depthWrite: false, toneMapped: false });
+const BOREM = new T.MeshBasicMaterial({ color: 0x050505 }), BOREC = {}; const BOREG = r => BOREC[r] || (BOREC[r] = new T.CircleGeometry(r, 14).rotateY(Math.PI));
 function buildGun(id, opt = {}) {
   const { meshes, info } = gunParts(id); const g = new T.Group();
   for (const [m, geo] of meshes) { const mat = opt.camo && MCAMO[opt.camo] && CAMO_KEYS.has(m) ? MCAMO[opt.camo] : MG[m]; const mesh = new T.Mesh(geo, mat); mesh.castShadow = opt.shadow !== false; mesh.receiveShadow = opt.shadow !== false; g.add(mesh); }
   if (info.sight && info.sight.ret) { const [rx, ry, rs] = info.sight.ret; const ret = new T.Mesh(new T.PlaneGeometry(rs * .82, rs * .82), RETMAT); ret.position.set(0, ry, -rx); ret.renderOrder = 3; g.add(ret); }
   const mz = new T.Object3D(); mz.position.set(0, info.boreY, -info.muzzle); g.add(mz);
+  // ánima: el agujero negro del cañón (se nota al mirar un arma de frente o en la mano de otro soldado)
+  if (info.cls === 'rifle' || info.cls === 'pistol') { const r = /^(es12|pump)$/.test(id) ? .0095 : info.cls === 'pistol' ? .0042 : .0052; const bore = new T.Mesh(BOREG(r), BOREM); bore.position.set(0, info.boreY, -info.muzzle - .0006); g.add(bore); }
   g.userData = { muzzle: mz, info };
   return g;
 }
@@ -489,7 +503,7 @@ function outfitCamo(team, o) { const k = team + o; if (!OUTCAMO[k]) { const D = 
 function teamMatsFor(team, o) {
   if (!o || !OUTFIT_DEF[o]) return teamMats[team]; const k = team + o; if (OUTMATS[k]) return OUTMATS[k];
   const D = OUTFIT_DEF[o], B = teamMats[team], C = Object.assign({}, B);
-  C.camo = withN(S({ map: outfitCamo(team, o), roughness: .92 }), NWEAVE, .28);
+  C.camo = withN(S({ map: outfitCamo(team, o), roughness: .92 }), NCLOTH, .5);
   for (const [key, col] of [['vest', D.vest], ['helm', D.helm], ['pad', D.pad], ['pack', D.pack]]) { C[key] = B[key].clone(); C[key].color.setHex(col); addRim(C[key], team); }
   addRim(C.camo, team);
   if (D.glow) { C.tag = B.tag.clone(); C.tag.emissiveIntensity = 1.6; C.glow = true; }
@@ -504,30 +518,51 @@ const teamMats = [0, 1].map(t => {
     belt: S({ color: L.belt, roughness: .7 }), pack: S({ map: TXCLOTH, color: L.pack, roughness: .85 }), black: S({ color: 0x151515, roughness: .5 }), lens: S({ color: 0x0c0f12, metalness: .8, roughness: .08 }),
     wrap: S({ map: TXCLOTH, color: L.wrap || 0x999999, roughness: .95 }), cap: S({ map: TXCLOTH, color: L.cap || 0x333333, roughness: .9, side: T.DoubleSide }), buckle: S({ color: 0x777777, metalness: .8, roughness: .35 })
   };
-  for (const k of ['camo', 'vest', 'pack', 'glove', 'wrap', 'cap']) withN(o[k], NWEAVE, .28); withN(o.helm, NSTIPPLE, .4); withN(o.boot, NSTIPPLE, .6);
+  for (const k of ['vest', 'pack', 'glove', 'wrap', 'cap']) withN(o[k], NWEAVE, .28); withN(o.camo, NCLOTH, .5); withN(o.helm, NSTIPPLE, .4); withN(o.boot, NSTIPPLE, .6);
   for (const k of ['camo', 'vest', 'pack', 'helm', 'wrap', 'cap', 'pad', 'boot']) addRim(o[k], t);
   return o;
 });
 const skinMats = {};
 // Rostro pintado en la esfera de la cabeza (u = .75 es el frente): cejas, ojos, nariz, boca, sombras y barba según el soldado
 const faceMats = {};
+// Rostro pintado a mano en el lienzo: poros y tono irregular, mejillas, cuencas, ojos con iris, pupila, brillo y párpado,
+// cejas con trazos de pelo, nariz con sombra y fosas, labios con color propio y, según el soldado, barba o barba de días.
 function faceMat(team, idx) {
   const v = idx % 4, k = team + '_' + v; if (faceMats[k]) return faceMats[k];
-  const W = 256, H = 128, [c, x] = cnv(W, H), col = new T.Color(LOOK[team].skins[v]), hex = '#' + col.getHexString();
-  const sh = (f) => '#' + col.clone().multiplyScalar(f).getHexString();
+  const W = 512, H = 256, [c, x] = cnv(W, H), col = new T.Color(LOOK[team].skins[v]), hex = '#' + col.getHexString();
+  const sh = (f, a = 1) => { const q = col.clone().multiplyScalar(f); return `rgba(${q.r * 255 | 0},${q.g * 255 | 0},${q.b * 255 | 0},${a})`; };
   x.fillStyle = hex; x.fillRect(0, 0, W, H);
-  const cx = W * .75, eye = H * .44, mouth = H * .66;
-  const g = x.createRadialGradient(cx, H * .5, 8, cx, H * .5, 70); g.addColorStop(0, 'rgba(255,230,210,.12)'); g.addColorStop(1, 'rgba(0,0,0,.18)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
-  x.fillStyle = sh(.72); x.fillRect(cx - 18, eye - 7, 36, 4); // sombra de cejas
-  x.fillStyle = '#2a1d14'; for (const s of [-1, 1]) { x.save(); x.translate(cx + s * 10, eye - 9); x.rotate(s * -.12); x.fillRect(-7, -1.5, 14, 3); x.restore(); }
-  for (const s of [-1, 1]) { x.fillStyle = '#f2ece4'; x.beginPath(); x.ellipse(cx + s * 10, eye, 5, 2.6, 0, 0, 7); x.fill(); x.fillStyle = v % 2 ? '#3b2a1c' : '#2d3a40'; x.beginPath(); x.arc(cx + s * 10, eye, 2.1, 0, 7); x.fill(); }
-  x.fillStyle = sh(.8); x.fillRect(cx - 2, eye + 4, 4, 12); x.fillStyle = sh(.66); x.fillRect(cx - 5, eye + 15, 10, 2.5); // nariz
-  x.fillStyle = sh(.55); x.fillRect(cx - 8, mouth, 16, 2.4); x.fillStyle = sh(.82); x.fillRect(cx - 6, mouth + 3, 12, 2); // boca
+  for (let i = 0; i < 9000; i++) { x.fillStyle = Math.random() < .5 ? sh(.9, .18) : sh(1.08, .14); x.fillRect(rand(0, W), rand(0, H), 1.2, 1.2); }
+  const cx = W * .75, eye = H * .44, mouth = H * .67;
+  const g = x.createRadialGradient(cx, H * .5, 16, cx, H * .5, 150); g.addColorStop(0, 'rgba(255,232,214,.1)'); g.addColorStop(1, 'rgba(0,0,0,.22)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  for (const s2 of [-1, 1]) { const m = x.createRadialGradient(cx + s2 * 30, eye + 30, 2, cx + s2 * 30, eye + 30, 22); m.addColorStop(0, 'rgba(200,90,70,.16)'); m.addColorStop(1, 'rgba(200,90,70,0)'); x.fillStyle = m; x.fillRect(cx + s2 * 30 - 24, eye + 6, 48, 48); }
+  for (const s2 of [-1, 1]) { const o = x.createRadialGradient(cx + s2 * 20, eye, 4, cx + s2 * 20, eye, 17); o.addColorStop(0, sh(.62, .55)); o.addColorStop(1, sh(.62, 0)); x.fillStyle = o; x.fillRect(cx + s2 * 20 - 18, eye - 18, 36, 36); }
+  // cejas: trazos de pelo
+  const brow = v % 2 ? '#2a1d14' : '#3a2a1d'; x.strokeStyle = brow; x.lineCap = 'round';
+  for (const s2 of [-1, 1]) for (let q = 0; q < 16; q++) { const t = q / 15, bx0 = cx + s2 * (8 + t * 24), by0 = eye - 17 - Math.sin(t * Math.PI) * 4 + t * 2; x.lineWidth = rand(1.2, 2.2); x.beginPath(); x.moveTo(bx0, by0 + 3); x.lineTo(bx0 + s2 * 4, by0 - 1); x.stroke(); }
+  // ojos
+  const iris = ['#4b3622', '#2f4a52', '#3d2a1a', '#56603a'][v];
+  for (const s2 of [-1, 1]) {
+    const ex0 = cx + s2 * 20; x.fillStyle = '#efe7dc'; x.beginPath(); x.ellipse(ex0, eye, 10, 5, 0, 0, 7); x.fill();
+    x.fillStyle = iris; x.beginPath(); x.arc(ex0, eye, 4.6, 0, 7); x.fill(); x.fillStyle = '#0c0907'; x.beginPath(); x.arc(ex0, eye, 2.1, 0, 7); x.fill();
+    x.fillStyle = 'rgba(255,255,255,.9)'; x.beginPath(); x.arc(ex0 - 1.6, eye - 1.6, 1.2, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(30,18,12,.85)'; x.lineWidth = 2.2; x.beginPath(); x.ellipse(ex0, eye + 1, 10.5, 6, 0, Math.PI * 1.05, Math.PI * 1.95); x.stroke();
+    x.strokeStyle = sh(.7, .6); x.lineWidth = 1.4; x.beginPath(); x.ellipse(ex0, eye + 3, 9, 5, 0, Math.PI * .15, Math.PI * .85); x.stroke();
+  }
+  // nariz
+  const ng = x.createLinearGradient(cx - 6, 0, cx + 6, 0); ng.addColorStop(0, sh(.78, .7)); ng.addColorStop(.5, sh(1.06, .4)); ng.addColorStop(1, sh(.78, .7)); x.fillStyle = ng; x.fillRect(cx - 5, eye + 6, 10, 26);
+  x.fillStyle = sh(.5, .8); for (const s2 of [-1, 1]) { x.beginPath(); x.ellipse(cx + s2 * 5, eye + 33, 3, 1.8, 0, 0, 7); x.fill(); }
+  x.fillStyle = sh(.72, .6); x.fillRect(cx - 9, eye + 35, 18, 2);
+  // boca
+  x.fillStyle = 'rgba(150,72,62,.55)'; x.beginPath(); x.ellipse(cx, mouth + 4, 14, 4.5, 0, 0, 7); x.fill();
+  x.strokeStyle = sh(.42, .9); x.lineWidth = 2.2; x.beginPath(); x.moveTo(cx - 15, mouth + 2); x.quadraticCurveTo(cx, mouth + 5, cx + 15, mouth + 2); x.stroke();
+  x.fillStyle = 'rgba(255,230,220,.18)'; x.fillRect(cx - 7, mouth + 6, 14, 2);
   const beard = team === 0 ? v % 3 : (v === 2 ? 1 : 0);
-  if (beard) { x.fillStyle = beard === 1 ? 'rgba(40,28,18,.85)' : 'rgba(40,30,22,.35)'; x.beginPath(); x.moveTo(cx - 26, eye + 10); x.quadraticCurveTo(cx - 24, H * .92, cx, H * .95); x.quadraticCurveTo(cx + 24, H * .92, cx + 26, eye + 10); x.lineTo(cx + 20, mouth + 6); x.lineTo(cx - 20, mouth + 6); x.closePath(); x.fill();
-    if (beard === 1) { x.fillRect(cx - 9, mouth - 4, 18, 3.5); } x.fillStyle = sh(.55); x.fillRect(cx - 8, mouth, 16, 2.4); }
+  if (beard === 1) { x.fillStyle = 'rgba(40,28,18,.8)'; x.beginPath(); x.moveTo(cx - 52, eye + 20); x.quadraticCurveTo(cx - 48, H * .93, cx, H * .97); x.quadraticCurveTo(cx + 48, H * .93, cx + 52, eye + 20); x.lineTo(cx + 40, mouth + 12); x.quadraticCurveTo(cx, mouth + 16, cx - 40, mouth + 12); x.closePath(); x.fill(); x.fillRect(cx - 18, mouth - 8, 36, 7); for (let i = 0; i < 1400; i++) { x.fillStyle = 'rgba(20,14,10,.5)'; x.fillRect(cx + rand(-50, 50), rand(mouth - 8, H * .96), 1, 2.4); } }
+  else if (beard === 2) { for (let i = 0; i < 2600; i++) { const px = cx + rand(-50, 50), py = rand(mouth - 10, H * .97); if (Math.abs(px - cx) < 16 && py < mouth + 8 && py > mouth - 2) continue; x.fillStyle = 'rgba(30,22,16,.4)'; x.fillRect(px, py, 1, 1.6); } }
+  if (v === 3) { x.strokeStyle = sh(1.18, .7); x.lineWidth = 2; x.beginPath(); x.moveTo(cx + 34, eye - 6); x.lineTo(cx + 42, eye + 22); x.stroke(); } // cicatriz
   const t = new T.CanvasTexture(c); t.anisotropy = ANISO; texs.push(t);
-  return (faceMats[k] = S({ map: t, roughness: .6 }));
+  return (faceMats[k] = withN(S({ map: t, roughness: .58 }), NSTIPPLE, .12));
 }
 const skinMat = (team, idx) => { const k = team + '_' + (idx % 4); return skinMats[k] || (skinMats[k] = S({ color: LOOK[team].skins[idx % 4], roughness: .62 })); };
 const _up = new T.Vector3(0, 1, 0);
@@ -584,6 +619,8 @@ function buildSoldier(team, idx, opt = {}) {
     // bota alta con caña acolchada, puntera y suela gruesa
     add(knee, cylY(.064, .066, .14, 14), C.boot, 0, -.36, 0);
     add(knee, rbox(.13, .12, .3, .04), C.boot, 0, -.43, -.05); add(knee, rbox(.136, .045, .31, .014), C.sole, 0, -.49, -.05);
+    for (let q = 0; q < 4; q++) add(knee, rbox(.07, .008, .012, .003), C.strap, 0, -.31 - q * .035, -.064 - q * .012); // cordones
+    add(knee, cylY(.077, .077, .018, 14), C.strap, 0, .02, 0).scale.z = 1.02; // correa de la rodillera
     legs.push({ hip, knee });
   }
   const upper = new T.Group(); upper.position.y = .95; body.add(upper);
@@ -720,7 +757,7 @@ function buildSoldier(team, idx, opt = {}) {
 }
 
 /* ---------- Brazos en primera persona ---------- */
-const fpMats = { sleeve: withN(S({ map: CAMO[0], roughness: .92 }), NWEAVE, .5), glove: withN(S({ map: TXCLOTH, color: 0x1c1c1c, roughness: .75 }), NWEAVE, .35), cuff: S({ color: 0x2a2a2a, roughness: .8 }),
+const fpMats = { sleeve: withN(S({ map: CAMO[0], roughness: .92 }), NCLOTH, .7), glove: withN(S({ map: TXCLOTH, color: 0x1c1c1c, roughness: .75 }), NWEAVE, .35), cuff: S({ color: 0x2a2a2a, roughness: .8 }),
   pad: withN(S({ color: 0x0d0d0e, roughness: .55 }), NSTIPPLE, 1), watch: S({ color: 0x0b0b0c, roughness: .35, metalness: .4 }), face: S({ color: 0x0a1410, emissive: 0x3ee6a0, emissiveIntensity: .5, roughness: .2 }), tag: S({ color: 0x5cc8e0, emissive: 0x5cc8e0, emissiveIntensity: .1, roughness: .6 }) };
 // Mano con guante táctico: palma, nudillos acolchados, 4 dedos en 3 falanges y pulgar. Eje +Y = hacia los dedos, palma hacia -Z.
 const HANDC = {};
