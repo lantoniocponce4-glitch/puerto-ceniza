@@ -591,6 +591,29 @@
     holds: { A: [[-21, -20, -Math.PI * .7], [-38, -21, Math.PI], [-28, -35, Math.PI * .9]], B: [[21, -20, Math.PI * .7], [38, -21, Math.PI], [28, -35, -Math.PI * .9]] },
     labels: []
   };
+  // Escala de mapas (tomando como referencia los tiempos de los shooters tácticos clásicos: atacantes 15-20 s a un sitio,
+  // defensores 6-9 s, primer duelo a los 6-8 s). Los edificios, calles y muros se agrandan; los objetos sueltos (cajas, barriles,
+  // sacos, autos, contenedores) conservan su tamaño real y solo cambian de lugar; los muros delgados conservan su grosor.
+  const PROP = m => /^(crate|wood|barrel|sandbag|bench|planter|dumpster|tank|tarp|snowpile|kiosk|stoneC|barrier)$/.test(m) || /^(car|cont|wagon):/.test(m);
+  function scaleMap(M, f) {
+    if (!M || M.scale) return; M.scale = f;
+    const sp = v => Math.round(v * f * 100) / 100;
+    M.bounds = M.bounds.map(sp);
+    M.boxes = M.boxes.map(b => {
+      const [x0, z0, x1, z1, h, mat, y0] = b, w = Math.abs(x1 - x0), d = Math.abs(z1 - z0), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      let nw = w * f, nd = d * f;
+      if ((PROP(mat) || Math.max(w, d) <= 3) && h <= 1.6) { nw = w; nd = d; }   // objeto suelto bajo: mismo tamaño (lo alto que tapa la vista se escala)
+      else { if (w <= .8) nw = w; if (d <= .8) nd = d; }                         // muro delgado: mismo grosor
+      const out = [sp(cx) - nw / 2, sp(cz) - nd / 2, sp(cx) + nw / 2, sp(cz) + nd / 2, h, mat];
+      if (y0 !== undefined) out.push(y0);
+      return out.map((v, i) => i < 4 ? Math.round(v * 100) / 100 : v);
+    });
+    for (const k of ['atk', 'def']) { M.spawns[k] = M.spawns[k].map(p => [sp(p[0]), sp(p[1])]); M.buy[k] = M.buy[k].map(sp); }
+    for (const k in M.sites) { M.sites[k].r = M.sites[k].r.map(sp); M.sites[k].c = M.sites[k].c.map(sp); }
+    for (const k in M.routes) M.routes[k] = M.routes[k].map(r => r.map(p => [sp(p[0]), sp(p[1])]));
+    for (const k in M.holds) M.holds[k] = M.holds[k].map(h => [sp(h[0]), sp(h[1]), h[2]]);
+    if (M.labels) M.labels = M.labels.map(l => [l[0], sp(l[1]), sp(l[2]), l[3]]);
+  }
   // mapas retirados de la rotación (abiertos, con calles de punta a punta o sitios mal ubicados respecto de los spawns)
   for (const k of ['fundo', 'boreal', 'refineria', 'villa']) if (MAPS[k]) MAPS[k].hidden = true;
   // Rediseño: más coberturas en sitios y rutas, y sin líneas de visión de spawn a spawn.
@@ -675,6 +698,21 @@
     ]
   };
   for (const k in MAP_EXTRA) if (MAPS[k]) MAPS[k].boxes.push(...MAP_EXTRA[k]);
+  // sacos de arena frente a cada posición defensiva, orientados hacia donde mira (sin tapar rutas ni chocar con otros objetos)
+  function holdCover(M) {
+    for (const k in M.holds) for (const h of M.holds[k]) {
+      const fx = -Math.sin(h[2]), fz = -Math.cos(h[2]), cx = h[0] + fx * 1.5, cz = h[1] + fz * 1.5, along = Math.abs(fx) > Math.abs(fz);
+      const b = along ? [cx - .4, cz - 1.2, cx + .4, cz + 1.2] : [cx - 1.2, cz - .4, cx + 1.2, cz + .4];
+      const hits = M.boxes.some(o => !(o[6] >= 1.5) && b[0] < Math.max(o[0], o[2]) + .6 && b[2] > Math.min(o[0], o[2]) - .6 && b[1] < Math.max(o[1], o[3]) + .6 && b[3] > Math.min(o[1], o[3]) - .6);
+      const nearRoute = Object.values(M.routes).some(rs => rs.some(r => r.some(p => Math.hypot(p[0] - cx, p[1] - cz) < 2.4)));
+      if (!hits && !nearRoute) M.boxes.push([b[0], b[1], b[2], b[3], 1.15, 'sandbag']);
+    }
+  }
+  // escala después de sumar las coberturas extra (así todo el mapa crece junto)
+  scaleMap(MAPS.alcazaba, 1.25); scaleMap(MAPS.muelle, 1.3); scaleMap(MAPS.distrito, 1.25); scaleMap(MAPS.oasis, 1.1);
+  holdCover(MAPS.alcazaba); holdCover(MAPS.distrito); holdCover(MAPS.oasis);
+  // Alcazaba: las posiciones que miran la calle larga de A y la salida del túnel de B quedaban sobre la ruta atacante y sin cobertura
+  { const M = MAPS.alcazaba; M.holds.A[0] = [37.6, -10.4, Math.PI]; M.holds.B[0] = [-33.8, -12.4, Math.PI]; M.boxes.push([36.4, -8.6, 38.8, -7.8, 1.15, 'sandbag'], [-35, -10.6, -32.6, -9.8, 1.15, 'sandbag']); }
   const MAP_IDS = Object.keys(MAPS).filter(k => !MAPS[k].hidden);
   const WEATHER = { alcazaba: 'arena', muelle: 'lluvia', fundo: 'niebla', distrito: 'lluvia', boreal: 'nieve', refineria: 'lluvia', villa: 'arena', fundicion: 'lluvia', oasis: 'arena' };
   // 30 % día, 25 % atardecer, 22 % noche, 23 % clima del mapa
@@ -731,6 +769,9 @@
         this.walk[j * this.GW + i] = ok;
       }
       if (!this.breakables) this.breakables = [];
+      // puntos de ruta y posiciones de defensa que quedaron pegados a un muro (por ejemplo tras escalar el mapa): se mueven a la casilla libre más cercana
+      if (!M._snapped) { M._snapped = true; const fix = p => { const k = this.cIdx(p[0], p[1]); if (k >= 0 && this.walk[k]) return; const q = this.nearestWalk(k, p[0], p[1]); if (q >= 0) { p[0] = this.GX0 + (q % this.GW) + .5; p[1] = this.GZ0 + ((q / this.GW) | 0) + .5; } };
+        for (const k in M.routes) for (const r of M.routes[k]) for (const p of r) fix(p); for (const k in M.holds) for (const h of M.holds[k]) fix(h); }
       this.gS = new Float32Array(N); this.came = new Int32Array(N); this.stamp = new Uint32Array(N); this.closed = new Uint32Array(N); this.gen = 0;
     }
     // recalcula las celdas caminables de un rectángulo (tras romper o reponer objetos)
@@ -1600,7 +1641,9 @@
       if (best) { if (best !== b.target) { if (!b.target && this.now > this.teamRadio[b.team] && this.phase === 'live') { this.teamRadio[b.team] = this.now + 7; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); this.ev({ k: 'ping', v: b.id, tm: b.team, p: [r2(best.pos.x), r2(best.pos.y + 1), r2(best.pos.z)], e: best.id }); } b.target = best; b.seenT = 0;
           // reacción realista: tarda más con objetivos lejanos, que caminan o están agachados, o que aparecen por el costado de la vista
           { const dx = best.pos.x - b.pos.x, dz = best.pos.z - b.pos.z, dist = Math.hypot(dx, dz) || 1, dot = (dx * fx + dz * fz) / dist, sp = Math.hypot(best.vel.x, best.vel.z);
-            b.react = D.react * rand(.85, 1.25) + Math.min(.25, dist * .005) + (best.h < 1.5 ? .08 : 0) + (sp > .3 && sp < 3 ? .06 : 0) + (dot < .8 && !alert ? .14 : 0) - (alert ? .08 : 0); b.react *= this.botSkill(b); } } b.lastKnown = V(best.pos.x, best.pos.y, best.pos.z); b.lastKnownT = this.now;
+            b.react = D.react * rand(.85, 1.25) + Math.min(.25, dist * .005) + (best.h < 1.5 ? .08 : 0) + (sp > .3 && sp < 3 ? .06 : 0) + (dot < .8 && !alert ? .14 : 0) - (alert ? .08 : 0); b.react *= this.botSkill(b);
+            // quien espera quieto en su posición apuntando a la entrada reacciona antes que quien entra corriendo
+            if (b.hold && !b.order && Math.hypot(b.pos.x - b.hold[0], b.pos.z - b.hold[1]) < 1.6 && Math.hypot(b.vel.x, b.vel.z) < .6) b.react *= .7; } } b.lastKnown = V(best.pos.x, best.pos.y, best.pos.z); b.lastKnownT = this.now;
         // defensor que ve rivales cerca de un sitio: pide rotación (los del otro sitio acuden tras unos segundos)
         if ((this.mode === 'bomb' || this.mode === 'elim') && this.phase === 'live' && !this.rot && this.side(b.team) === 'def') for (const k in this.M.sites) { const c = this.M.sites[k].c; if (Math.hypot(best.pos.x - c[0], best.pos.z - c[1]) < 18) { let n = 0; for (const o of this.actors) if (o.alive && o.team === best.team && Math.hypot(o.pos.x - c[0], o.pos.z - c[1]) < 22) n++; if (n >= 1) { this.rot = { site: k, at: this.now + rand(.8, 2), team: b.team }; this.ev({ k: 'radio', v: b.id, tm: b.team, c: 2 }); } break; } }
       }

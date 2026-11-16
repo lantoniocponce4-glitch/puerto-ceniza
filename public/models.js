@@ -397,9 +397,12 @@ DEF.ax50 = function () {
 };
 
 const cache = {};
+const TACL = { ar: [.4, -.006], fr9: [.3, -.006], smg: [.1, -.013], lmg: [.39, .012], um45: [.19, -.006], ars: [.4, -.006] };
 function gunParts(id) {
   if (cache[id]) return cache[id];
   const d = (DEF[id] || DEF.p9)(); const by = {};
+  // linterna táctica bajo el cañón (cuerpo, lente y anillo), en las armas que tienen dónde montarla
+  const tl = TACL[id]; if (tl) { const [x, y] = tl; d.P.push(['metal', cyl(.013, .013, x, x + .075, y, 0, 14)], ['metal', cyl(.016, .016, x + .062, x + .078, y, 0, 14)], ['glass', cyl(.0125, .0125, x + .078, x + .081, y, 0, 14)], ['poly', bx(x + .015, y + .01, x + .055, y + .024, .014)]); }
   for (const [m, g] of d.P) (by[m] = by[m] || []).push(g);
   const meshes = []; for (const m in by) { const geo = merge(by[m]); geo.rotateY(Math.PI / 2); geo.computeBoundingSphere(); meshes.push([m, geo]); }
   return (cache[id] = { meshes, info: d });
@@ -607,7 +610,7 @@ function buildSoldier(team, idx, opt = {}) {
   helmet.visible = false;
   const pack = new T.Group(); pack.position.set(0, .32, .17); upper.add(pack); add(pack, rbox(.28, .3, .12, .03), C.pack); const led = new T.Mesh(sphG(.008, 8, 6), new T.MeshBasicMaterial({ color: 0xff3020 })); led.position.set(.09, .1, .065); pack.add(led); pack.visible = false;
   const arms = {}; const SH = { R: new T.Vector3(.2, .48, 0), L: new T.Vector3(-.2, .48, 0) };
-  for (const s of ['R', 'L']) { const a = { up: add(upper, cylY(.068, .058, 1, 14), C.camo), elbow: add(upper, sphG(.06, 12, 8), C.pad), fore: add(upper, cylY(.058, .046, 1, 14), C.camo), hand: add(upper, rbox(.085, .11, .055, .02), C.glove) }; const pad = add(upper, sphG(.082, 14, 10), C.camo); pad.position.copy(SH[s]); pad.scale.set(1.05, .9, 1.15); const sp = add(upper, rbox(.12, .05, .15, .02), C.vest, SH[s].x * 1.05, SH[s].y + .045, 0); sp.rotation.z = SH[s].x > 0 ? -.35 : .35; arms[s] = a; }
+  for (const s of ['R', 'L']) { const a = { up: add(upper, cylY(.068, .058, 1, 14), C.camo), elbow: add(upper, sphG(.06, 12, 8), C.pad), fore: add(upper, cylY(.058, .046, 1, 14), C.camo), hand: add(upper, rbox(.085, .11, .055, .02), C.glove) }; const pad = add(upper, sphG(.082, 14, 10), C.camo); pad.position.copy(SH[s]); pad.scale.set(1.05, .9, 1.15); const sp = add(upper, rbox(.12, .05, .15, .02), C.vest, SH[s].x * 1.05, SH[s].y + .045, 0); sp.rotation.z = SH[s].x > 0 ? -.35 : .35; const band = add(upper, cylY(.086, .086, .04, 16), C.tag, SH[s].x * 1.02, SH[s].y - .055, 0); band.rotation.z = SH[s].x > 0 ? .5 : -.5; arms[s] = a; }
   const hand = new T.Group(); upper.add(hand);
   const flash = new T.Sprite(opt.flashMat || new T.SpriteMaterial({ color: 0xffcc88 })); flash.scale.set(.42, .42, .42); flash.visible = false;
   const guns = {}; let cur = null;

@@ -451,8 +451,8 @@ function desertDecor(M) {
   for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; const r = 150 + rand(0, 40); const m = new THREE.Mesh(new THREE.SphereGeometry(rand(30, 55), 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), dune); m.scale.y = rand(.25, .45); m.position.set(Math.cos(a) * r, -2, Math.sin(a) * r); worldGroup.add(m); }
   // palmeras y vasijas en lugares abiertos
   const spots = [[0, 30], [-36, -29], [37, 29], [-1, -30.5], [26, 30.5], [-20, 30.5]];
-  for (const [x, z] of spots) if (WORLD.walk[WORLD.cIdx(x, z)] && x > x0 && x < x1 && z > z0 && z < z1) palm(x, z, rand(5, 7));
-  for (const [x, z] of [[-3.6, 14], [3.6, 20], [-3.6, -10], [21, -6.6], [-17.6, -9.2], [29.5, 23], [-33.5, -7.4], [17.4, -25]]) if (!solidAt(x, z, .3)) jar(x, z, rand(.8, 1.2));
+  const S = M.scale || 1; for (const [x0s, z0s] of spots) { const x = x0s * S, z = z0s * S; if (WORLD.walk[WORLD.cIdx(x, z)] && x > x0 && x < x1 && z > z0 && z < z1) palm(x, z, rand(5, 7)); }
+  for (const [xs, zs] of [[-3.6, 14], [3.6, 20], [-3.6, -10], [21, -6.6], [-17.6, -9.2], [29.5, 23], [-33.5, -7.4], [17.4, -25]]) { const x = xs * S, z = zs * S; if (!solidAt(x, z, .3)) jar(x, z, rand(.8, 1.2)); }
   // cables de lado a lado del mercado
   const wire = new THREE.LineBasicMaterial({ color: 0x222222 });
   for (const z of [-6, 2, 14]) { if (!(solidAt(-4.2, z, 4.8) && solidAt(4.2, z, 4.8))) continue; const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-4, 5.2, z), new THREE.Vector3(0, 4.6, z + .3), new THREE.Vector3(4, 5.2, z)]); worldGroup.add(new THREE.Line(g, wire)); }
@@ -506,16 +506,17 @@ function cityDecor(M) {
   }
   // líneas de la avenida y pasos de cebra
   const paint = std({ color: 0xe8e4d6, roughness: .8 }), yel = std({ color: 0xd9a22e, roughness: .8 });
-  for (let x = x0 + 2; x < x1 - 2; x += 4) boxAt(x, .005, -.08 + 1.2, x + 2, .02, .08 + 1.2, yel, 0, false);
-  for (const zx of [-9, 9]) for (let k = 0; k < 6; k++) boxAt(zx - 1.6, .005, -5.5 + k * 1.3 + 2.5, zx + 1.6, .02, -5 + k * 1.3 + 2.5, paint, 0, false);
+  const S = M.scale || 1; // los mapas agrandados llevan la decoración en la misma proporción
+  for (let x = x0 + 2; x < x1 - 2; x += 4) boxAt(x, .005, -.08 + 1.2 * S, x + 2, .02, .08 + 1.2 * S, yel, 0, false);
+  for (const zx of [-9 * S, 9 * S]) for (let k = 0; k < 6; k++) boxAt(zx - 1.6, .005, (-5.5 + k * 1.3 + 2.5) * S, zx + 1.6, .02, (-5 + k * 1.3 + 2.5) * S, paint, 0, false);
   // franjas pintadas de los sitios (lectura rápida de A y B)
   for (const k in M.sites) { const [a, b, c, d] = M.sites[k].r; const col = std({ color: k === 'A' ? 0xd9a22e : 0x3fb4c9, roughness: .7 }); boxAt(a, .006, b, c, .02, b + .25, col, 0, false); boxAt(a, .006, d - .25, c, .02, d, col, 0, false); }
   // postes de luz y letreros de neón
-  for (let x = x0 + 6; x < x1 - 4; x += 12) { streetLamp(x, -5.2, 5.4, Math.PI / 2); streetLamp(x + 6, 5.6, 5.4, -Math.PI / 2); }
-  neonSign(-8, 6, -7.9, 3.4, .8, 0x3fe0f0, 0); neonSign(8, 7, -7.9, 2.6, .9, 0xff5a8a, 0); neonSign(-31, 6.5, 5.9, 3, .8, 0xffb347, Math.PI); neonSign(12, 6, 5.9, 3.2, .7, 0x3fe0f0, Math.PI);
+  for (let x = x0 + 6; x < x1 - 4; x += 12) { streetLamp(x, -5.2 * S, 5.4, Math.PI / 2); streetLamp(x + 6, 5.6 * S, 5.4, -Math.PI / 2); }
+  neonSign(-8 * S, 6, -7.9 * S, 3.4, .8, 0x3fe0f0, 0); neonSign(8 * S, 7, -7.9 * S, 2.6, .9, 0xff5a8a, 0); neonSign(-31 * S, 6.5, 5.9 * S, 3, .8, 0xffb347, Math.PI); neonSign(12 * S, 6, 5.9 * S, 3.2, .7, 0x3fe0f0, Math.PI);
   // charcos que reflejan
   const pud = std({ color: 0x1d2530, roughness: .04, metalness: .9 });
-  for (const [x, z, r] of [[-14, 1, 1.6], [6, -2, 1.2], [24, 2, 1.8], [-34, 1.5, 1.3], [0, 18, 1.1]]) { const p = new THREE.Mesh(new THREE.CircleGeometry(r, 18), pud); p.rotation.x = -Math.PI / 2; p.position.set(x, .012, z); p.scale.y = .6; worldGroup.add(p); }
+  for (const [x, z, r] of [[-14, 1, 1.6], [6, -2, 1.2], [24, 2, 1.8], [-34, 1.5, 1.3], [0, 18, 1.1]]) { if (solidAt(x * S, z * S, .3)) continue; const p = new THREE.Mesh(new THREE.CircleGeometry(r, 18), pud); p.rotation.x = -Math.PI / 2; p.position.set(x * S, .012, z * S); p.scale.y = .6; worldGroup.add(p); }
 }
 function snowDecor(M) {
   const [x0, z0, x1, z1] = M.bounds;

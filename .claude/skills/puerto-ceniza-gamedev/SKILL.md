@@ -34,6 +34,10 @@ Los textos del juego, los comentarios y los mensajes de commit van **en español
 - **Nunca** una línea de visión de spawn a spawn ni desde la zona de spawn (el validador revisa los puntos exactos y `tools/contact.js` toda la zona). Se corta con un objeto de 2 m o más (la altura de los ojos es 1,66 m).
 - Salidas de spawn en **chicane**: dos muros desplazados (uno con hueco a la izquierda y otro a la derecha) para que al salir haya que girar. Las calles largas llevan puertas desplazadas; el medio, una sala con bloque central (se entra por un lado y se sale por el otro). Los huecos deben medir 2 m o más para que los bots pasen; prueba con el validador.
 - No copies mapas de otros juegos: diseña trazados propios con estos principios.
+- Tiempos de referencia (los de los shooters tácticos clásicos): atacantes 15-20 s hasta un sitio, defensores 6-9 s, primer duelo a los 6-8 s. `tools/contact.js` los mide.
+- Para agrandar un mapa usa `scaleMap(MAPS.x, factor)` (después de sumar `MAP_EXTRA`): agranda edificios, calles y muros; los objetos bajos (≤ 1,6 m) conservan su tamaño real y los muros delgados su grosor. La decoración con posiciones fijas del cliente usa `M.scale`.
+- `holdCover(M)` pone sacos de arena frente a cada posición defensiva sin tapar rutas; úsalo si un mapa queda muy a favor de los atacantes.
+- Los puntos de ruta y de defensa que queden dentro de un muro se corrigen solos al cargar el mapa (`World`, `M._snapped`).
 - Mapas en rotación: Alcazaba, Muelle 9, Distrito Lumen, Fundición y Oasis. Retirados (ocultos con `hidden`): Fundo Azul, Estación Boreal, Refinería Ocaso y Villa Salitre.
 - Estructura clásica: tres carriles (dos sitios y el medio) con puntos de choque. Cada sitio necesita: cobertura central para jugar alrededor de la carga, cobertura en cada entrada para quien ataca y posiciones para quien defiende con al menos dos ángulos.
 - Alturas: 1,1 a 1,2 m = cobertura agachado (se dispara por encima de pie); 2 m o más = bloquea la vista; apilar 1,3 + 1,1 = caja para subirse.
