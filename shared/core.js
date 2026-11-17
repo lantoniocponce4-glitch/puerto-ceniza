@@ -885,6 +885,13 @@
     cIdx(x, z) { const i = Math.floor(x - this.GX0), j = Math.floor(z - this.GZ0); if (i < 0 || j < 0 || i >= this.GW || j >= this.GH) return -1; return j * this.GW + i; }
     // casilla caminable más cercana. Si se da la posición real (x, z), elige la más cercana a la que se llega en línea recta
     // sin cruzar una pared (antes podía elegir la del otro lado de un muro delgado y el bot se trababa intentando atravesarlo)
+    // casilla caminable más cercana a un punto (para objetos que caen en un lugar al que los bots no llegan, como la boca de un túnel)
+    walkSpot(x, z, R = 5) {
+      const k = this.cIdx(x, z); if (k >= 0 && this.walk[k]) return null;
+      let best = null, bd = 1e9; const i0 = Math.floor(x - this.GX0), j0 = Math.floor(z - this.GZ0);
+      for (let j = j0 - R; j <= j0 + R; j++) for (let i = i0 - R; i <= i0 + R; i++) { if (i < 0 || j < 0 || i >= this.GW || j >= this.GH || !this.walk[j * this.GW + i]) continue; const cx = this.GX0 + i + .5, cz = this.GZ0 + j + .5, d = Math.hypot(cx - x, cz - z); if (d < bd && this.visible([x, .5, z], [cx, .5, cz])) { bd = d; best = { x: cx, z: cz }; } }
+      return best;
+    }
     nearestWalk(k, x, z) {
       const GW = this.GW, GH = this.GH; if (k >= 0 && this.walk[k]) return k;
       const i0 = k < 0 ? 0 : k % GW, j0 = k < 0 ? 0 : (k / GW) | 0;
@@ -1517,7 +1524,7 @@
       if (wid === LADDER[att.lvl]) { att.lvl++; this.equipGG(att); this.ev({ k: 'lvl', v: att.id, l: att.lvl, w: LADDER[att.lvl] }); }
     }
     dropBomb(a, thrown) {
-      const f = thrown ? 1.3 : 0; const x = a.pos.x - Math.sin(a.yaw) * f, z = a.pos.z - Math.cos(a.yaw) * f; const p = { x, z, y: 0 }; this.W.resolve({ pos: p, h: .3 }); this.inBounds(p);
+      const f = thrown ? 1.3 : 0; const x = a.pos.x - Math.sin(a.yaw) * f, z = a.pos.z - Math.cos(a.yaw) * f; const p = { x, z, y: 0 }; this.W.resolve({ pos: p, h: .3 }); this.inBounds(p); const ws = this.W.walkSpot(p.x, p.z); if (ws) { p.x = ws.x; p.z = ws.z; } // que los bots siempre puedan recogerla
       Object.assign(this.bomb, { st: 'dropped', by: -1, x: r2(p.x), y: r2(this.W.groundAt(p.x, p.z, a.pos.y + .3)), z: r2(p.z), dropT: this.now });
       this.ev({ k: 'bdrop', v: a.id }); a.pdirty = true;
     }

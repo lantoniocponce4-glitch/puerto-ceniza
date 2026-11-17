@@ -24,7 +24,9 @@ Los textos del juego, los comentarios y los mensajes de commit van **en español
 
 1. `node --check` en cada archivo JS tocado.
 2. Mapas o navegación: `npm run test:maps` debe dar ✓ en todos los mapas y `npm run test:contact` debe pasar (primer contacto ≥ 4,5 s, lejos de los spawns, y defensores llegando antes a los sitios). Con `LIST=8 node tools/contact.js <mapa>` ves los contactos más tempranos para corregirlos.
-3. Bots, armas, economía o mapas: `npm run test:bots` (o `G=6 node tools/sim-bots.js` para más precisión). Meta: atacantes entre 40 % y 60 % por mapa, pocas rondas por `time` (si hay muchas, hay bots atascados) y sin errores. Con 2 partidas la varianza es alta: no se ajusta nada con menos de 6.
+3. Bots, armas, economía o mapas: `npm run test:balance` (`G=200 node tools/balance.js` para decidir cambios). Usa todos los núcleos y da, por mapa, el % de rondas de los atacantes con su **margen de confianza del 95 %**: 200 partidas por mapa tardan ~2 minutos y dejan un margen de ±2-3 puntos. Meta: atacantes entre 40 % y 60 %; veredicto «revisar» solo si todo el margen queda fuera. `npm run test:bots` (2 partidas) sirve solo para detectar errores: su varianza es enorme (puede dar 19 % o 71 % en el mismo mapa). Un cambio de equilibrio se acepta solo si mueve el resultado más allá del margen.
+   - Cada noche, GitHub corre `.github/workflows/balance.yml` (24 partidas por mapa) y publica la tabla en el resumen de la ejecución; también se lanza a mano desde «Actions» eligiendo cuántas partidas.
+   - Rondas por `time`: en mapas grandes (Distrito) ~1,5 % es normal (el portador muere tarde). Si suben mucho, busca bots atascados mirando dónde quedan los vivos al terminar la ronda.
 4. Algo visual: `PORT=3111 npm start` y luego `node tools/shots.cjs plan|cam|mobile ...`, y **mirar las capturas**. Hace falta Playwright (`npm i -D playwright` en local; en la nube ya viene).
 5. `?debug=1` en la URL expone `window.PCDBG` (`me`, `G`, `camera`, `actors`, `perf`) y `PCDBG.cam = [x, y, z, yaw, pitch]` fija la cámara para capturas.
 
