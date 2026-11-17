@@ -948,6 +948,22 @@
     elite: { react: .29, err: .03, turn: 9.5, hs: .3, fov: .38, spray: .85 }
   };
   // ojo con inclinación lateral (asomarse): hasta 32 cm hacia el lado
+  // Filtro de chat: groserías e insultos comunes en español (incluidos los chilenos) se reemplazan por asteriscos.
+  // Normaliza tildes, letras cambiadas por números o símbolos (p3rr4, @) y letras repetidas (weoooon) antes de comparar.
+  const BAD = ['puta', 'puto', 'putas', 'putos', 'mierda', 'conchetumare', 'conchetumadre', 'ctm', 'csm', 'chucha', 'culiao', 'culiado', 'culia', 'weon', 'aweonao', 'hueon', 'huevon', 'maricon', 'maricona', 'marica', 'pendejo', 'pendeja', 'cabron', 'cabrona', 'gilipollas', 'zorra', 'perra', 'bastardo', 'imbecil', 'idiota', 'estupido', 'estupida', 'retrasado', 'mongolico', 'subnormal', 'malparido', 'hijueputa', 'hdp', 'pajero', 'nazi', 'negro de mierda', 'fuck', 'shit', 'bitch', 'nigger', 'faggot'];
+  const normC = c => ({ '4': 'a', '@': 'a', '3': 'e', '1': 'i', '!': 'i', '0': 'o', '5': 's', '$': 's', '7': 't' }[c] || c);
+  const mkRx = w => new RegExp('(^|[^a-z])(' + w.replace(/ /g, '\\s*') + ')(?=$|[^a-z])', 'g'), sq = w => w.replace(/([a-z])\1+/g, '$1');
+  // dos pasadas: palabras tal cual (perra) y con letras repetidas comprimidas (weooon); se omite la forma comprimida si es una palabra común
+  const SAFE = new Set(['pera']), BADRX = BAD.slice().sort((a, b) => b.length - a.length).map(mkRx), BADSQ = [...new Set(BAD.map(sq))].filter(w => !SAFE.has(w)).sort((a, b) => b.length - a.length).map(mkRx);
+  function cleanChat(msg) {
+    const raw = String(msg); let n = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split('').map(normC).join('');
+    // letras repetidas: "weooon" -> "weon" (se guarda el mapa de posiciones para tapar el texto original)
+    let comp = '', map = []; for (let i = 0; i < n.length; i++) { if (i && n[i] === n[i - 1] && /[a-z]/.test(n[i])) { map[map.length - 1] = [map[map.length - 1][0], i]; continue; } comp += n[i]; map.push([i, i]); }
+    const hide = new Array(raw.length).fill(false);
+    for (const rx of BADSQ) { rx.lastIndex = 0; let m; while ((m = rx.exec(comp))) { const s0 = m.index + m[1].length, e0 = s0 + m[2].length - 1; for (let k = map[s0][0]; k <= map[e0][1]; k++) hide[k] = true; } }
+    for (const rx of BADRX) { rx.lastIndex = 0; let m; while ((m = rx.exec(n))) { const s0 = m.index + m[1].length; for (let k = s0; k < s0 + m[2].length; k++) hide[k] = true; } }
+    return raw.split('').map((c, i) => hide[i] && c !== ' ' ? '*' : c).join('');
+  }
   const eyeOf = a => { const l = (a.lean || 0) * .32; return [a.pos.x + Math.cos(a.yaw) * l, a.pos.y + a.h - .14 - Math.abs(a.lean || 0) * .04, a.pos.z - Math.sin(a.yaw) * l]; };
   let nextEnt = 1;
 
@@ -1354,8 +1370,19 @@
         case 'rl': { const w = WEAPONS[a.cur]; const mg = a.mags || {}, rs = a.resv || {}; if (a.alive && w && w.mag && !w.melee && (mg[a.cur] === undefined || (mg[a.cur] < w.mag && rs[a.cur] > 0))) { a.rlW = a.cur; a.rlEnd = this.now + w.reload * .8; } break; }
         case 'chat': {
           if (this.now - (a.chatT === undefined ? -9 : a.chatT) < .8) return; a.chatT = this.now;
-          const msg = String(m.m || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90); if (!msg) return;
+          const msg = cleanChat(String(m.m || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 90)); if (!msg) return;
+          if (a.chatMuted) return; // silenciado por reportes de otros jugadores en esta partida
           this.ev({ k: 'chat', v: a.id, tm: a.team, m: msg }); break;
+        }
+        case 'report': {
+          // reporte de un jugador a otro: queda en el registro del servidor; con 2 reportes de personas distintas por
+          // insultos, el chat del reportado se silencia por el resto de la partida
+          const v = this.actors[m.v | 0], why = ['insultos', 'trampas', 'antijuego', 'nombre'].includes(m.r) ? m.r : 'otro';
+          if (!v || v === a || !v.human || !a.human || this.now - (a.repT === undefined ? -9 : a.repT) < 3) return; a.repT = this.now;
+          const R = this.reports || (this.reports = new Map()), key = v.id + ':' + why; if (!R.has(key)) R.set(key, new Set()); R.get(key).add(a.id);
+          if (this.onReport) this.onReport({ sala: this.code, mapa: this.mapId, reportado: v.name, por: a.name, motivo: why, total: R.get(key).size });
+          if (why === 'insultos' && R.get(key).size >= 2 && !v.chatMuted) { v.chatMuted = true; this.ev({ k: 'muted', v: v.id }); }
+          break;
         }
         case 'vote': { if (this.phase !== 'over' || !has(MAPS, m.map) || MAPS[m.map].hidden || this.now - (a.voteT === undefined ? -9 : a.voteT) < .5) return; a.voteT = this.now; this.votes.set(cid, m.map); this.ev({ k: 'votes', v: this.tally() }); break; }
         case 'radio': { const c = m.c | 0; if (c < 0 || c >= RADIO.length || this.now - (a.radioT === undefined ? -9 : a.radioT) < 1) return; a.radioT = this.now; this.ev({ k: 'radio', v: a.id, tm: a.team, c }); break; }
@@ -1977,6 +2004,28 @@
       }
       this.broadcastState();
     }
+    // Anti-wallhack: qué enemigos puede conocer cada equipo. Se envía solo lo que el equipo podría ver u oír, así un cliente
+    // modificado no puede mostrar enemigos a través de las paredes. Se calcula cada 2 ticks y se recuerda 0,5 s para que nadie
+    // aparezca y desaparezca de golpe. Durante la compra, al terminar la ronda o con todo el equipo muerto se envía todo.
+    relevance() {
+      const R = this.relT || (this.relT = [{}, {}]), live = this.phase === 'live';
+      for (const T of [0, 1]) {
+        const mates = this.actors.filter(a => a.alive && a.team === T); const rel = R[T];
+        for (const e of this.actors) {
+          if (e.team === T) continue;
+          if (!live || !mates.length || !e.alive || this.now < (this.reveal ? this.reveal[T] : 0)) { rel[e.id] = this.now; continue; } // racha de radar o dron: el equipo ve a todos a propósito
+          let ok = (this.now - (e[T ? 'spot1' : 'spot0'] || -9) < .5) || (this.now - (e.firedAt || -9) < 1.2 && mates.some(o => Math.hypot(o.pos.x - e.pos.x, o.pos.z - e.pos.z) < 90));
+          const spd = Math.hypot(e.vel.x, e.vel.z), loud = spd > 2.8 && !e.walking && !e.crouch;
+          if (!ok) for (const o of mates) {
+            const d = Math.hypot(o.pos.x - e.pos.x, o.pos.z - e.pos.z); if (d < 7 || (loud && d < 30)) { ok = true; break; }
+            const eye = eyeOf(o), fx = e.pos.x + e.vel.x * .2, fz = e.pos.z + e.vel.z * .2;
+            for (const p of [[e.pos.x, e.pos.y + e.h - .12, e.pos.z], [e.pos.x, e.pos.y + e.h * .55, e.pos.z], [e.pos.x, e.pos.y + .3, e.pos.z], [fx, e.pos.y + e.h * .6, fz]]) if (this.W.visible(eye, p)) { ok = true; break; }
+            if (ok) break;
+          }
+          if (ok) rel[e.id] = this.now;
+        }
+      }
+    }
     broadcastState() {
       const B = this.bomb;
       const snap = {
@@ -1991,6 +2040,10 @@
         ev: this.events
       };
       this.events = [];
+      if (this.cull) {
+        if (this.tickN % 2 === 0 || !this.relT) this.relevance();
+        const R = this.relT; snap.aT = [0, 1].map(T => snap.a.filter((row, i) => { const e = this.actors[i]; return e.team === T || this.now - (R[T][e.id] || -9) < .5; })); delete snap.a;
+      }
       this.onBroadcast(snap);
       for (const [cid, id] of this.clients) { const a = this.actors[id]; if (a.pdirty || this.tickN % 10 === 0) { a.pdirty = false; this.onSend(cid, this.privateState(a)); } }
       if (this.rosterDirty || this.tickN % 20 === 0) { this.rosterDirty = false; this.onBroadcast(this.roster()); }
@@ -1999,5 +2052,5 @@
     roster() { return { t: 'r', rules: this.rules, brk: this.brk, code: this.code, map: this.mapId, cond: this.cond, diff: this.diffKey, gm: this.mode, hs: { atk: this.sideHumans('atk'), def: this.sideHumans('def') }, r: this.actors.map(a => [a.id, a.name, a.team, a.kills, a.deaths, a.assists, a.score, a.human ? 1 : 0, a.money, a.lvl | 0, a.camo || '', a.card || '', a.title || '', a.clanTag || '', a.outfit || '']) }; }
   }
 
-  return { OUTFITS, RANKS, rankOf, TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
+  return { cleanChat, OUTFITS, RANKS, rankOf, TEAM_SIZE, CHARMS, POSES, ANIM_CAMOS, WK_POOL, WEEKLY_XP, weeklyFor, MEDALS, RULE_OPTS, RULES_DEF, cleanRules, CLAN, weekId, clanWeekly, ORDERS, BREAK, PASS, CARDS, TITLES, passTier, STREAKS, TDM, WEATHER, pickCond, CH_POOL, needXP, dailyFor, xpFromEvent, CAMOS, RADIO, LADDER, GG_TIME, WEAPONS, NADES, GEAR, ZM, ROUND, MONEY, DIFF, TEAMS, BOT_NAMES, MAPS, MAP_IDS, World, Room, rayBox, rayActor, weaponDamage, clamp, lerp, rand, gauss, angDiff, inRect };
 });
