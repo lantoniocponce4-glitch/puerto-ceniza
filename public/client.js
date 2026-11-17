@@ -261,6 +261,21 @@ texAll();
 const std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: .9, metalness: 0 }, o));
 const CONT_COL = { blue: 0x2f5f80, red: 0x8c3a2b, green: 0x3d6b4c, orange: 0xb5622d, gray: 0x7b8084, teal: 0x2e6f6c, cream: 0xb9ad8f };
 const MAT = {};
+// Variación a gran escala (anti-mosaico): el tono de muros y suelo cambia suavemente según la posición en el mundo, así la
+// textura repetida deja de notarse; en los muros, además, suciedad y humedad acumuladas al pie (los primeros ~1,2 m).
+// Es ruido de valor en el propio sombreador: no usa texturas extra.
+const MACRO_GLSL = 'varying vec3 vWPos;\nfloat mvH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat mvN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mvH(i),mvH(i+vec2(1,0)),f.x),mix(mvH(i+vec2(0,1)),mvH(i+vec2(1,1)),f.x),f.y);}\n';
+function addMacro(mat, wall) {
+  if (!mat || mat.userData.macro) return mat; mat.userData.macro = 1;
+  mat.onBeforeCompile = sh => {
+    sh.vertexShader = 'varying vec3 vWPos;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = MACRO_GLSL + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n' +
+      'vec2 mq = vWPos.xz + vec2(vWPos.y * .7, -vWPos.y * .4); float mv = mvN(mq * .06) * .65 + mvN(mq * .23) * .35; diffuseColor.rgb *= mix(.84, 1.1, mv);' +
+      (wall ? 'float base = smoothstep(.0, 1.25, vWPos.y); diffuseColor.rgb *= mix(.7 + mvN(vWPos.xz * 1.7) * .12, 1., base);' : ''));
+  };
+  mat.customProgramCacheKey = () => 'macro' + (wall ? 1 : 0);
+  return mat;
+}
 function buildMats() {
   Object.assign(MAT, {
     bld: std({ map: TX.plaster, color: 0xe2dbd0 }), bld2: std({ map: TX.plaster2, color: 0xe8e2d8 }), stone: std({ map: TX.stone }), wood: std({ map: TX.wood }), crate: std({ map: TX.crate }), plank: std({ map: TX.plank, roughness: .85 }),
@@ -286,6 +301,7 @@ function buildMats() {
   for (const [k, col] of [['red', '#8c2f24'], ['blue', '#2b4f7a'], ['green', '#3d6448'], ['gray', '#6c7076']]) MAT['wagon:' + k] = std({ map: texWagon(col), roughness: .6, metalness: .35 });
   MAT['cont:blue'] = std({ map: TX.ribs, color: 0x1f4f9c, roughness: .6, metalness: .4 });
   for (const k in CONT_COL) if (!MAT['cont:' + k]) MAT['cont:' + k] = std({ map: TX.ribs, color: CONT_COL[k], roughness: .7, metalness: .35 });
+  for (const k of ['bld', 'bld2', 'stone', 'concrete', 'slab', 'ware', 'ware2', 'wareDark', 'city', 'city2', 'slabC', 'concrete2', 'stationH', 'stoneC']) addMacro(MAT[k], true);
 }
 buildMats();
 /* ---------- Relieve: mapas normales calculados desde las texturas (filtro Sobel sobre la luminancia) ---------- */
@@ -368,7 +384,7 @@ function buildWorld(mapId) {
   const gt = desert ? TX.sand : rural ? TX.gravel : city ? TX.asphalt : snow ? TX.snow : TX.concrete; const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std({ map: gt, color: desert ? 0xc9bfae : city || snow ? 0xffffff : rural ? 0x8f8676 : 0xb9ab96, roughness: city ? .55 : 1, metalness: city ? .15 : 0 }));
   ground.material.map = gt.clone(); ground.material.map.needsUpdate = true; ground.material.map.repeat.set(400 / 7, 400 / 7);
   if (prefs.gfx !== 'low') { const nm = normalOf(gt, desert ? 1.4 : snow ? 1 : 2.4); if (nm) { const n2 = nm.clone(); n2.needsUpdate = true; n2.repeat.set(400 / 7, 400 / 7); ground.material.normalMap = n2; ground.material.normalScale = new THREE.Vector2(.7, .7); } }
-  G.groundMat = ground.material; G.groundBase = { r: ground.material.roughness, m: ground.material.metalness }; ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground);
+  addMacro(ground.material, false); G.groundMat = ground.material; G.groundBase = { r: ground.material.roughness, m: ground.material.metalness }; ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground);
   // cajas del mapa
   for (const b of WORLD.colliders) {
     if (b.mat === 'perim') continue;
@@ -392,12 +408,45 @@ function buildWorld(mapId) {
   // letras de los sitios en el suelo
   for (const k in M.sites) { const s = M.sites[k]; const p = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: TX[k], transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 })); p.rotation.x = -Math.PI / 2; p.position.set(s.c[0], .02, s.c[1]); p.receiveShadow = true; worldGroup.add(p); }
   if (desert) desertDecor(M); else if (rural) ruralDecor(M); else if (city) cityDecor(M); else if (snow) snowDecor(M); else portDecor(M);
-  buildDust(desert || rural); if (prefs.gfx !== 'low' && !rural) hangCables();
+  buildDust(desert || rural); if (prefs.gfx !== 'low' && !rural) { hangCables(); placePosters(); }
   mergeStatic(worldGroup);
   condKey = ''; if (typeof clearDecals === 'function' && fx) clearDecals();
 }
 // Cables colgando entre edificios enfrentados (luz, teléfono): dan escala y vida a las calles. Solo adorno: no chocan ni frenan balas.
 // Van a más de 3,2 m de altura y con la caída de un cable real (catenaria aproximada).
+// Carteles y grafitis inventados (sin marcas reales) sobre fachadas que dan a la calle, a la altura de la vista.
+// Un solo material con un atlas de 8 diseños: el mapa los funde en una llamada de dibujo.
+let POSTER = null;
+function posterAtlas() {
+  if (POSTER) return POSTER; const W = 1024, H = 512, [c, x] = cnv(W, H, true); x.clearRect(0, 0, W, H); const cw = 256, ch = 256;
+  const cell = (i, f) => { x.save(); x.translate((i % 4) * cw, (i / 4 | 0) * ch); x.beginPath(); x.rect(0, 0, cw, ch); x.clip(); f(); x.restore(); };
+  const paper = (col, tilt) => { x.translate(128, 128); x.rotate(tilt); x.fillStyle = col; x.fillRect(-92, -116, 184, 232); for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(0,0,0,${rand(0, .06)})`; x.fillRect(rand(-92, 92), rand(-116, 116), 2, 2); } };
+  const tear = () => { x.fillStyle = 'rgba(0,0,0,0)'; x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 5; i++) { x.beginPath(); x.moveTo(rand(-92, 92), 116); for (let k = 0; k < 6; k++) x.lineTo(rand(-92, 92), rand(40, 116)); x.fill(); } x.globalCompositeOperation = 'source-over'; };
+  const txt = (t, y, sz, col, font = 'bold') => { x.fillStyle = col; x.font = `${font} ${sz}px sans-serif`; x.textAlign = 'center'; x.fillText(t, 0, y); };
+  cell(0, () => { paper('#e8dcc0', -.04); txt('SE BUSCA', -78, 30, '#3a2a1a'); x.fillStyle = '#5a4a38'; x.beginPath(); x.arc(0, -10, 34, 0, 7); x.fill(); x.fillRect(-46, 26, 92, 50); txt('RECOMPENSA', 98, 20, '#7a1f12'); tear(); });
+  cell(1, () => { paper('#f2c94c', .05); txt('MERCADO', -60, 30, '#1f3a5a'); txt('SÁBADO', -24, 26, '#1f3a5a'); x.fillStyle = '#c0392b'; x.fillRect(-70, 0, 140, 6); txt('FRUTAS · PAN · TELAS', 34, 15, '#2b2b2b', 'normal'); txt('PLAZA VIEJA', 80, 20, '#2b2b2b'); });
+  cell(2, () => { paper('#dfe6e8', -.02); txt('SE', -50, 40, '#b03a2e'); txt('ARRIENDA', 0, 34, '#b03a2e'); txt('☎ 555 0192', 60, 20, '#222', 'normal'); tear(); });
+  cell(3, () => { x.translate(128, 128); for (let k = 0; k < 3; k++) { x.save(); x.rotate(rand(-.2, .2)); x.fillStyle = ['#d9c9a8', '#c7d4d9', '#e3b9a4'][k]; x.fillRect(rand(-90, -40), rand(-100, -40), rand(100, 150), rand(120, 180)); x.restore(); } tear(); });
+  cell(4, () => { x.translate(128, 128); x.lineCap = 'round'; x.lineJoin = 'round'; for (const [col, w] of [['#111', 22], ['#2bb3c7', 14], ['#f5f0e6', 4]]) { x.strokeStyle = col; x.lineWidth = w; x.beginPath(); x.moveTo(-95, 30); x.bezierCurveTo(-60, -60, -30, 60, 0, -10); x.bezierCurveTo(25, -60, 55, 50, 95, -20); x.stroke(); } for (let i = 0; i < 6; i++) { x.fillStyle = '#2bb3c7'; x.fillRect(rand(-80, 80), rand(30, 60), 3, rand(10, 40)); } });
+  cell(5, () => { x.translate(128, 128); x.fillStyle = 'rgba(25,25,25,.85)'; x.font = 'bold 62px monospace'; x.textAlign = 'center'; x.fillText('ZONA', 0, -10); x.fillText('3', 0, 56); x.fillStyle = 'rgba(0,0,0,0)'; x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 4; i++) x.fillRect(-90, -50 + i * 30, 180, 3); x.globalCompositeOperation = 'source-over'; });
+  cell(6, () => { x.translate(128, 128); x.fillStyle = 'rgba(200,40,30,.85)'; x.beginPath(); x.moveTo(-90, -18); x.lineTo(30, -18); x.lineTo(30, -50); x.lineTo(95, 0); x.lineTo(30, 50); x.lineTo(30, 18); x.lineTo(-90, 18); x.closePath(); x.fill(); for (let i = 0; i < 8; i++) { x.fillRect(rand(-80, 20), rand(18, 40), 3, rand(8, 30)); } });
+  cell(7, () => { x.translate(128, 128); x.fillStyle = '#f2b705'; x.fillRect(-100, -60, 200, 120); x.fillStyle = '#111'; for (let i = -100; i < 100; i += 28) { x.beginPath(); x.moveTo(i, -60); x.lineTo(i + 14, -60); x.lineTo(i + 4, -44); x.lineTo(i - 10, -44); x.fill(); } txt('PRECAUCIÓN', 10, 26, '#111'); txt('PELIGRO DE CAÍDA', 38, 13, '#111', 'normal'); });
+  const t = new THREE.CanvasTexture(c); t.anisotropy = MAXA;
+  POSTER = shMat('poster', () => new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: .05, roughness: .95, polygonOffset: true, polygonOffsetFactor: -2 })); return POSTER;
+}
+function placePosters() {
+  const B = WORLD.colliders.filter(b => b.mat !== 'perim' && b.bid === undefined && b.minY < .5 && b.maxY >= 3 && Math.max(b.maxX - b.minX, b.maxZ - b.minZ) > 4 && /^(bld|bld2|city|city2|ware|ware2|stationH|concrete2)$/.test(b.mat));
+  if (!B.length) return; const mat = posterAtlas(); let seed = 11, n = 0; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let k = 0; k < 120 && n < 22; k++) {
+    const b = B[(rnd() * B.length) | 0], face = (rnd() * 4) | 0, axis = face < 2 ? 0 : 1, sg = face % 2 ? 1 : -1;
+    const a0 = axis ? b.minZ : b.minX, a1 = axis ? b.maxZ : b.maxX; if (a1 - a0 < 2.4) continue; const a = a0 + .9 + rnd() * (a1 - a0 - 1.8), at = axis ? (sg > 0 ? b.maxX : b.minX) : (sg > 0 ? b.maxZ : b.minZ);
+    const ox = axis ? at + sg * .7 : a, oz = axis ? a : at + sg * .7; if (solidAt(ox, oz, 1.5) || nearSecret(ox, oz, 2)) continue;
+    const id = (rnd() * 8) | 0, big = id >= 4, sz = big ? rand(1.4, 2.1) : rand(.75, 1), geo = new THREE.PlaneGeometry(sz, sz), uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, ((id % 4) + uv.getX(i)) / 4, 1 - ((id / 4 | 0) + 1 - uv.getY(i)) / 2);
+    const m = new THREE.Mesh(geo, mat), y = big ? rand(1.1, 1.8) : rand(1.35, 1.75);
+    m.position.set(axis ? at + sg * .012 : a, y, axis ? a : at + sg * .012); m.rotation.y = axis ? sg * Math.PI / 2 : (sg > 0 ? 0 : Math.PI); m.rotation.z = rand(-.06, .06); m.receiveShadow = true; worldGroup.add(m); n++;
+  }
+}
 function hangCables() {
   const B = WORLD.colliders.filter(b => b.mat !== 'perim' && b.bid === undefined && b.minY < .5 && b.maxY >= 4 && b.maxX - b.minX > 3 && b.maxZ - b.minZ > 3);
   const mat = shMat('cable', () => std({ color: 0x18191b, roughness: .55, metalness: .2 })); let n = 0; let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
@@ -504,12 +553,29 @@ function awning(axis, sg, a, at, y) {
   const px = axis === 0 ? a : at + sg * .55, pz = axis === 0 ? at + sg * .55 : a;
   m.position.set(px, y, pz); m.rotation.order = 'YXZ'; m.rotation.y = axis === 0 ? (sg > 0 ? 0 : Math.PI) : (sg > 0 ? Math.PI / 2 : -Math.PI / 2); m.rotation.x = -Math.PI / 2 + .45; worldGroup.add(m);
 }
+// Palmera: tronco curvo con anillos, dos coronas de hojas arqueadas (geometría doblada, no planos rectos), hojas secas colgando
+// y un racimo de cocos. Materiales compartidos para que el mapa las funda en pocas llamadas de dibujo.
+function frondGeo(L, W, rise, droop) {
+  // hoja en arco: sale hacia afuera (+z), sube un poco y cae en la punta; se angosta hacia el extremo
+  const g = new THREE.PlaneGeometry(W, L, 1, 10), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + L / 2) / L, x = p.getX(i); p.setXYZ(i, x * (1 - t * .7), (rise * t - droop * t * t) * L - Math.abs(x) * .18, L * t * .95); }
+  g.computeVertexNormals(); return g;
+}
 function palm(x, z, h) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); worldGroup.add(g);
-  const trunkMat = std({ color: 0x7a6248 }); let px = 0, py = 0; const segs = 7;
-  for (let i = 0; i < segs; i++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.16 - i * .01, .2 - i * .01, h / segs, 7), trunkMat); m.position.set(px, py + h / segs / 2, 0); m.castShadow = true; g.add(m); py += h / segs; px += .06 * i; }
-  const lm = new THREE.MeshStandardMaterial({ map: TX.leaf, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .9 });
-  for (let i = 0; i < 8; i++) { const l = new THREE.Mesh(new THREE.PlaneGeometry(.9, 3.4), lm); l.geometry.translate(0, -1.7, 0); l.position.set(px, py, 0); l.rotation.order = 'YXZ'; l.rotation.y = i / 8 * Math.PI * 2; l.rotation.x = -1.05 - Math.random() * .3; l.castShadow = true; g.add(l); }
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = Math.random() * 6; worldGroup.add(g);
+  const trunkMat = shMat('palmTrunk', () => std({ map: TX.bark, color: 0xc2a985, roughness: 1 })), ringMat = shMat('palmRing', () => std({ color: 0x9a8262, roughness: 1 }));
+  const lm = shMat('palmLeaf', () => new THREE.MeshStandardMaterial({ map: TX.leaf, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .85 }));
+  const dm = shMat('palmDead', () => new THREE.MeshStandardMaterial({ map: TX.leaf, color: 0x9a7a4a, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: 1 }));
+  const nut = shMat('palmNut', () => std({ color: 0x5b4426, roughness: .7 }));
+  let px = 0, py = 0; const segs = 9, lean = rand(.03, .07);
+  for (let i = 0; i < segs; i++) { const sh = h / segs, r0 = .21 - i * .009, r1 = r0 - .009; const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, sh, 9), trunkMat); m.position.set(px, py + sh / 2, 0); m.rotation.z = -lean * 1.2; m.castShadow = true; g.add(m);
+    if (i % 2) { const ring = new THREE.Mesh(new THREE.CylinderGeometry(r1 + .012, r1 + .012, .04, 9), ringMat); ring.position.set(px + lean * sh * .5, py + sh, 0); g.add(ring); } py += sh; px += lean * sh * (1 + i * .15); }
+  for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(.11, 8, 6), nut); const a = i * 1.6; c.position.set(px + Math.cos(a) * .16, py - .2, Math.sin(a) * .16); c.castShadow = true; g.add(c); }
+  // corona baja (hojas largas que caen), corona alta (más cortas y erguidas) y hojas secas colgando junto al tronco
+  for (const [n, L, W, rise, droop, mat, off] of [[9, 3.3, .9, .35, .95, lm, 0], [6, 2.4, .75, .75, .9, lm, .5], [4, 1.9, .55, -.2, .75, dm, .25]]) {
+    const geo = frondGeo(L, W, rise, droop);
+    for (let i = 0; i < n; i++) { const l = new THREE.Mesh(geo, mat); l.position.set(px, py + (mat === dm ? -.2 : 0), 0); l.rotation.order = 'YXZ'; l.rotation.y = (i + off) / n * Math.PI * 2 + rand(-.2, .2); l.rotation.x = rand(-.12, .12); l.castShadow = mat !== dm; g.add(l); }
+  }
 }
 function jar(x, z, s) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.22 * s, .16 * s, .7 * s, 10), std({ color: 0xa8643c })); m.position.set(x, .35 * s, z); m.castShadow = true; worldGroup.add(m); }
 function desertDecor(M) {
@@ -1558,6 +1624,7 @@ canvas.addEventListener('mousedown', e => {
 addEventListener('mouseup', e => { if (e.button === 1 && MK.on) markEnd(); if (isTouch) { if (e.button === 0 && !firePtrs.size && !me.autoFiring) me.fireHeld = false; return; } if (e.button === 0) me.fireHeld = false; if (e.button === 2) me.altHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 function onAlt() { const w = WEAPONS[me.cur]; if (!me.alive || !w || w.melee) return; if (w.scope) { if (me.drawT <= 0 && me.reloadT <= 0) { me.scoped = !me.scoped; me.altScope = false; if (me.scoped) { sNoise(.06, .2, 2600, 0, 0, 3); sTone(1900, .05, .05, 'sine', 2400, .03); } else { sNoise(.05, .16, 1800, 0, 0, 3); } } } }
+let magOn = false; // mirando a través de una mira de aumento (se oculta el arma)
 function canAds() { const w = WEAPONS[me.cur]; return !!(w && !w.melee && !w.scope && vm.cur && vm.cur.ads); }
 
 // táctil
@@ -1995,7 +2062,9 @@ function updateHUD(dt) {
   $('#reloadBar').style.opacity = me.reloadT > 0 ? 1 : 0; if (me.reloadT > 0 && w) $('#rbar').style.width = (1 - me.reloadT / w.reload) * 100 + '%';
   // mira
   const xh = $('#xh'); const scoped = me.alive && me.scopeK > .5 && !!(w && w.scope);
-  $('#scope').classList.toggle('on', scoped); if (me.alive && !(kc && kc.cine && kcActive())) vm.group.visible = !scoped;
+  // mira de aumento (SG-55): al apuntar del todo se mira a través del lente; antes el tubo de la mira tapaba media pantalla
+  const mag = me.alive && !scoped && !!(w && w.adsF) && (me.adsK || 0) > .72; magOn = mag;
+  $('#scope').classList.toggle('on', scoped || mag); $('#scope').classList.toggle('mag', mag); if (me.alive && !(kc && kc.cine && kcActive())) vm.group.visible = !(scoped || mag);
   const hideXh = !me.alive || scoped || (w && w.scope) || NADES[me.cur] || (me.adsK || 0) > .35; xh.style.opacity = hideXh ? 0 : 1;
   if (w && !hideXh) { const inacc = inaccuracy(w); const gap = 3 + inacc * (VH() / 2) / Math.tan(camera.fov * Math.PI / 360) * .9 + me.sprayI * .6; xh.children[0].style.top = (-gap - 7) + 'px'; xh.children[1].style.top = gap + 'px'; xh.children[2].style.left = (-gap - 7) + 'px'; xh.children[3].style.left = gap + 'px'; }
   // punto central al apuntar: referencia de tiro siempre visible, también con miras de hierro
@@ -3460,7 +3529,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
@@ -3470,7 +3539,7 @@ let last = performance.now(), menuT = 0;
 const PERF = { n: 0, t: performance.now(), fps: 0, ping: null, sent: 0 };
 function perfTick(now) {
   PERF.n++; if (now - PERF.t < 500) return; PERF.fps = Math.round(PERF.n * 1000 / (now - PERF.t)); PERF.n = 0; PERF.t = now;
-  if (net.mode === 'online' && net.ws && net.ws.readyState === 1 && now - PERF.sent > 2000) { PERF.sent = now; net.ws.send(JSON.stringify({ t: 'pg', c: Math.round(now) })); }
+  if (net.mode === 'online' && net.ws && net.ws.readyState === 1 && now - PERF.sent > 2000) { PERF.sent = now; net.ws.send(JSON.stringify({ t: 'pg', c: Math.round(now), r: PERF.ping || 0 })); } // r: ping medido, para la compensación de latencia del servidor
   const el = $('#perf'); if (!el) return; el.hidden = prefs.perf === false || G.state !== 'playing'; if (el.hidden) return;
   const pc = PERF.fps >= 55 ? 'ok' : PERF.fps >= 30 ? 'mid' : 'low', ping = net.mode === 'online' ? (PERF.ping === null ? '— ms' : PERF.ping + ' ms') : 'local', qc = PERF.ping === null ? '' : PERF.ping < 80 ? 'ok' : PERF.ping < 160 ? 'mid' : 'low';
   el.innerHTML = `<b class="${pc}">${PERF.fps}</b> FPS · <b class="${qc}">${ping}</b>`;
@@ -3611,7 +3680,7 @@ function updateVM(dt) {
   if (kc && kc.cine && kcActive()) { vm.group.visible = false; return; }
   if (!me.alive || (kc && kc.hl)) { updateSpecVM(dt); return; }
   if (vm.spec) { vm.spec = null; vm.specTeam = null; PCM.setFpTeam(me.team, myOutfit()); showVM(me.cur); }
-  const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5;
+  const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5 && !magOn;
   vm.kick = lerp(vm.kick, 0, 1 - Math.exp(-dt * 18)); vm.swing = Math.max(0, vm.swing - dt * 3); vm.throwT = Math.max(0, vm.throwT - dt * 2.5);
   // humo del cañón: tras una ráfaga larga o un disparo de escopeta o francotirador, sale un hilo de humo que sube
   vm.heat = Math.max(0, (vm.heat || 0) - dt * 1.4);

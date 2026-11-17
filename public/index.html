@@ -76,6 +76,11 @@ button{font:inherit;color:inherit}
 #scope.on{visibility:visible}
 #scope .lens{position:absolute;left:50%;top:50%;width:min(80vmin,94vw);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;box-shadow:0 0 0 220vmax #040506,inset 0 0 5vmin 1.5vmin rgba(0,0,0,.9),inset 0 0 0 .5vmin #0d0f11}
 #scope svg{position:absolute;inset:0;width:100%;height:100%}
+#scope .magret{display:none}
+/* mira de aumento: lente más grande, borde suave, retícula de chevrón (distinta a la del francotirador) */
+#scope.mag .lens{width:min(96vmin,100vw);box-shadow:0 0 0 220vmax rgba(4,5,6,.92),inset 0 0 7vmin 2vmin rgba(0,0,0,.75),inset 0 0 0 .4vmin #0d0f11}
+#scope.mag .lens>svg:first-child{display:none}
+#scope.mag .magret{display:block}
 #flashOv{position:absolute;inset:0;background:#fff;opacity:0}
 #dmgdirs{position:absolute;left:50%;top:50%;width:0;height:0}
 .dd{position:absolute;left:-60px;top:-150px;width:120px;height:150px;transform-origin:60px 150px}
@@ -710,7 +715,7 @@ html.calm #hud *{animation-duration:.01s!important}
       <g stroke="#050505" fill="none"><line x1="-100" y1="0" x2="-30" y2="0" stroke-width="2.6"/><line x1="30" y1="0" x2="100" y2="0" stroke-width="2.6"/><line x1="0" y1="30" x2="0" y2="100" stroke-width="2.6"/><line x1="0" y1="-100" x2="0" y2="-30" stroke-width="2.6"/>
       <line x1="-30" y1="0" x2="30" y2="0" stroke-width=".45"/><line x1="0" y1="-30" x2="0" y2="30" stroke-width=".45"/></g>
       <g fill="#050505"><circle cx="-24" cy="0" r=".9"/><circle cx="-16" cy="0" r=".9"/><circle cx="-8" cy="0" r=".9"/><circle cx="8" cy="0" r=".9"/><circle cx="16" cy="0" r=".9"/><circle cx="24" cy="0" r=".9"/><circle cx="0" cy="-24" r=".9"/><circle cx="0" cy="-16" r=".9"/><circle cx="0" cy="-8" r=".9"/><circle cx="0" cy="8" r=".9"/><circle cx="0" cy="16" r=".9"/><circle cx="0" cy="24" r=".9"/></g>
-      <circle cx="0" cy="0" r=".7" fill="#e3261a"/></svg></div></div>
+      <circle cx="0" cy="0" r=".7" fill="#e3261a"/></svg><svg class="magret" viewBox="-100 -100 200 200" aria-hidden="true"><g stroke="#0a0a0a" fill="none" stroke-width="1.2"><line x1="0" y1="6" x2="0" y2="60"/><line x1="-60" y1="0" x2="-8" y2="0"/><line x1="8" y1="0" x2="60" y2="0"/></g><path d="M-5 5 L0 0 L5 5" stroke="#e3261a" stroke-width="1.4" fill="none"/><circle cx="0" cy="0" r=".8" fill="#e3261a"/></svg></div></div>
     <div id="topbar">
       <div class="side t0"><div><div class="sc" id="sc0">0</div><div class="role lbl" id="role0">Defiende</div></div><div class="pips" id="pips0"></div></div>
       <div id="mid"><div id="timer">1:55</div><div id="rlabel">Ronda 1</div></div>

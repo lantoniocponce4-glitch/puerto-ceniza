@@ -68,6 +68,11 @@ Hay 24 armas. Para una nueva hay que tocar **todos** estos lugares:
 
 Ya existen: control de spray con patrones, imprecisión al moverse, saltar y aterrizar, agacharse y caminar silencioso, frenado al recibir balas (`tagT` en el cliente, `tagUntil` en el núcleo), frenado más rápido que la aceleración (contra-strafe), economía con bono por derrotas, kit de desactivación, casco y blindaje, penetración de materiales. Los disparos se validan en el servidor (`humanShot`): toda mecánica de daño va en `core.js`.
 
+## Latencia (ping)
+
+- El servidor está en Render, región Virginia, plan gratuito (0,15 de CPU). Una sala con 10 bots cuesta ~0,1 ms por tick y ~17 KB/s por cliente: el ping alto es sobre todo distancia de red.
+- Compensación de latencia (`Room.histPush`/`posAt`): cada tick se guarda ~1,2 s de posiciones; `humanShot` valida el blanco (distancia y si estaba expuesto) donde estaba hace `rtt/2 + 0,16 s` (máximo 0,35 s). El cliente manda su ping medido en el mensaje `pg` (`r`). Los bots no se rebobinan.
+
 ## Rendimiento (la prioridad en celular)
 
 - Presupuesto en celular: nada de posproceso salvo en «Ultra» (cada pasada de pantalla completa calienta el teléfono); antialias nativo; sombras cada 3 cuadros; menús a 30 FPS.
