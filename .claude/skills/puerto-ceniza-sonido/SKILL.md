@@ -49,6 +49,18 @@ Parámetros por arma en `WEAPONS[id].snd` (`core.js`):
 
 Regla: dos armas de la misma categoría deben diferenciarse en al menos un parámetro notorio (`cut` ±400 Hz o `dec` ±0,05 s), para reconocerlas de oído.
 
+## Explosiones (`sBoom(dist, grande, pan, ocluida)`)
+
+Capas: estallido de 30 ms (cerca), cuerpo con paso bajo que cae a 70 Hz, banda media que «empuja», golpe sub-grave de 62-75 Hz, retumbe lejano (más de 30 m) y escombros que caen entre 0,2 y 1,5 s después (menos de 45 m). Llega con retardo por la velocidad del sonido, pierde agudos con la distancia y con una pared de por medio, y viene del lado correcto.
+
+## Cegadora
+
+Además del pitido (por `uiSound`, fuera del filtro), todo el bus de efectos queda ahogado: `MUF.f` baja hasta ~500 Hz según `flashT` y se recupera a medida que pasa el destello.
+
+## Ambiente
+
+Cada tema tiene una cama mono más una cama ancha en estéreo (dos fuentes desfasadas a izquierda y derecha con ritmos de ráfaga distintos), así el viento va y viene de un lado a otro.
+
 ## Pasos (`sStep(v, pan, superficie, distancia)`)
 
 - Dos golpes: talón y, 65-85 ms después, punta o roce; el pie izquierdo y el derecho alternan con un tono 12 % distinto (sin eso suenan a metrónomo).

@@ -1397,10 +1397,16 @@
         const end = [o[0] + d[0] * tt, o[1] + d[1] * tt, o[2] + d[2] * tt];
         let ok = false, zone = 'c'; const v = (typeof r.hit === 'number') ? this.actors[r.hit | 0] : null;
         if (v && v.alive && v !== a && (v.team !== a.team || this.rules.ff)) {
-          const tol = 1.3 + Math.hypot(v.vel.x, v.vel.z) * .3; const hy = end[1] - v.pos.y;
-          if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.seeThrough(o, end) > 0 && this.exposed(o, v)) {
-            ok = true; zone = ['h', 'c', 'l'].includes(r.z) ? r.z : 'c'; if (zone === 'h' && hy < v.h - .5) zone = 'c';
-          }
+          // compensación de latencia: se valida contra donde estaba el blanco cuando el tirador lo vio
+          // (mitad del ping + el retraso de interpolación del cliente + un tick), como mucho 350 ms atrás
+          const back = a.human ? clamp((a.rtt || 0) / 2000 + .16, 0, .35) : 0, past = back ? this.posAt(v, this.now - back) : null, keep = v.pos;
+          if (past) v.pos = past;
+          try {
+            const tol = 1.3 + Math.hypot(v.vel.x, v.vel.z) * .3; const hy = end[1] - v.pos.y;
+            if (Math.hypot(end[0] - v.pos.x, end[2] - v.pos.z) < tol && hy > -.5 && hy < v.h + .6 && this.W.seeThrough(o, end) > 0 && this.exposed(o, v)) {
+              ok = true; zone = ['h', 'c', 'l'].includes(r.z) ? r.z : 'c'; if (zone === 'h' && hy < v.h - .5) zone = 'c';
+            }
+          } finally { v.pos = keep; }
         }
         if (!w.melee) { const tr = this.W.traceShot(o, d, Math.min(tt + .06, 200)); for (const h of tr.through) this.dmgBox(h.b, w.dmg * .8); if (tr.stop && tr.t <= tt + .06) this.dmgBox(tr.stop, w.dmg * .8); }
         if (ok) { const st = this.W.seeThrough(o, end) || 1, pf = st * (v.team === a.team ? .5 : 1); const cur = dmgBy.get(v) || { dmg: 0, zone: 'l' }; if (st < .999) cur.wb = true; cur.dmg += weaponDamage(w, tt, zone, v, !!m.alt) * pf; if (zone === 'h' || (zone === 'c' && cur.zone === 'l')) cur.zone = zone; dmgBy.set(v, cur); }
@@ -1923,8 +1929,15 @@
           const ang = Math.atan2(-dx, -dz), df = Math.abs(((ang - o.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (df > 1.0) continue;
           if (this.W.visible(eyeOf(o), [t.pos.x, t.pos.y + t.h * .7, t.pos.z], this.smokes)) { t[k] = this.now; break; } } }
     }
+    // historial de posiciones (último ~1,2 s) para la compensación de latencia de los disparos
+    histPush() { for (const a of this.actors) { if (!a.pos) continue; const H = a.hist || (a.hist = []); H.push([this.now, a.pos.x, a.pos.y, a.pos.z]); if (H.length > 26) H.shift(); } }
+    posAt(v, t) {
+      const H = v.hist; if (!H || !H.length || t >= H[H.length - 1][0]) return null;
+      for (let i = H.length - 1; i > 0; i--) { const b = H[i], q = H[i - 1]; if (q[0] <= t) { const k = (t - q[0]) / ((b[0] - q[0]) || 1); return { x: q[1] + (b[1] - q[1]) * k, y: q[2] + (b[2] - q[2]) * k, z: q[3] + (b[3] - q[3]) * k }; } }
+      return { x: H[0][1], y: H[0][2], z: H[0][3] };
+    }
     tick(dt) {
-      this.dt = dt; this.now += dt; this.tickN++; if (this.tickN % 5 === 0 && this.mode !== 'range') this.spotting();
+      this.dt = dt; this.now += dt; this.tickN++; this.histPush(); if (this.tickN % 5 === 0 && this.mode !== 'range') this.spotting();
       if (this.now >= this.phaseEnd) {
         if (this.phase === 'buy') { this.phase = 'live'; this.phaseEnd = this.now + this.R.live; this.liveStart = this.now; this.ev({ k: 'live' }); if (this.mode === 'waves') this.beginWave(); }
         else if (this.phase === 'live') {

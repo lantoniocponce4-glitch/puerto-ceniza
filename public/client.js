@@ -261,6 +261,21 @@ texAll();
 const std = (o) => new THREE.MeshStandardMaterial(Object.assign({ roughness: .9, metalness: 0 }, o));
 const CONT_COL = { blue: 0x2f5f80, red: 0x8c3a2b, green: 0x3d6b4c, orange: 0xb5622d, gray: 0x7b8084, teal: 0x2e6f6c, cream: 0xb9ad8f };
 const MAT = {};
+// Variación a gran escala (anti-mosaico): el tono de muros y suelo cambia suavemente según la posición en el mundo, así la
+// textura repetida deja de notarse; en los muros, además, suciedad y humedad acumuladas al pie (los primeros ~1,2 m).
+// Es ruido de valor en el propio sombreador: no usa texturas extra.
+const MACRO_GLSL = 'varying vec3 vWPos;\nfloat mvH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\nfloat mvN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mvH(i),mvH(i+vec2(1,0)),f.x),mix(mvH(i+vec2(0,1)),mvH(i+vec2(1,1)),f.x),f.y);}\n';
+function addMacro(mat, wall) {
+  if (!mat || mat.userData.macro) return mat; mat.userData.macro = 1;
+  mat.onBeforeCompile = sh => {
+    sh.vertexShader = 'varying vec3 vWPos;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = MACRO_GLSL + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n' +
+      'vec2 mq = vWPos.xz + vec2(vWPos.y * .7, -vWPos.y * .4); float mv = mvN(mq * .06) * .65 + mvN(mq * .23) * .35; diffuseColor.rgb *= mix(.84, 1.1, mv);' +
+      (wall ? 'float base = smoothstep(.0, 1.25, vWPos.y); diffuseColor.rgb *= mix(.7 + mvN(vWPos.xz * 1.7) * .12, 1., base);' : ''));
+  };
+  mat.customProgramCacheKey = () => 'macro' + (wall ? 1 : 0);
+  return mat;
+}
 function buildMats() {
   Object.assign(MAT, {
     bld: std({ map: TX.plaster, color: 0xe2dbd0 }), bld2: std({ map: TX.plaster2, color: 0xe8e2d8 }), stone: std({ map: TX.stone }), wood: std({ map: TX.wood }), crate: std({ map: TX.crate }), plank: std({ map: TX.plank, roughness: .85 }),
@@ -286,6 +301,7 @@ function buildMats() {
   for (const [k, col] of [['red', '#8c2f24'], ['blue', '#2b4f7a'], ['green', '#3d6448'], ['gray', '#6c7076']]) MAT['wagon:' + k] = std({ map: texWagon(col), roughness: .6, metalness: .35 });
   MAT['cont:blue'] = std({ map: TX.ribs, color: 0x1f4f9c, roughness: .6, metalness: .4 });
   for (const k in CONT_COL) if (!MAT['cont:' + k]) MAT['cont:' + k] = std({ map: TX.ribs, color: CONT_COL[k], roughness: .7, metalness: .35 });
+  for (const k of ['bld', 'bld2', 'stone', 'concrete', 'slab', 'ware', 'ware2', 'wareDark', 'city', 'city2', 'slabC', 'concrete2', 'stationH', 'stoneC']) addMacro(MAT[k], true);
 }
 buildMats();
 /* ---------- Relieve: mapas normales calculados desde las texturas (filtro Sobel sobre la luminancia) ---------- */
@@ -368,7 +384,7 @@ function buildWorld(mapId) {
   const gt = desert ? TX.sand : rural ? TX.gravel : city ? TX.asphalt : snow ? TX.snow : TX.concrete; const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), std({ map: gt, color: desert ? 0xc9bfae : city || snow ? 0xffffff : rural ? 0x8f8676 : 0xb9ab96, roughness: city ? .55 : 1, metalness: city ? .15 : 0 }));
   ground.material.map = gt.clone(); ground.material.map.needsUpdate = true; ground.material.map.repeat.set(400 / 7, 400 / 7);
   if (prefs.gfx !== 'low') { const nm = normalOf(gt, desert ? 1.4 : snow ? 1 : 2.4); if (nm) { const n2 = nm.clone(); n2.needsUpdate = true; n2.repeat.set(400 / 7, 400 / 7); ground.material.normalMap = n2; ground.material.normalScale = new THREE.Vector2(.7, .7); } }
-  G.groundMat = ground.material; G.groundBase = { r: ground.material.roughness, m: ground.material.metalness }; ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground);
+  addMacro(ground.material, false); G.groundMat = ground.material; G.groundBase = { r: ground.material.roughness, m: ground.material.metalness }; ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; worldGroup.add(ground);
   // cajas del mapa
   for (const b of WORLD.colliders) {
     if (b.mat === 'perim') continue;
@@ -392,12 +408,45 @@ function buildWorld(mapId) {
   // letras de los sitios en el suelo
   for (const k in M.sites) { const s = M.sites[k]; const p = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ map: TX[k], transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 })); p.rotation.x = -Math.PI / 2; p.position.set(s.c[0], .02, s.c[1]); p.receiveShadow = true; worldGroup.add(p); }
   if (desert) desertDecor(M); else if (rural) ruralDecor(M); else if (city) cityDecor(M); else if (snow) snowDecor(M); else portDecor(M);
-  buildDust(desert || rural); if (prefs.gfx !== 'low' && !rural) hangCables();
+  buildDust(desert || rural); if (prefs.gfx !== 'low' && !rural) { hangCables(); placePosters(); }
   mergeStatic(worldGroup);
   condKey = ''; if (typeof clearDecals === 'function' && fx) clearDecals();
 }
 // Cables colgando entre edificios enfrentados (luz, teléfono): dan escala y vida a las calles. Solo adorno: no chocan ni frenan balas.
 // Van a más de 3,2 m de altura y con la caída de un cable real (catenaria aproximada).
+// Carteles y grafitis inventados (sin marcas reales) sobre fachadas que dan a la calle, a la altura de la vista.
+// Un solo material con un atlas de 8 diseños: el mapa los funde en una llamada de dibujo.
+let POSTER = null;
+function posterAtlas() {
+  if (POSTER) return POSTER; const W = 1024, H = 512, [c, x] = cnv(W, H, true); x.clearRect(0, 0, W, H); const cw = 256, ch = 256;
+  const cell = (i, f) => { x.save(); x.translate((i % 4) * cw, (i / 4 | 0) * ch); x.beginPath(); x.rect(0, 0, cw, ch); x.clip(); f(); x.restore(); };
+  const paper = (col, tilt) => { x.translate(128, 128); x.rotate(tilt); x.fillStyle = col; x.fillRect(-92, -116, 184, 232); for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(0,0,0,${rand(0, .06)})`; x.fillRect(rand(-92, 92), rand(-116, 116), 2, 2); } };
+  const tear = () => { x.fillStyle = 'rgba(0,0,0,0)'; x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 5; i++) { x.beginPath(); x.moveTo(rand(-92, 92), 116); for (let k = 0; k < 6; k++) x.lineTo(rand(-92, 92), rand(40, 116)); x.fill(); } x.globalCompositeOperation = 'source-over'; };
+  const txt = (t, y, sz, col, font = 'bold') => { x.fillStyle = col; x.font = `${font} ${sz}px sans-serif`; x.textAlign = 'center'; x.fillText(t, 0, y); };
+  cell(0, () => { paper('#e8dcc0', -.04); txt('SE BUSCA', -78, 30, '#3a2a1a'); x.fillStyle = '#5a4a38'; x.beginPath(); x.arc(0, -10, 34, 0, 7); x.fill(); x.fillRect(-46, 26, 92, 50); txt('RECOMPENSA', 98, 20, '#7a1f12'); tear(); });
+  cell(1, () => { paper('#f2c94c', .05); txt('MERCADO', -60, 30, '#1f3a5a'); txt('SÁBADO', -24, 26, '#1f3a5a'); x.fillStyle = '#c0392b'; x.fillRect(-70, 0, 140, 6); txt('FRUTAS · PAN · TELAS', 34, 15, '#2b2b2b', 'normal'); txt('PLAZA VIEJA', 80, 20, '#2b2b2b'); });
+  cell(2, () => { paper('#dfe6e8', -.02); txt('SE', -50, 40, '#b03a2e'); txt('ARRIENDA', 0, 34, '#b03a2e'); txt('☎ 555 0192', 60, 20, '#222', 'normal'); tear(); });
+  cell(3, () => { x.translate(128, 128); for (let k = 0; k < 3; k++) { x.save(); x.rotate(rand(-.2, .2)); x.fillStyle = ['#d9c9a8', '#c7d4d9', '#e3b9a4'][k]; x.fillRect(rand(-90, -40), rand(-100, -40), rand(100, 150), rand(120, 180)); x.restore(); } tear(); });
+  cell(4, () => { x.translate(128, 128); x.lineCap = 'round'; x.lineJoin = 'round'; for (const [col, w] of [['#111', 22], ['#2bb3c7', 14], ['#f5f0e6', 4]]) { x.strokeStyle = col; x.lineWidth = w; x.beginPath(); x.moveTo(-95, 30); x.bezierCurveTo(-60, -60, -30, 60, 0, -10); x.bezierCurveTo(25, -60, 55, 50, 95, -20); x.stroke(); } for (let i = 0; i < 6; i++) { x.fillStyle = '#2bb3c7'; x.fillRect(rand(-80, 80), rand(30, 60), 3, rand(10, 40)); } });
+  cell(5, () => { x.translate(128, 128); x.fillStyle = 'rgba(25,25,25,.85)'; x.font = 'bold 62px monospace'; x.textAlign = 'center'; x.fillText('ZONA', 0, -10); x.fillText('3', 0, 56); x.fillStyle = 'rgba(0,0,0,0)'; x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 4; i++) x.fillRect(-90, -50 + i * 30, 180, 3); x.globalCompositeOperation = 'source-over'; });
+  cell(6, () => { x.translate(128, 128); x.fillStyle = 'rgba(200,40,30,.85)'; x.beginPath(); x.moveTo(-90, -18); x.lineTo(30, -18); x.lineTo(30, -50); x.lineTo(95, 0); x.lineTo(30, 50); x.lineTo(30, 18); x.lineTo(-90, 18); x.closePath(); x.fill(); for (let i = 0; i < 8; i++) { x.fillRect(rand(-80, 20), rand(18, 40), 3, rand(8, 30)); } });
+  cell(7, () => { x.translate(128, 128); x.fillStyle = '#f2b705'; x.fillRect(-100, -60, 200, 120); x.fillStyle = '#111'; for (let i = -100; i < 100; i += 28) { x.beginPath(); x.moveTo(i, -60); x.lineTo(i + 14, -60); x.lineTo(i + 4, -44); x.lineTo(i - 10, -44); x.fill(); } txt('PRECAUCIÓN', 10, 26, '#111'); txt('PELIGRO DE CAÍDA', 38, 13, '#111', 'normal'); });
+  const t = new THREE.CanvasTexture(c); t.anisotropy = MAXA;
+  POSTER = shMat('poster', () => new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: .05, roughness: .95, polygonOffset: true, polygonOffsetFactor: -2 })); return POSTER;
+}
+function placePosters() {
+  const B = WORLD.colliders.filter(b => b.mat !== 'perim' && b.bid === undefined && b.minY < .5 && b.maxY >= 3 && Math.max(b.maxX - b.minX, b.maxZ - b.minZ) > 4 && /^(bld|bld2|city|city2|ware|ware2|stationH|concrete2)$/.test(b.mat));
+  if (!B.length) return; const mat = posterAtlas(); let seed = 11, n = 0; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let k = 0; k < 120 && n < 22; k++) {
+    const b = B[(rnd() * B.length) | 0], face = (rnd() * 4) | 0, axis = face < 2 ? 0 : 1, sg = face % 2 ? 1 : -1;
+    const a0 = axis ? b.minZ : b.minX, a1 = axis ? b.maxZ : b.maxX; if (a1 - a0 < 2.4) continue; const a = a0 + .9 + rnd() * (a1 - a0 - 1.8), at = axis ? (sg > 0 ? b.maxX : b.minX) : (sg > 0 ? b.maxZ : b.minZ);
+    const ox = axis ? at + sg * .7 : a, oz = axis ? a : at + sg * .7; if (solidAt(ox, oz, 1.5) || nearSecret(ox, oz, 2)) continue;
+    const id = (rnd() * 8) | 0, big = id >= 4, sz = big ? rand(1.4, 2.1) : rand(.75, 1), geo = new THREE.PlaneGeometry(sz, sz), uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, ((id % 4) + uv.getX(i)) / 4, 1 - ((id / 4 | 0) + 1 - uv.getY(i)) / 2);
+    const m = new THREE.Mesh(geo, mat), y = big ? rand(1.1, 1.8) : rand(1.35, 1.75);
+    m.position.set(axis ? at + sg * .012 : a, y, axis ? a : at + sg * .012); m.rotation.y = axis ? sg * Math.PI / 2 : (sg > 0 ? 0 : Math.PI); m.rotation.z = rand(-.06, .06); m.receiveShadow = true; worldGroup.add(m); n++;
+  }
+}
 function hangCables() {
   const B = WORLD.colliders.filter(b => b.mat !== 'perim' && b.bid === undefined && b.minY < .5 && b.maxY >= 4 && b.maxX - b.minX > 3 && b.maxZ - b.minZ > 3);
   const mat = shMat('cable', () => std({ color: 0x18191b, roughness: .55, metalness: .2 })); let n = 0; let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
@@ -504,12 +553,29 @@ function awning(axis, sg, a, at, y) {
   const px = axis === 0 ? a : at + sg * .55, pz = axis === 0 ? at + sg * .55 : a;
   m.position.set(px, y, pz); m.rotation.order = 'YXZ'; m.rotation.y = axis === 0 ? (sg > 0 ? 0 : Math.PI) : (sg > 0 ? Math.PI / 2 : -Math.PI / 2); m.rotation.x = -Math.PI / 2 + .45; worldGroup.add(m);
 }
+// Palmera: tronco curvo con anillos, dos coronas de hojas arqueadas (geometría doblada, no planos rectos), hojas secas colgando
+// y un racimo de cocos. Materiales compartidos para que el mapa las funda en pocas llamadas de dibujo.
+function frondGeo(L, W, rise, droop) {
+  // hoja en arco: sale hacia afuera (+z), sube un poco y cae en la punta; se angosta hacia el extremo
+  const g = new THREE.PlaneGeometry(W, L, 1, 10), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const t = (p.getY(i) + L / 2) / L, x = p.getX(i); p.setXYZ(i, x * (1 - t * .7), (rise * t - droop * t * t) * L - Math.abs(x) * .18, L * t * .95); }
+  g.computeVertexNormals(); return g;
+}
 function palm(x, z, h) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); worldGroup.add(g);
-  const trunkMat = std({ color: 0x7a6248 }); let px = 0, py = 0; const segs = 7;
-  for (let i = 0; i < segs; i++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.16 - i * .01, .2 - i * .01, h / segs, 7), trunkMat); m.position.set(px, py + h / segs / 2, 0); m.castShadow = true; g.add(m); py += h / segs; px += .06 * i; }
-  const lm = new THREE.MeshStandardMaterial({ map: TX.leaf, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .9 });
-  for (let i = 0; i < 8; i++) { const l = new THREE.Mesh(new THREE.PlaneGeometry(.9, 3.4), lm); l.geometry.translate(0, -1.7, 0); l.position.set(px, py, 0); l.rotation.order = 'YXZ'; l.rotation.y = i / 8 * Math.PI * 2; l.rotation.x = -1.05 - Math.random() * .3; l.castShadow = true; g.add(l); }
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = Math.random() * 6; worldGroup.add(g);
+  const trunkMat = shMat('palmTrunk', () => std({ map: TX.bark, color: 0xc2a985, roughness: 1 })), ringMat = shMat('palmRing', () => std({ color: 0x9a8262, roughness: 1 }));
+  const lm = shMat('palmLeaf', () => new THREE.MeshStandardMaterial({ map: TX.leaf, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: .85 }));
+  const dm = shMat('palmDead', () => new THREE.MeshStandardMaterial({ map: TX.leaf, color: 0x9a7a4a, transparent: true, alphaTest: .4, side: THREE.DoubleSide, roughness: 1 }));
+  const nut = shMat('palmNut', () => std({ color: 0x5b4426, roughness: .7 }));
+  let px = 0, py = 0; const segs = 9, lean = rand(.03, .07);
+  for (let i = 0; i < segs; i++) { const sh = h / segs, r0 = .21 - i * .009, r1 = r0 - .009; const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, sh, 9), trunkMat); m.position.set(px, py + sh / 2, 0); m.rotation.z = -lean * 1.2; m.castShadow = true; g.add(m);
+    if (i % 2) { const ring = new THREE.Mesh(new THREE.CylinderGeometry(r1 + .012, r1 + .012, .04, 9), ringMat); ring.position.set(px + lean * sh * .5, py + sh, 0); g.add(ring); } py += sh; px += lean * sh * (1 + i * .15); }
+  for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(.11, 8, 6), nut); const a = i * 1.6; c.position.set(px + Math.cos(a) * .16, py - .2, Math.sin(a) * .16); c.castShadow = true; g.add(c); }
+  // corona baja (hojas largas que caen), corona alta (más cortas y erguidas) y hojas secas colgando junto al tronco
+  for (const [n, L, W, rise, droop, mat, off] of [[9, 3.3, .9, .35, .95, lm, 0], [6, 2.4, .75, .75, .9, lm, .5], [4, 1.9, .55, -.2, .75, dm, .25]]) {
+    const geo = frondGeo(L, W, rise, droop);
+    for (let i = 0; i < n; i++) { const l = new THREE.Mesh(geo, mat); l.position.set(px, py + (mat === dm ? -.2 : 0), 0); l.rotation.order = 'YXZ'; l.rotation.y = (i + off) / n * Math.PI * 2 + rand(-.2, .2); l.rotation.x = rand(-.12, .12); l.castShadow = mat !== dm; g.add(l); }
+  }
 }
 function jar(x, z, s) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.22 * s, .16 * s, .7 * s, 10), std({ color: 0xa8643c })); m.position.set(x, .35 * s, z); m.castShadow = true; worldGroup.add(m); }
 function desertDecor(M) {
@@ -782,7 +848,33 @@ const decalGeo = new THREE.PlaneGeometry(.11, .11); const decalMat = new THREE.M
 const DECALS = 200; const decalIM = new THREE.InstancedMesh(decalGeo, decalMat, DECALS); decalIM.frustumCulled = false; { const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); } scene.add(decalIM);
 const _dO = new THREE.Object3D(); const _dC = new THREE.Color(1, 1, 1); for (let i = 0; i < DECALS; i++) decalIM.setColorAt(i, _dC);
 const _v = new THREE.Vector3();
-function clearDecals() { const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); decalIM.instanceMatrix.needsUpdate = true; fx.di = 0; }
+// Explosión: bola de fuego que crece y se apaga, onda expansiva sobre el suelo, columna de humo que se queda y marca quemada.
+const BOOMV = { fire: [], rings: [], scorch: [], smoke: [], si: 0, mi: 0 };
+{
+  const fm = () => new THREE.SpriteMaterial({ map: TX.flash, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
+  for (let i = 0; i < 3; i++) { const s = new THREE.Sprite(fm()); s.visible = false; scene.add(s); const s2 = new THREE.Sprite(fm()); s2.visible = false; scene.add(s2); BOOMV.fire.push({ s, s2, t: 0 }); }
+  for (let i = 0; i < 16; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.smoke, color: 0x37332f, transparent: true, depthWrite: false, opacity: 0 })); sp.visible = false; scene.add(sp); BOOMV.smoke.push({ s: sp, t: 0, max: 1, sz: 1, vx: 0, vz: 0 }); }
+  const rg = new THREE.RingGeometry(.82, 1, 40).rotateX(-Math.PI / 2);
+  for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.visible = false; scene.add(m); BOOMV.rings.push({ m, t: 0 }); }
+  const [c, x] = cnv(128, 128, true); const g = x.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(8,6,4,.85)'); g.addColorStop(.45, 'rgba(18,14,10,.6)'); g.addColorStop(.8, 'rgba(30,24,18,.2)'); g.addColorStop(1, 'rgba(30,24,18,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 22; i++) { x.strokeStyle = 'rgba(10,8,6,.5)'; x.lineWidth = rand(1, 3); x.beginPath(); x.moveTo(64, 64); const a = rand(0, 6.28), r = rand(30, 62); x.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); x.stroke(); }
+  const st = new THREE.CanvasTexture(c), sg = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), sm = new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+  for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(sg, sm); m.visible = false; m.renderOrder = 1; scene.add(m); BOOMV.scorch.push(m); }
+}
+function boomFx(p, big) {
+  const gy = WORLD ? WORLD.groundAt(p.x, p.z, p.y + .5) : 0, few = prefs.gfx === 'low';
+  const f = BOOMV.fire.find(q => q.t <= 0) || BOOMV.fire[0]; f.s.position.set(p.x, gy + (big ? 1.4 : .8), p.z); f.s2.position.set(p.x, gy + (big ? 1.1 : .6), p.z); f.t = big ? .55 : .4; f.max = f.t; f.big = big; f.s.visible = f.s2.visible = true; f.s.material.rotation = Math.random() * 6; f.s2.material.rotation = Math.random() * 6;
+  if (!few) { const r = BOOMV.rings.find(q => q.t <= 0) || BOOMV.rings[0]; r.m.position.set(p.x, gy + .06, p.z); r.t = .38; r.big = big; r.m.visible = true;
+    for (let i = 0; i < (big ? 8 : 5); i++) { const m = BOOMV.smoke[BOOMV.mi++ % BOOMV.smoke.length]; m.s.position.set(p.x + rand(-1, 1) * (big ? 1.4 : .8), gy + rand(.4, big ? 2.2 : 1.3), p.z + rand(-1, 1) * (big ? 1.4 : .8)); m.max = m.t = rand(3.5, 5.5) * (big ? 1.3 : 1); m.sz = big ? rand(3.5, 5) : rand(2.2, 3.2); m.vx = rand(-.25, .25); m.vz = rand(-.25, .25); m.s.material.rotation = Math.random() * 6; m.s.visible = true; } }
+  const sc = BOOMV.scorch[BOOMV.si++ % BOOMV.scorch.length]; const sz = big ? 4.2 : 2.4; sc.scale.set(sz, 1, sz); sc.rotation.y = Math.random() * 6; sc.position.set(p.x, gy + .03, p.z); sc.visible = true;
+}
+function updateBoomFx(dt) {
+  for (const f of BOOMV.fire) if (f.t > 0) { f.t -= dt; const k = 1 - f.t / f.max, sc = (f.big ? 9 : 5.5) * (.35 + Math.sqrt(k) * .9); f.s.scale.set(sc, sc, sc); f.s2.scale.set(sc * .6, sc * .6, sc * .6); const o = Math.max(0, 1 - k * k); f.s.material.opacity = o; f.s2.material.opacity = o; f.s.material.color.setRGB(1.6, 1.05 - k * .5, .5 - k * .35); f.s2.material.color.setRGB(1.8, 1.5 - k * .6, 1 - k * .6); if (f.t <= 0) f.s.visible = f.s2.visible = false; }
+  // humo de la explosión: crece, sube despacio, deriva con el viento y se disipa en varios segundos
+  for (const m of BOOMV.smoke) if (m.t > 0) { m.t -= dt; const k = 1 - m.t / m.max; m.s.position.x += m.vx * dt + LIFE.wind[0] * dt * .4; m.s.position.z += m.vz * dt + LIFE.wind[1] * dt * .4; m.s.position.y += dt * (.6 - k * .4); const sc = m.sz * (.45 + Math.sqrt(k) * .9); m.s.scale.set(sc, sc, sc); m.s.material.opacity = Math.sin(Math.min(1, k * 6) * Math.PI / 2) * (1 - k * k) * .9; if (m.t <= 0) m.s.visible = false; }
+  for (const r of BOOMV.rings) if (r.t > 0) { r.t -= dt; const k = 1 - r.t / .38, sc = (r.big ? 10 : 5.5) * (.15 + k); r.m.scale.set(sc, 1, sc); r.m.material.opacity = (1 - k) * (1 - k) * .3; if (r.t <= 0) r.m.visible = false; }
+}
+function clearDecals() { for (const m of BOOMV.scorch) m.visible = false; const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < DECALS; i++) decalIM.setMatrixAt(i, z); decalIM.instanceMatrix.needsUpdate = true; fx.di = 0; }
 function decal(p, n, tint) { const i = fx.di++ % DECALS; _dO.position.set(p.x + n[0] * .012, p.y + n[1] * .012, p.z + n[2] * .012); _v.set(_dO.position.x + n[0], _dO.position.y + n[1], _dO.position.z + n[2]); _dO.lookAt(_v); _dO.rotateZ(Math.random() * 6); _dO.scale.setScalar(rand(.8, 1.2)); _dO.updateMatrix(); decalIM.setMatrixAt(i, _dO.matrix); decalIM.instanceMatrix.needsUpdate = true; const tc = tint || [1, 1, 1]; _dC.setRGB(tc[0], tc[1], tc[2]); decalIM.setColorAt(i, _dC); decalIM.instanceColor.needsUpdate = true; }
 const PN = 700; const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pLife = new Float32Array(PN); let pI = 0;
 for (let i = 0; i < PN; i++) pPos[i * 3 + 1] = -999;
@@ -886,6 +978,20 @@ function updateFlare(dt) {
   for (const f of flareEls) { const x = sx + (cx - sx) * f.t * 2 * (f.t ? 1 : 0), y = sy + (cy - sy) * f.t * 2 * (f.t ? 1 : 0); f.e.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`; }
   box.style.opacity = (v * .7).toFixed(2);
 }
+// Linternas de los demás soldados de noche: un haz de luz visible (sin luz real, barato) y un destello cuando te apuntan.
+const BEAM = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 64; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 0, 64); g.addColorStop(0, 'rgba(255,240,215,1)'); g.addColorStop(.35, 'rgba(255,240,215,.35)'); g.addColorStop(1, 'rgba(255,240,215,0)'); x.fillStyle = g; x.fillRect(0, 0, 4, 64);
+  const geo = new THREE.ConeGeometry(1.6, 9, 18, 1, true).rotateX(Math.PI / 2).translate(0, 0, -4.5);
+  const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xffe9c8, transparent: true, opacity: .06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const gl = new THREE.SpriteMaterial({ map: TX.flash, color: 0xfff0d8, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }); return { geo, mat, gl }; })();
+const _bf = new THREE.Vector3(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion();
+function actorBeam(a, m) {
+  const on = G.night && a.alive && prefs.gfx !== 'low';
+  if (!m.beam) { if (!on) return; m.beam = new THREE.Mesh(BEAM.geo, BEAM.mat); m.beam.position.set(.08, -.06, -.12); m.beam.frustumCulled = false; m.head.add(m.beam); m.glare = new THREE.Sprite(BEAM.gl.clone()); m.glare.position.set(.08, -.06, -.16); m.head.add(m.glare); }
+  m.beam.visible = m.glare.visible = on; if (!on) return;
+  // destello: más fuerte cuanto más directo te apunta la linterna
+  m.glare.getWorldPosition(_bp); _bf.set(0, 0, -1).applyQuaternion(m.head.getWorldQuaternion(_bq)); const to = camera.position.clone().sub(_bp), d = to.length(); to.multiplyScalar(1 / (d || 1));
+  const k = Math.max(0, _bf.dot(to)), g = Math.pow(k, 6); m.glare.material.opacity = g * .9; const sc = .35 + g * 1.4 * Math.min(1, d / 10); m.glare.scale.set(sc, sc, sc);
+}
 function bodyHitFx(V, e) {
   if (!V.pos) return; const A = e.a === me.id ? { x: camera.position.x, z: camera.position.z } : actors[e.a] && actors[e.a].pos; if (!A) return;
   const head = e.z === 'h', y = V.pos.y + (head ? (V.h || 1.8) - .14 : (V.h || 1.8) * .62); let nx = V.pos.x - A.x, nz = V.pos.z - A.z; const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L;
@@ -926,7 +1032,7 @@ function buildDust(on) {
 }
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
-  updateCasings(dt); updateSup(dt); updateFlare(dt);
+  updateCasings(dt); updateBoomFx(dt); updateSup(dt); updateFlare(dt);
   { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
   roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); setReverb(roofedNow ? 'indoor' : (WORLD && WORLD.map.theme) || 'open'); }
@@ -1065,7 +1171,9 @@ function voice(dur) { if (VOICES.n >= VOICES.max) return false; VOICES.n++; setT
 let heartT = 0;
 function updateHealthAudio(dt) {
   if (!AC || !MUF.f) return; const low = G.state === 'playing' && me.alive && me.hp > 0 && me.hp < 30;
-  MUF.k += ((low ? 1 : 0) - MUF.k) * Math.min(1, dt * 2.5); MUF.f.frequency.value = 20000 - MUF.k * 17500;
+  MUF.k += ((low ? 1 : 0) - MUF.k) * Math.min(1, dt * 2.5);
+  // tras una cegadora fuerte el oído queda ahogado (solo graves) y se recupera a medida que se pasa el destello
+  const deaf = clamp((flashT - .4) / 2.4, 0, 1); MUF.f.frequency.value = Math.min(20000 - MUF.k * 17500, 20000 - Math.sqrt(deaf) * 19500);
   if (low) { heartT -= dt; if (heartT <= 0) { heartT = .55 + me.hp / 60; uiSound(() => { sTone(58, .12, .32 * MUF.k, 'sine', 40); sTone(52, .1, .22 * MUF.k, 'sine', 38, .16); }); } }
 }
 class Pan { constructor(v, rel) { this.v = v; this.rel = rel; } valueOf() { return this.v; } }
@@ -1121,7 +1229,20 @@ function sShot(s, dist, pan, occ, w) {
 function killSound(head) { sNoise(.09, .45, 160, 0, 0, .8); sTone(620, .09, .16, 'triangle', 0, .02); sTone(930, .14, .16, 'triangle', 0, .08); sTone(1240, .22, .12, 'sine', 0, .14); if (head) { sTone(3100, .35, .1, 'sine', 2900, .05); sNoise(.12, .25, 5200, .05, 0, 4); } }
 function sTone(freq, dur, vol, type = 'sine', slide, delay = 0) { if (!AC) return; const t = AC.currentTime + delay; const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(OUT()); o.start(t); o.stop(t + dur + .02); }
 function sNoise(dur, vol, freq, delay = 0, pan = 0, q = 1.2) { if (!AC) return; const t = AC.currentTime + delay; const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); const p = panNode(pan); s.connect(f); f.connect(g); g.connect(p); p.connect(OUT()); s.start(t, Math.random(), dur + .05); }
-function sBoom(dist, big) { if (!AC) return; const t = AC.currentTime; const vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1); const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(big ? 1600 : 2200, t); f.frequency.exponentialRampToValueAtTime(80, t + (big ? 2 : 1)); const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + (big ? 2.4 : 1.2)); s.connect(f); f.connect(g); g.connect(OUT()); revSend(g, roofedNow ? .9 : .6); s.start(t, 0, 2.5); const o = AC.createOscillator(); o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(25, t + .6); const og = AC.createGain(); og.gain.setValueAtTime(vol * .9, t); og.gain.exponentialRampToValueAtTime(.001, t + .8); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9); }
+// Explosión en capas: estallido seco inicial, cuerpo que se apaga hacia los graves, golpe sub-grave que se siente en el pecho,
+// escombros que caen después y retumbe lejano. Llega con retardo (velocidad del sonido), pierde agudos con la distancia
+// y viene del lado correcto. Bajo techo suena más encerrada (más reverberación).
+function sBoom(dist, big, pan, occ) {
+  if (!AC) return; pan = pan || 0; const t = AC.currentTime + Math.min(.35, dist / 343), far = clamp(dist / 120, 0, 1), vol = clamp(2 / (1 + dist * .05), .08, 1.4) * (big ? 1.4 : 1) * (occ ? .7 : 1);
+  const lp = (big ? 1700 : 2400) * (1 - far * .75) * (occ ? .45 : 1);
+  const noise = (type, f0, f1, q, v, dur, sendRev, p) => { const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t + dur * .8); const g = AC.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); const pn = panNode(p === undefined ? pan : p); s.connect(f); f.connect(g); g.connect(pn); pn.connect(OUT()); if (sendRev) revSend(g, sendRev); s.start(t, Math.random(), dur + .1); return g; };
+  if (dist < 70) noise('highpass', 1800, 0, .7, vol * .7 * (1 - far), .03); // estallido
+  noise('lowpass', lp, 70, .8, vol, big ? 2.4 : 1.3, roofedNow ? 1 : .65); // cuerpo
+  noise('bandpass', 380 * (1 - far * .5), 140, .9, vol * .45, big ? 1.4 : .8); // medio que "empuja"
+  const o = AC.createOscillator(); o.frequency.setValueAtTime(big ? 62 : 75, t); o.frequency.exponentialRampToValueAtTime(24, t + .7); const og = AC.createGain(); og.gain.setValueAtTime(vol * .95, t); og.gain.exponentialRampToValueAtTime(.001, t + .85); o.connect(og); og.connect(OUT()); o.start(t); o.stop(t + .9);
+  if (dist > 30) noise('lowpass', 160, 0, .7, vol * .5, 2.6, .8); // retumbe lejano
+  if (dist < 45 && voice(1.6)) { const n = big ? 14 : 8; for (let i = 0; i < n; i++) { const dt0 = .18 + Math.random() * (big ? 1.3 : .8), tt = t + dt0, s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = rand(1800, 5200) * (1 - far); f.Q.value = 5; const g = AC.createGain(); g.gain.setValueAtTime(vol * rand(.03, .09) * (1 - dist / 45), tt); g.gain.exponentialRampToValueAtTime(.0005, tt + .05); const pn = panNode(clamp((+pan || 0) + rand(-.4, .4), -1, 1)); s.connect(f); f.connect(g); g.connect(pn); pn.connect(OUT()); s.start(tt, Math.random(), .07); } } // escombros
+}
 function surfAtFeet(x, z, y) {
   if (!WORLD) return 'stone'; let best = null; for (const b of WORLD.colliders) if (b.mat !== 'perim' && x > b.minX - .05 && x < b.maxX + .05 && z > b.minZ - .05 && z < b.maxZ + .05 && Math.abs(b.maxY - y) < .2) { best = b; break; }
   if (best) { const k = SURF_OF[best.mat]; return k === 'metal' || best.mat === 'metalP' ? 'metal' : k === 'wood' ? 'wood' : k === 'snow' ? 'snow' : 'stone'; }
@@ -1147,7 +1268,7 @@ function sStep(v, pan, surf, dist) {
 // ¿bajo techo? (eco corto y seco) o al aire libre (cola larga)
 function roofed(x, y, z) { if (!WORLD) return false; for (const b of WORLD.colliders) if (b.mat !== 'perim' && b.minY > y + .3 && b.minY < y + 7 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true; return false; }
 let roofedNow = false, roofedT = 0;
-const sReload = (w) => { const R = w.reload, rifle = w.slot === 1; sNoise(.05, .32, 2400, R * .12, 0, 3); sTone(780, .03, .08, 'square', 0, R * .14); sNoise(.12, .14, 900, R * .3, 0, .8); sNoise(.04, .42, 1700, R * .64, 0, 2.5); sTone(320, .05, .14, 'triangle', 0, R * .645); if (rifle) { sNoise(.08, .38, 2900, R * .84, 0, 2.2); sTone(1100, .04, .08, 'square', 0, R * .85); sNoise(.06, .32, 2200, R * .9, 0, 2.2); } else { sNoise(.06, .35, 3200, R * .86, 0, 2.5); sTone(1400, .03, .07, 'square', 0, R * .87); } };
+const sReload = (w) => { const R = w.reload, rifle = w.slot === 1; /* cuerpo: roce de tela al empezar, golpe sordo del cargador al entrar y golpe metálico al soltar el cerrojo */ sNoise(.22, .08, 700, 0, 0, .5); sTone(150, .07, .2, 'sine', 90, R * .64); if (rifle) { sTone(210, .06, .16, 'triangle', 120, R * .86); sNoise(.03, .3, 5200, R * .86, 0, 3); } sNoise(.05, .32, 2400, R * .12, 0, 3); sTone(780, .03, .08, 'square', 0, R * .14); sNoise(.12, .14, 900, R * .3, 0, .8); sNoise(.04, .42, 1700, R * .64, 0, 2.5); sTone(320, .05, .14, 'triangle', 0, R * .645); if (rifle) { sNoise(.08, .38, 2900, R * .84, 0, 2.2); sTone(1100, .04, .08, 'square', 0, R * .85); sNoise(.06, .32, 2200, R * .9, 0, 2.2); } else { sNoise(.06, .35, 3200, R * .86, 0, 2.5); sTone(1400, .03, .07, 'square', 0, R * .87); } };
 
 /* ================= ESTADO ================= */
 const G = { reveal: 0, drone: 0, state: 'menu', phase: 'buy', pt: 0, rd: 0, sc: [0, 0], s0: 'def', bomb: ['carried', 0, 0, 0, -1, 0, 0, 0, ''], roster: [], code: '', mapId: 'alcazaba', pub: true };
@@ -1337,8 +1458,8 @@ function handleEvent(e) {
     case 'planting': { const a = actors[e.v]; if (a) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 25) sNoise(.3, .25, 1800, 0, p.pan, 4); } break; }
     case 'defusing': { const a = actors[e.v]; if (a) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 30) { sNoise(.08, .4, 3000, 0, p.pan, 3); sNoise(.08, .4, 2400, .12, p.pan, 3); } } break; }
     case 'defused': announce('Carga desactivada', nameOf(e.v) + ' cortó el cable a tiempo', 2.5, 'var(--t0)'); sTone(520, .2, .2, 'sine', 780); break;
-    case 'boom': { const p = { x: e.p[0], y: e.p[1] + 1, z: e.p[2] }; boomLight.position.set(p.x, p.y + 2, p.z); boomLight.intensity = 30; for (let i = 0; i < 6; i++) burst(p, [0, 1, 0], [1, .6, .25], 14, 40); burst(p, [0, 1, 0], [.3, .28, .25], 8, 60); sBoom(posAudio(p.x, p.z).d, true); shake = 1.2; break; }
-    case 'boomhe': { const p = { x: e.p[0], y: e.p[1] + .2, z: e.p[2] }; boomLight.position.set(p.x, p.y + 1, p.z); boomLight.intensity = 12; burst(p, [0, 1, 0], [1, .65, .3], 9, 40); burst(p, [0, 1, 0], [.35, .32, .28], 5, 30); const d = posAudio(p.x, p.z).d; sBoom(d, false); if (d < 12) shake = .6 * (1 - d / 12); break; }
+    case 'boom': { const p = { x: e.p[0], y: e.p[1] + 1, z: e.p[2] }; boomLight.position.set(p.x, p.y + 2, p.z); boomLight.intensity = 30; for (let i = 0; i < 6; i++) burst(p, [0, 1, 0], [1, .6, .25], 14, 40); burst(p, [0, 1, 0], [.3, .28, .25], 8, 60); boomFx(p, true); { const pa = posAudio(p.x, p.z); sBoom(pa.d, true, pa.pan, pa.d > 4 && !WORLD.visible([camera.position.x, camera.position.y, camera.position.z], [p.x, p.y + .5, p.z], [])); } shake = 1.2; break; }
+    case 'boomhe': { const p = { x: e.p[0], y: e.p[1] + .2, z: e.p[2] }; boomLight.position.set(p.x, p.y + 1, p.z); boomLight.intensity = 12; burst(p, [0, 1, 0], [1, .65, .3], 9, 40); burst(p, [0, 1, 0], [.35, .32, .28], 5, 30); boomFx(p, false); const pa = posAudio(p.x, p.z), d = pa.d; sBoom(d, false, pa.pan, d > 4 && !WORLD.visible([camera.position.x, camera.position.y, camera.position.z], [p.x, p.y + .5, p.z], [])); if (d < 12) shake = .6 * (1 - d / 12); break; }
     case 'flash': onFlash(e.p); break;
     case 'fire': makeFire(e.id, e.p[0], e.p[1], e.p[2], e.r || 2.6, e.d || 7); break;
     case 'fireout': if (fires.has(e.id)) killFire(e.id, true); else if (e.p) { burst({ x: e.p[0], y: .4, z: e.p[2] }, [0, 1, 0], [.8, .8, .8], 2, 10); } break;
@@ -1389,7 +1510,7 @@ function handleEvent(e) {
       break;
     }
     case 'demote': if (e.v === me.id) toast('Te apuñalaron: bajas al nivel ' + (e.l + 1)); else if (e.a === me.id) toast('Le quitaste un nivel a ' + nameOf(e.v)); break;
-    case 'mstart': me.spr = [0, 0, 0, 0]; G.hlBest = null; $('#hlSave').hidden = true; $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de ' + ((G.rules && G.rules.rounds) || 5) + ' rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
+    case 'mstart': me.spr = [0, 0, 0, 0]; G.hlBest = null; $('#hlSave').hidden = true; $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de ' + ((G.rules && G.rules.rounds) || 5) + ' rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: L enciende o apaga la linterna'), 3200); break;
     case 'votes': G.votes = e.v || {}; drawVotes(); break;
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
@@ -1415,7 +1536,7 @@ function onFlash(p) {
   if (d > 24 || !WORLD.visible(o, p, smokeList())) return;
   const f = new THREE.Vector3(); camera.getWorldDirection(f); const dot = ((p[0] - o[0]) * f.x + (p[1] - o[1]) * f.y + (p[2] - o[2]) * f.z) / (d || 1);
   const k = (dot > .5 ? 1 : dot > 0 ? .6 : .2) * (1 - d / 24);
-  if (k > .08) { flashT = Math.max(flashT, .5 + k * 3.4); if (k > .4) sTone(3400, 2.5 * k, .08, 'sine'); }
+  if (k > .08) { flashT = Math.max(flashT, .5 + k * 3.4); if (k > .4) uiSound(() => { sTone(3400, 2.8 * k, .07 * k + .02, 'sine'); sTone(3460, 2.4 * k, .03 * k, 'sine'); }); } // pitido en los oídos (fuera del filtro, se oye limpio)
 }
 function smokeList() { const l = []; for (const s of smokes.values()) if (nowS() - s.born > .8) l.push({ x: s.x, y: 1.8, z: s.z, r: 3.3 }); return l; }
 
@@ -1503,6 +1624,7 @@ canvas.addEventListener('mousedown', e => {
 addEventListener('mouseup', e => { if (e.button === 1 && MK.on) markEnd(); if (isTouch) { if (e.button === 0 && !firePtrs.size && !me.autoFiring) me.fireHeld = false; return; } if (e.button === 0) me.fireHeld = false; if (e.button === 2) me.altHeld = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 function onAlt() { const w = WEAPONS[me.cur]; if (!me.alive || !w || w.melee) return; if (w.scope) { if (me.drawT <= 0 && me.reloadT <= 0) { me.scoped = !me.scoped; me.altScope = false; if (me.scoped) { sNoise(.06, .2, 2600, 0, 0, 3); sTone(1900, .05, .05, 'sine', 2400, .03); } else { sNoise(.05, .16, 1800, 0, 0, 3); } } } }
+let magOn = false; // mirando a través de una mira de aumento (se oculta el arma)
 function canAds() { const w = WEAPONS[me.cur]; return !!(w && !w.melee && !w.scope && vm.cur && vm.cur.ads); }
 
 // táctil
@@ -1819,11 +1941,11 @@ function updateRemotes(dt) {
       m.body.position.y = -.26 * b2 * (1 - e2) - .05 * e2 - (a.fallH ? .25 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2) * (1 - k) : 0);
       for (let i = 0; i < m.legs.length; i++) { const L = m.legs[i]; L.hip.rotation.x = (i ? .7 : 1.0) * b2 * (1 - e2 * .55); L.knee.rotation.x = -(i ? 1.2 : 1.6) * b2 * (1 - e2 * .5); }
       m.head.rotation.x = .55 * e2 * Math.sign(a.fallX === undefined ? 1 : a.fallX); m.head.rotation.z = (a.fallZ || 0) * .5 * e2; m.upper.rotation.z = 0;
-      m.hand.visible = a.deadT < .14; m.g.visible = a.deadT < 6; continue; }
+      m.hand.visible = a.deadT < .14; m.g.visible = a.deadT < 6; if (m.beam) m.beam.visible = m.glare.visible = false; continue; }
     m.g.visible = !specMe; m.body.rotation.x = 0; m.body.rotation.z = 0; m.body.position.y = 0; a.fallX = undefined; m.hand.visible = true; m.head.rotation.z = 0;
     const spd = Math.hypot(a.vx, a.vz); a.walkPh += dt * spd * 2.2; const cr = clamp((1.8 - a.h) / .58, 0, 1);
     const sy = Math.sin(a.yaw), cy = Math.cos(a.yaw); m.animate(spd, a.walkPh, cr, a.pitch, { dt, yaw: a.yaw, reload: !!(a.flags & 1024), plant: !!(a.flags & 8) && spd < .5, fw: -a.vx * sy - a.vz * cy, sd: a.vx * cy - a.vz * sy, walk: !!(a.flags & 2), air: Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) > .2 }); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42; if (a.flinchT > 0) { a.flinchT -= dt; const f = Math.sin(a.flinchT / .22 * Math.PI) * (a.flinchH ? .22 : .12); m.upper.rotation.x -= f; if (a.flinchH) m.head.rotation.x -= f * 1.4; }
-    setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
+    setModelGun(m, a.cur); actorBeam(a, m); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
     a.flashT = (a.flashT || 0) - dt; m.flash.visible = a.flashT > 0; if (m.flash.visible) { if (!m.flash.userData.flame) addFlames(m.flash); jitterFlash(m.flash); }
     // pasos audibles
     if (spd > 2.8 && !(a.flags & 2) && cr < .3 && Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) < .1) { a.stepT -= dt * spd; if (a.stepT <= 0) { a.stepT = 2.3; const sfA = surfAtFeet(a.pos.x, a.pos.z, a.pos.y); stepDust(a, sfA); const p = posAudio(a.pos.x, a.pos.z); if (p.d < 28) sStep(.22 * (1 - p.d / 28) * (a.team === me.team ? .6 : 1), p.pan, sfA, Math.max(.01, p.d)); } }
@@ -1940,7 +2062,9 @@ function updateHUD(dt) {
   $('#reloadBar').style.opacity = me.reloadT > 0 ? 1 : 0; if (me.reloadT > 0 && w) $('#rbar').style.width = (1 - me.reloadT / w.reload) * 100 + '%';
   // mira
   const xh = $('#xh'); const scoped = me.alive && me.scopeK > .5 && !!(w && w.scope);
-  $('#scope').classList.toggle('on', scoped); if (me.alive && !(kc && kc.cine && kcActive())) vm.group.visible = !scoped;
+  // mira de aumento (SG-55): al apuntar del todo se mira a través del lente; antes el tubo de la mira tapaba media pantalla
+  const mag = me.alive && !scoped && !!(w && w.adsF) && (me.adsK || 0) > .72; magOn = mag;
+  $('#scope').classList.toggle('on', scoped || mag); $('#scope').classList.toggle('mag', mag); if (me.alive && !(kc && kc.cine && kcActive())) vm.group.visible = !(scoped || mag);
   const hideXh = !me.alive || scoped || (w && w.scope) || NADES[me.cur] || (me.adsK || 0) > .35; xh.style.opacity = hideXh ? 0 : 1;
   if (w && !hideXh) { const inacc = inaccuracy(w); const gap = 3 + inacc * (VH() / 2) / Math.tan(camera.fov * Math.PI / 360) * .9 + me.sprayI * .6; xh.children[0].style.top = (-gap - 7) + 'px'; xh.children[1].style.top = gap + 'px'; xh.children[2].style.left = (-gap - 7) + 'px'; xh.children[3].style.left = gap + 'px'; }
   // punto central al apuntar: referencia de tiro siempre visible, también con miras de hierro
@@ -2192,7 +2316,7 @@ function enterGame() {
   if (net.mode === 'online') try { history.replaceState(null, '', '?sala=' + G.code); } catch (e) { }
   try { history.pushState({ pc: 1 }, '', location.href); } catch (e) { }
   if (typeof SQ !== 'undefined' && SQ.st && SQ.ready && !SQ.st.lead) { SQ.ready = false; sqSendMsg({ t: 'sq_ready', r: false }); }
-  $('#app').classList.add('playing'); blurUI(); resetAim(); applyCond(G.cond); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 2500);
+  $('#app').classList.add('playing'); blurUI(); resetAim(); applyCond(G.cond); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: L enciende o apaga la linterna'), 2500);
 }
 function leaveToMenu() {
   G.hlBest = null; stopRec(); $('#hlSave').hidden = true;
@@ -3163,6 +3287,10 @@ function startAmbience() {
   const bed = (type, freq, q, vol, lfoF, lfoD) => { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = AC.createGain(); g.gain.value = vol;
     if (lfoF) { const l = AC.createOscillator(); l.frequency.value = lfoF; const lg = AC.createGain(); lg.gain.value = vol * lfoD; l.connect(lg); lg.connect(g.gain); l.start(); src.push(l); } s.connect(f); f.connect(g); g.connect(bus.amb); s.start(0, Math.random() * 1.5); src.push(s); };
   const hum = (freq, vol) => { const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 240; const g = AC.createGain(); g.gain.value = vol; o.connect(f); f.connect(g); g.connect(bus.amb); o.start(); src.push(o); };
+  // ancho estéreo: una segunda cama igual pero desfasada a cada lado, y ráfagas de viento que van y vienen de un lado a otro
+  const wide = (type, freq, q, vol, lfoF) => { for (const pv of [-.75, .75]) { const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq * (pv < 0 ? .93 : 1.07); f.Q.value = q; const g = AC.createGain(); g.gain.value = vol * .6; const l = AC.createOscillator(); l.frequency.value = lfoF * (pv < 0 ? .83 : 1.21); const lg = AC.createGain(); lg.gain.value = vol * .55; l.connect(lg); lg.connect(g.gain); l.start(); const pn = AC.createStereoPanner ? AC.createStereoPanner() : AC.createGain(); if (pn.pan) pn.pan.value = pv; s.connect(f); f.connect(g); g.connect(pn); pn.connect(bus.amb); s.start(0, Math.random() * 1.5); src.push(s, l); } };
+  if (th === 'desert' || th === 'snow' || th === 'rural') wide('bandpass', th === 'snow' ? 520 : 760, .7, th === 'rural' ? .01 : .022, .07);
+  else if (th === 'port') wide('lowpass', 240, .7, .03, .06); else if (th === 'city') wide('lowpass', 210, .6, .028, .05); else wide('lowpass', 180, .7, .02, .05);
   if (th === 'port') { bed('lowpass', 180, .7, .05, .08, .6); bed('bandpass', 500, .5, .012, .13, .8); }
   else if (th === 'snow') { bed('bandpass', 420, .8, .045, .11, .9); }
   else if (th === 'rural') { bed('lowpass', 300, .5, .012, .05, .5); }
@@ -3217,7 +3345,18 @@ function makeSand() {
   const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xc9a06a, size: .13, transparent: true, opacity: .6, depthWrite: false })); p.frustumCulled = false; envGroup.add(p);
   return { kind: 'arena', obj: p, N };
 }
+// salpicaduras de lluvia en el suelo alrededor del jugador (puntos reciclados que nacen, suben un poco y se apagan)
+let SPL = null;
+function rainSplash(dt) {
+  if (prefs.gfx === 'low') return;
+  if (!SPL) { const N = 90, pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) pos[i * 3 + 1] = -99; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfdbe6, size: .09, transparent: true, opacity: .75, depthWrite: false })); p.frustumCulled = false; scene.add(p); SPL = { p, pos, life: new Float32Array(N), i: 0, acc: 0 }; }
+  SPL.p.visible = true; SPL.acc += dt * 160; const c = camera.position;
+  while (SPL.acc > 1) { SPL.acc--; const k = SPL.i++ % SPL.life.length, x = c.x + rand(-11, 11), z = c.z + rand(-11, 11); SPL.pos[k * 3] = x; SPL.pos[k * 3 + 1] = (WORLD ? WORLD.groundAt(x, z, c.y + 1) : 0) + .03; SPL.pos[k * 3 + 2] = z; SPL.life[k] = .14; }
+  for (let k = 0; k < SPL.life.length; k++) if (SPL.life[k] > 0) { SPL.life[k] -= dt; SPL.pos[k * 3 + 1] += dt * .5; if (SPL.life[k] <= 0) SPL.pos[k * 3 + 1] = -99; }
+  SPL.p.geometry.attributes.position.needsUpdate = true;
+}
 function updateWeather(dt) {
+  if (weatherFx && weatherFx.kind === 'lluvia') rainSplash(dt); else if (SPL) SPL.p.visible = false;
   flashlight.intensity = G.night && me.alive && flashOn && G.state === 'playing' ? 3.2 : 0;
   if (!weatherFx) return; const o = weatherFx.obj; o.position.set(Math.floor(camera.position.x / 4) * 4, 0, Math.floor(camera.position.z / 4) * 4);
   const a = o.geometry.attributes.position.array;
@@ -3390,7 +3529,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
@@ -3400,7 +3539,7 @@ let last = performance.now(), menuT = 0;
 const PERF = { n: 0, t: performance.now(), fps: 0, ping: null, sent: 0 };
 function perfTick(now) {
   PERF.n++; if (now - PERF.t < 500) return; PERF.fps = Math.round(PERF.n * 1000 / (now - PERF.t)); PERF.n = 0; PERF.t = now;
-  if (net.mode === 'online' && net.ws && net.ws.readyState === 1 && now - PERF.sent > 2000) { PERF.sent = now; net.ws.send(JSON.stringify({ t: 'pg', c: Math.round(now) })); }
+  if (net.mode === 'online' && net.ws && net.ws.readyState === 1 && now - PERF.sent > 2000) { PERF.sent = now; net.ws.send(JSON.stringify({ t: 'pg', c: Math.round(now), r: PERF.ping || 0 })); } // r: ping medido, para la compensación de latencia del servidor
   const el = $('#perf'); if (!el) return; el.hidden = prefs.perf === false || G.state !== 'playing'; if (el.hidden) return;
   const pc = PERF.fps >= 55 ? 'ok' : PERF.fps >= 30 ? 'mid' : 'low', ping = net.mode === 'online' ? (PERF.ping === null ? '— ms' : PERF.ping + ' ms') : 'local', qc = PERF.ping === null ? '' : PERF.ping < 80 ? 'ok' : PERF.ping < 160 ? 'mid' : 'low';
   el.innerHTML = `<b class="${pc}">${PERF.fps}</b> FPS · <b class="${qc}">${ping}</b>`;
@@ -3541,7 +3680,7 @@ function updateVM(dt) {
   if (kc && kc.cine && kcActive()) { vm.group.visible = false; return; }
   if (!me.alive || (kc && kc.hl)) { updateSpecVM(dt); return; }
   if (vm.spec) { vm.spec = null; vm.specTeam = null; PCM.setFpTeam(me.team, myOutfit()); showVM(me.cur); }
-  const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5;
+  const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5 && !magOn;
   vm.kick = lerp(vm.kick, 0, 1 - Math.exp(-dt * 18)); vm.swing = Math.max(0, vm.swing - dt * 3); vm.throwT = Math.max(0, vm.throwT - dt * 2.5);
   // humo del cañón: tras una ráfaga larga o un disparo de escopeta o francotirador, sale un hilo de humo que sube
   vm.heat = Math.max(0, (vm.heat || 0) - dt * 1.4);

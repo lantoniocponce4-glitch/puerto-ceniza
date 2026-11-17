@@ -227,7 +227,7 @@ wss.on('connection', ws => {
     const nowMs = Date.now(); tok = Math.min(80, tok + (nowMs - tokT) * .06); tokT = nowMs; if (--tok < 0) { if (tok < -200) ws.terminate(); return; }
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m !== 'object') return;
-    if (m.t === 'pg') { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'pg', c: Number(m.c) || 0 })); return; }
+    if (m.t === 'pg') { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'pg', c: Number(m.c) || 0 })); if (room) { const id = room.clients.get(cid); const r0 = Number(m.r); if (id != null && room.actors[id] && Number.isFinite(r0)) room.actors[id].rtt = Math.max(0, Math.min(500, r0)); } return; }
     if (typeof m.t === 'string' && m.t.startsWith('sq_')) { if (!room) await sqMessage(ws, cid, m, async tk => (tk ? await ACC.fromToken(String(tk)) : null)); return; }
     if (m.t === 'join' && !room && !joining) {
       joining = true;

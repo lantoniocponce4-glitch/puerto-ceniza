@@ -67,6 +67,13 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Polvo bajo los pies (`stepDust`): solo al correr sobre arena, tierra o nieve (caminar o agacharse no levanta polvo), hasta 55 m. Es información táctica: delata a quien corre.
 - Bala cercana (`nearMiss`): si el disparo enemigo pasa a menos de 2,4 m, zumbido con barrido de 2,6 a 0,7 kHz (y chasquido si es fusil) desde ese lado, y la vista se cierra un instante (`#supOv`, no en modo calmo).
 - Destello del sol (`updateFlare`): capas CSS en `#flare` sobre la línea sol-centro, solo de día y sin clima, se apaga si algo tapa el sol (rayo cada 0,12 s). Mantenerlo sutil: un destello fuerte tapa enemigos.
+- Explosiones (`boomFx`/`updateBoomFx`): bola de fuego en dos capas, onda expansiva sobre el suelo, humo propio (16 sprites, no comparte grupo con el polvo de pasos, que lo reciclaba) que deriva con el viento, y marca quemada en el piso que se borra con `clearDecals`.
+- Linternas de los demás de noche (`actorBeam`): cono aditivo con degradado colgado de la cabeza (sin luz real) y destello que crece cuando te apuntan. Se apagan al morir y en «Livianos».
+- Lluvia: salpicaduras en el suelo alrededor del jugador (`rainSplash`, 90 puntos reciclados).
+- Variación a gran escala (`addMacro`): ruido de valor en el sombreador según la posición en el mundo; muros (con suciedad al pie, primeros 1,25 m) y suelo. Quita el efecto mosaico sin texturas extra. Aplícalo a todo material grande nuevo de muros o suelo.
+- Palmeras (`palm`/`frondGeo`): hojas en arco (salen hacia +z, suben `rise` y caen `droop`), dos coronas, hojas secas colgando, cocos; materiales compartidos.
+- Carteles y grafitis (`placePosters`): atlas de 8 diseños inventados (sin marcas reales) en un material; hasta 22 por mapa en fachadas que dan a la calle, nunca en la boca de un pasadizo.
+- Mira de aumento (armas con `adsF`, como la SG-55): al apuntar del todo se oculta el arma y se muestra `#scope.mag` (lente grande y chevrón). Sin esto, el tubo de la mira tapaba la pantalla.
 - Soldados: rostros pintados a 512×256 (poros, mejillas, ojos con iris y brillo, cejas por trazos, labios, barba o barba de días, cicatriz) con un leve mapa normal; tela con pliegues y costuras (`NCLOTH`); cordones en las botas y correa en las rodilleras.
 - Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 
