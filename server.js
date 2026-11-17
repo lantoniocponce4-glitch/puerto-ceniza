@@ -6,6 +6,7 @@ const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
+const ERRLIM = new Map();
 const PC = require('./shared/core.js');
 const { Accounts } = require('./accounts.js');
 const ACC = new Accounts();
@@ -105,6 +106,12 @@ async function api(req, res, url) {
       const b = await body(req); if (!ACC.setLook(a, { card: b.card, title: b.title })) return json(res, 400, { error: 'Ese premio aún no lo ganas en el pase de temporada.' });
       return json(res, 200, { me: ACC.view(a) });
     }
+    if (req.method === 'POST' && p === '/api/err') {
+      // errores del juego en el navegador o la app: quedan en el registro del servidor (sin datos personales), con límite por conexión
+      const ip = ipOf(req), now = Date.now(), L = ERRLIM.get(ip) || { n: 0, t: now }; if (now - L.t > 600000) { L.n = 0; L.t = now; } L.n++; ERRLIM.set(ip, L); if (ERRLIM.size > 5000) ERRLIM.clear();
+      if (L.n <= 20) { const b = await body(req); const cut = (v, n) => String(v || '').replace(/[\r\n]+/g, ' ⏎ ').slice(0, n); console.error('[cliente]', cut(b.m, 300), '|', cut(b.s, 700), '|', cut(b.w, 60), '|', cut(b.ua, 120)); }
+      return json(res, 200, { ok: true });
+    }
     if (req.method === 'POST' && p === '/api/settings') {
       const a = await ACC.fromToken(bearer(req)); if (!a) return json(res, 401, { error: 'Tu sesión venció. Vuelve a ingresar.' });
       const b = await body(req); return ACC.setSettings(a, b.set, b.t) ? json(res, 200, { ok: true, t: a.profile.set.t }) : json(res, 400, { error: 'Ajustes no válidos' });
@@ -131,8 +138,13 @@ function createRoom(isPublic, diff, map, mode, rules) {
   const room = new PC.Room({ code, diff, isPublic, map, mode, rules });
   room.sockets = new Map(); room.bornAt = Date.now();
   room.accts = new Map();
+  room.onReport = info => console.log('[reporte]', JSON.stringify(info));
+  room.cull = true; // anti-wallhack: cada equipo recibe solo los enemigos que puede ver u oír
   room.onBroadcast = msg => {
-    const s = JSON.stringify(msg); for (const ws of room.sockets.values()) if (ws.readyState === 1) ws.send(s);
+    if (msg.aT) {
+      const aT = msg.aT; delete msg.aT; const out = [0, 1].map(T => JSON.stringify(Object.assign({}, msg, { a: aT[T] })));
+      for (const [cid, ws] of room.sockets) { if (ws.readyState !== 1) continue; const id = room.clients.get(cid), a = id != null ? room.actors[id] : null; ws.send(out[a && a.team === 1 ? 1 : 0]); }
+    } else { const s = JSON.stringify(msg); for (const ws of room.sockets.values()) if (ws.readyState === 1) ws.send(s); }
     if (msg.t === 's' && msg.ev.length && room.accts.size) {
       const teamOf = id => room.actors[id] ? room.actors[id].team : -1;
       for (const [cid, acct] of room.accts) {

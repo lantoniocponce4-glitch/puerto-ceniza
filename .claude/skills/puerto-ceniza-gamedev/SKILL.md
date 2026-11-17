@@ -68,6 +68,12 @@ Hay 24 armas. Para una nueva hay que tocar **todos** estos lugares:
 
 Ya existen: control de spray con patrones, imprecisión al moverse, saltar y aterrizar, agacharse y caminar silencioso, frenado al recibir balas (`tagT` en el cliente, `tagUntil` en el núcleo), frenado más rápido que la aceleración (contra-strafe), economía con bono por derrotas, kit de desactivación, casco y blindaje, penetración de materiales. Los disparos se validan en el servidor (`humanShot`): toda mecánica de daño va en `core.js`.
 
+## Seguridad y moderación
+
+- **Anti-wallhack** (`Room.relevance`, `room.cull = true` en el servidor): cada equipo recibe solo a los enemigos que podría ver (desde cualquier dirección, también su posición en 0,2 s), oír (disparo hace menos de 1,2 s a menos de 90 m; corriendo a menos de 30 m), que estén a menos de 7 m o que el radar haya avistado. Se recuerda 0,5 s. Se envía todo en la compra, al terminar la ronda, con el equipo entero muerto o con una racha de radar o dron activa. El cliente oculta a los ausentes (`a.hid`): modelo, nombre, radar, huellas y detección de impactos. Si agregas una mecánica que muestre enemigos a través de paredes, tiene que abrir este filtro en el servidor.
+- **Chat**: `cleanChat` en `core.js` (normaliza tildes, números por letras y letras repetidas; evita palabras ambiguas como «pico» o «cono»). Menú de pausa → Jugadores: silenciar (local: chat y radio) y reportar (`t: 'report'`); 2 reportes por insultos de personas distintas silencian el chat del reportado en esa partida. Los reportes quedan en el registro del servidor como `[reporte]`.
+- **Errores del cliente**: `window` `error` y `unhandledrejection` se envían a `/api/err` (máximo 5 por sesión, 20 cada 10 minutos por conexión) y aparecen en el registro del servidor como `[cliente]`. Revísalos tras cada publicación.
+
 ## Latencia (ping)
 
 - El servidor está en Render, región Virginia, plan gratuito (0,15 de CPU). Una sala con 10 bots cuesta ~0,1 ms por tick y ~17 KB/s por cliente: el ping alto es sobre todo distancia de red.

@@ -702,6 +702,12 @@ html.calm #hud *{animation-duration:.01s!important}
 #flare .f2{width:28px;height:28px;background:rgba(255,190,120,.22)}
 #flare .f3{width:120px;height:120px;background:radial-gradient(circle,rgba(255,170,90,0) 55%,rgba(255,170,90,.16) 68%,rgba(160,220,255,.1) 78%,rgba(160,220,255,0) 86%)}
 #flare .f4{width:46px;height:46px;background:radial-gradient(circle,rgba(190,255,200,.16) 0,rgba(190,255,200,0) 70%)}
+
+/* ---------- jugadores: silenciar y reportar ---------- */
+#plBox .plRow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+#plBox .plRow span{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#plBox .plRow span.t0{color:var(--t0)}#plBox .plRow span.t1{color:var(--t1)}
+#plBox select{min-height:36px;background:var(--panel2);color:var(--sand);border:1px solid var(--line);font:inherit;font-size:13px}
 </style>
 </head>
 <body>
@@ -903,6 +909,7 @@ html.calm #hud *{animation-duration:.01s!important}
     <div class="box">
       <h2>Menú</h2>
       <p class="lead">La ronda sigue corriendo mientras estás aquí.</p>
+      <div class="sec" id="plBox" hidden></div>
       <div class="sec" id="inviteBox"><div class="lbl small">Invita a tus amigos con este link</div><div class="invite"><code id="inviteUrl"></code><button class="go ghost sm" id="copyBtn" type="button">Copiar link</button></div></div>
       <div class="sec"><div class="lbl small">Gráficos</div><div class="seg" id="gfxSeg2"><button type="button" data-v="ultra">Ultra</button><button type="button" data-v="high">Altos</button><button type="button" data-v="low">Livianos</button></div></div>
         <div class="sec"><div class="lbl small">Cuadros por segundo</div><div class="seg" id="fpsSeg2"><button type="button" data-v="max">Máximo</button><button type="button" data-v="60">60 · equilibrado</button><button type="button" data-v="30">30 · ahorro de batería</button></div></div>
