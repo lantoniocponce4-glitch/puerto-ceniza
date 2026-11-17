@@ -1,0 +1,39 @@
+name: Equilibrio de mapas (cada noche)
+
+# Simula muchas partidas solo con bots y publica una tabla con el % de rondas que gana cada bando por mapa,
+# con su margen de confianza. Corre sola cada noche y también a mano desde la pestaña «Actions».
+on:
+  schedule:
+    - cron: '17 6 * * *' # 06:17 UTC (madrugada en Chile)
+  workflow_dispatch:
+    inputs:
+      partidas:
+        description: 'Partidas por mapa'
+        default: '24'
+
+jobs:
+  equilibrio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Simular partidas
+        env:
+          G: ${{ github.event.inputs.partidas || '24' }}
+          OUT: equilibrio.md
+          JSON: equilibrio.json
+        run: node tools/balance.js
+      - name: Publicar la tabla en el resumen
+        if: always()
+        run: cat equilibrio.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: equilibrio
+          path: |
+            equilibrio.md
+            equilibrio.json
