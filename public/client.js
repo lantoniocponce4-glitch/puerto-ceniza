@@ -912,6 +912,20 @@ function updateFlare(dt) {
   for (const f of flareEls) { const x = sx + (cx - sx) * f.t * 2 * (f.t ? 1 : 0), y = sy + (cy - sy) * f.t * 2 * (f.t ? 1 : 0); f.e.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%)`; }
   box.style.opacity = (v * .7).toFixed(2);
 }
+// Linternas de los demás soldados de noche: un haz de luz visible (sin luz real, barato) y un destello cuando te apuntan.
+const BEAM = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 64; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 0, 64); g.addColorStop(0, 'rgba(255,240,215,1)'); g.addColorStop(.35, 'rgba(255,240,215,.35)'); g.addColorStop(1, 'rgba(255,240,215,0)'); x.fillStyle = g; x.fillRect(0, 0, 4, 64);
+  const geo = new THREE.ConeGeometry(1.6, 9, 18, 1, true).rotateX(Math.PI / 2).translate(0, 0, -4.5);
+  const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color: 0xffe9c8, transparent: true, opacity: .06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const gl = new THREE.SpriteMaterial({ map: TX.flash, color: 0xfff0d8, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false }); return { geo, mat, gl }; })();
+const _bf = new THREE.Vector3(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion();
+function actorBeam(a, m) {
+  const on = G.night && a.alive && prefs.gfx !== 'low';
+  if (!m.beam) { if (!on) return; m.beam = new THREE.Mesh(BEAM.geo, BEAM.mat); m.beam.position.set(.08, -.06, -.12); m.beam.frustumCulled = false; m.head.add(m.beam); m.glare = new THREE.Sprite(BEAM.gl.clone()); m.glare.position.set(.08, -.06, -.16); m.head.add(m.glare); }
+  m.beam.visible = m.glare.visible = on; if (!on) return;
+  // destello: más fuerte cuanto más directo te apunta la linterna
+  m.glare.getWorldPosition(_bp); _bf.set(0, 0, -1).applyQuaternion(m.head.getWorldQuaternion(_bq)); const to = camera.position.clone().sub(_bp), d = to.length(); to.multiplyScalar(1 / (d || 1));
+  const k = Math.max(0, _bf.dot(to)), g = Math.pow(k, 6); m.glare.material.opacity = g * .9; const sc = .35 + g * 1.4 * Math.min(1, d / 10); m.glare.scale.set(sc, sc, sc);
+}
 function bodyHitFx(V, e) {
   if (!V.pos) return; const A = e.a === me.id ? { x: camera.position.x, z: camera.position.z } : actors[e.a] && actors[e.a].pos; if (!A) return;
   const head = e.z === 'h', y = V.pos.y + (head ? (V.h || 1.8) - .14 : (V.h || 1.8) * .62); let nx = V.pos.x - A.x, nz = V.pos.z - A.z; const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L;
@@ -1091,7 +1105,9 @@ function voice(dur) { if (VOICES.n >= VOICES.max) return false; VOICES.n++; setT
 let heartT = 0;
 function updateHealthAudio(dt) {
   if (!AC || !MUF.f) return; const low = G.state === 'playing' && me.alive && me.hp > 0 && me.hp < 30;
-  MUF.k += ((low ? 1 : 0) - MUF.k) * Math.min(1, dt * 2.5); MUF.f.frequency.value = 20000 - MUF.k * 17500;
+  MUF.k += ((low ? 1 : 0) - MUF.k) * Math.min(1, dt * 2.5);
+  // tras una cegadora fuerte el oído queda ahogado (solo graves) y se recupera a medida que se pasa el destello
+  const deaf = clamp((flashT - .4) / 2.4, 0, 1); MUF.f.frequency.value = Math.min(20000 - MUF.k * 17500, 20000 - Math.sqrt(deaf) * 19500);
   if (low) { heartT -= dt; if (heartT <= 0) { heartT = .55 + me.hp / 60; uiSound(() => { sTone(58, .12, .32 * MUF.k, 'sine', 40); sTone(52, .1, .22 * MUF.k, 'sine', 38, .16); }); } }
 }
 class Pan { constructor(v, rel) { this.v = v; this.rel = rel; } valueOf() { return this.v; } }
@@ -1428,7 +1444,7 @@ function handleEvent(e) {
       break;
     }
     case 'demote': if (e.v === me.id) toast('Te apuñalaron: bajas al nivel ' + (e.l + 1)); else if (e.a === me.id) toast('Le quitaste un nivel a ' + nameOf(e.v)); break;
-    case 'mstart': me.spr = [0, 0, 0, 0]; G.hlBest = null; $('#hlSave').hidden = true; $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de ' + ((G.rules && G.rules.rounds) || 5) + ' rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 3200); break;
+    case 'mstart': me.spr = [0, 0, 0, 0]; G.hlBest = null; $('#hlSave').hidden = true; $('#end').hidden = true; me.shots = me.hits = me.heads = me.kills = 0; if (e.map && e.map !== CURMAP) { for (const [id, sm] of smokes) scene.remove(sm.g); smokes.clear(); clearFires(); buildWorld(e.map); G.mapId = e.map; } G.cond = e.cond || null; applyCond(G.cond); if (e.map) announce(MAPS[e.map].name + condLabel(G.cond), (e.voted ? 'Elegido por votación' + (G.mode === 'gg' || G.mode === 'tdm' ? '' : ' · ') : '') + (G.mode === 'gg' || G.mode === 'tdm' || G.mode === 'waves' ? (e.voted ? '' : GM_N[G.mode]) : 'al mejor de ' + ((G.rules && G.rules.rounds) || 5) + ' rondas'), 3); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: L enciende o apaga la linterna'), 3200); break;
     case 'votes': G.votes = e.v || {}; drawVotes(); break;
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
@@ -1454,7 +1470,7 @@ function onFlash(p) {
   if (d > 24 || !WORLD.visible(o, p, smokeList())) return;
   const f = new THREE.Vector3(); camera.getWorldDirection(f); const dot = ((p[0] - o[0]) * f.x + (p[1] - o[1]) * f.y + (p[2] - o[2]) * f.z) / (d || 1);
   const k = (dot > .5 ? 1 : dot > 0 ? .6 : .2) * (1 - d / 24);
-  if (k > .08) { flashT = Math.max(flashT, .5 + k * 3.4); if (k > .4) sTone(3400, 2.5 * k, .08, 'sine'); }
+  if (k > .08) { flashT = Math.max(flashT, .5 + k * 3.4); if (k > .4) uiSound(() => { sTone(3400, 2.8 * k, .07 * k + .02, 'sine'); sTone(3460, 2.4 * k, .03 * k, 'sine'); }); } // pitido en los oídos (fuera del filtro, se oye limpio)
 }
 function smokeList() { const l = []; for (const s of smokes.values()) if (nowS() - s.born > .8) l.push({ x: s.x, y: 1.8, z: s.z, r: 3.3 }); return l; }
 
@@ -1858,11 +1874,11 @@ function updateRemotes(dt) {
       m.body.position.y = -.26 * b2 * (1 - e2) - .05 * e2 - (a.fallH ? .25 * Math.sin(Math.min(1, k * 1.6) * Math.PI / 2) * (1 - k) : 0);
       for (let i = 0; i < m.legs.length; i++) { const L = m.legs[i]; L.hip.rotation.x = (i ? .7 : 1.0) * b2 * (1 - e2 * .55); L.knee.rotation.x = -(i ? 1.2 : 1.6) * b2 * (1 - e2 * .5); }
       m.head.rotation.x = .55 * e2 * Math.sign(a.fallX === undefined ? 1 : a.fallX); m.head.rotation.z = (a.fallZ || 0) * .5 * e2; m.upper.rotation.z = 0;
-      m.hand.visible = a.deadT < .14; m.g.visible = a.deadT < 6; continue; }
+      m.hand.visible = a.deadT < .14; m.g.visible = a.deadT < 6; if (m.beam) m.beam.visible = m.glare.visible = false; continue; }
     m.g.visible = !specMe; m.body.rotation.x = 0; m.body.rotation.z = 0; m.body.position.y = 0; a.fallX = undefined; m.hand.visible = true; m.head.rotation.z = 0;
     const spd = Math.hypot(a.vx, a.vz); a.walkPh += dt * spd * 2.2; const cr = clamp((1.8 - a.h) / .58, 0, 1);
     const sy = Math.sin(a.yaw), cy = Math.cos(a.yaw); m.animate(spd, a.walkPh, cr, a.pitch, { dt, yaw: a.yaw, reload: !!(a.flags & 1024), plant: !!(a.flags & 8) && spd < .5, fw: -a.vx * sy - a.vz * cy, sd: a.vx * cy - a.vz * sy, walk: !!(a.flags & 2), air: Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) > .2 }); a.leanS = lerp(a.leanS || 0, a.lean || 0, .3); m.upper.rotation.z = -a.leanS * .42; if (a.flinchT > 0) { a.flinchT -= dt; const f = Math.sin(a.flinchT / .22 * Math.PI) * (a.flinchH ? .22 : .12); m.upper.rotation.x -= f; if (a.flinchH) m.head.rotation.x -= f * 1.4; }
-    setModelGun(m, a.cur); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
+    setModelGun(m, a.cur); actorBeam(a, m); m.setHelmet(!!(a.flags & 128)); m.pack.visible = !!(a.flags & 4);
     a.flashT = (a.flashT || 0) - dt; m.flash.visible = a.flashT > 0; if (m.flash.visible) { if (!m.flash.userData.flame) addFlames(m.flash); jitterFlash(m.flash); }
     // pasos audibles
     if (spd > 2.8 && !(a.flags & 2) && cr < .3 && Math.abs(a.pos.y - WORLD.groundAt(a.pos.x, a.pos.z, a.pos.y)) < .1) { a.stepT -= dt * spd; if (a.stepT <= 0) { a.stepT = 2.3; const sfA = surfAtFeet(a.pos.x, a.pos.z, a.pos.y); stepDust(a, sfA); const p = posAudio(a.pos.x, a.pos.z); if (p.d < 28) sStep(.22 * (1 - p.d / 28) * (a.team === me.team ? .6 : 1), p.pan, sfA, Math.max(.01, p.d)); } }
@@ -2231,7 +2247,7 @@ function enterGame() {
   if (net.mode === 'online') try { history.replaceState(null, '', '?sala=' + G.code); } catch (e) { }
   try { history.pushState({ pc: 1 }, '', location.href); } catch (e) { }
   if (typeof SQ !== 'undefined' && SQ.st && SQ.ready && !SQ.st.lead) { SQ.ready = false; sqSendMsg({ t: 'sq_ready', r: false }); }
-  $('#app').classList.add('playing'); blurUI(); resetAim(); applyCond(G.cond); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: F enciende o apaga la linterna'), 2500);
+  $('#app').classList.add('playing'); blurUI(); resetAim(); applyCond(G.cond); if (G.cond && G.cond.night) setTimeout(() => toast(isTouch ? 'Es de noche: la linterna se enciende sola' : 'Es de noche: L enciende o apaga la linterna'), 2500);
 }
 function leaveToMenu() {
   G.hlBest = null; stopRec(); $('#hlSave').hidden = true;
@@ -3260,7 +3276,18 @@ function makeSand() {
   const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xc9a06a, size: .13, transparent: true, opacity: .6, depthWrite: false })); p.frustumCulled = false; envGroup.add(p);
   return { kind: 'arena', obj: p, N };
 }
+// salpicaduras de lluvia en el suelo alrededor del jugador (puntos reciclados que nacen, suben un poco y se apagan)
+let SPL = null;
+function rainSplash(dt) {
+  if (prefs.gfx === 'low') return;
+  if (!SPL) { const N = 90, pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) pos[i * 3 + 1] = -99; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); const p = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfdbe6, size: .09, transparent: true, opacity: .75, depthWrite: false })); p.frustumCulled = false; scene.add(p); SPL = { p, pos, life: new Float32Array(N), i: 0, acc: 0 }; }
+  SPL.p.visible = true; SPL.acc += dt * 160; const c = camera.position;
+  while (SPL.acc > 1) { SPL.acc--; const k = SPL.i++ % SPL.life.length, x = c.x + rand(-11, 11), z = c.z + rand(-11, 11); SPL.pos[k * 3] = x; SPL.pos[k * 3 + 1] = (WORLD ? WORLD.groundAt(x, z, c.y + 1) : 0) + .03; SPL.pos[k * 3 + 2] = z; SPL.life[k] = .14; }
+  for (let k = 0; k < SPL.life.length; k++) if (SPL.life[k] > 0) { SPL.life[k] -= dt; SPL.pos[k * 3 + 1] += dt * .5; if (SPL.life[k] <= 0) SPL.pos[k * 3 + 1] = -99; }
+  SPL.p.geometry.attributes.position.needsUpdate = true;
+}
 function updateWeather(dt) {
+  if (weatherFx && weatherFx.kind === 'lluvia') rainSplash(dt); else if (SPL) SPL.p.visible = false;
   flashlight.intensity = G.night && me.alive && flashOn && G.state === 'playing' ? 3.2 : 0;
   if (!weatherFx) return; const o = weatherFx.obj; o.position.set(Math.floor(camera.position.x / 4) * 4, 0, Math.floor(camera.position.z / 4) * 4);
   const a = o.geometry.attributes.position.array;

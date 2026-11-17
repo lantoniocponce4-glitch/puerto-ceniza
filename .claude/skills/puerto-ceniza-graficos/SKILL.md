@@ -68,6 +68,8 @@ Regla de oro: **cada mejora visual se paga en el celular**. Primero se busca la 
 - Bala cercana (`nearMiss`): si el disparo enemigo pasa a menos de 2,4 m, zumbido con barrido de 2,6 a 0,7 kHz (y chasquido si es fusil) desde ese lado, y la vista se cierra un instante (`#supOv`, no en modo calmo).
 - Destello del sol (`updateFlare`): capas CSS en `#flare` sobre la línea sol-centro, solo de día y sin clima, se apaga si algo tapa el sol (rayo cada 0,12 s). Mantenerlo sutil: un destello fuerte tapa enemigos.
 - Explosiones (`boomFx`/`updateBoomFx`): bola de fuego en dos capas, onda expansiva sobre el suelo, humo propio (16 sprites, no comparte grupo con el polvo de pasos, que lo reciclaba) que deriva con el viento, y marca quemada en el piso que se borra con `clearDecals`.
+- Linternas de los demás de noche (`actorBeam`): cono aditivo con degradado colgado de la cabeza (sin luz real) y destello que crece cuando te apuntan. Se apagan al morir y en «Livianos».
+- Lluvia: salpicaduras en el suelo alrededor del jugador (`rainSplash`, 90 puntos reciclados).
 - Soldados: rostros pintados a 512×256 (poros, mejillas, ojos con iris y brillo, cejas por trazos, labios, barba o barba de días, cicatriz) con un leve mapa normal; tela con pliegues y costuras (`NCLOTH`); cordones en las botas y correa en las rodilleras.
 - Armas: `TXWEAR` es el mapa de rugosidad compartido con rayones (brillan con la luz). Soldados: oclusión ambiental falsa en el sombreador de `addRim` (las caras que miran hacia abajo se oscurecen hasta 34 %).
 
