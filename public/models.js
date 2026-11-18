@@ -236,7 +236,8 @@ const DEF = {
     a('wood', ex([[.24, .004], [.43, .004], [.44, .015], [.44, .045], [.43, .055], [.24, .055]], .06, 0, .006)); for (let x = .26; x < .42; x += .025) a('poly', bx(x, .004, x + .006, .055, .063));
     a('wood', ex([[-.1, .066], [-.1, .002], [-.13, -.035], [-.165, -.05], [-.43, -.075], [-.44, -.06], [-.44, .05], [-.42, .06], [-.18, .06]], .046, 0, .005));
     a('rubber', bx(-.455, -.078, -.44, .055, .048)); a('metal', trig(-.07));
-    return { P, muzzle: .64, boreY: .056, grip: [-.12, -.03], fore: [.34, 0], cls: 'rifle', sight: [.63, .0715], adsZ: -.16 };
+    a('metal', bx(.624, .066, .636, .08, .006)); a('dotw', sph(.0032, .63, .0832, 0, 1, 1, 1, 10)); a('park', notch(-.08, -.064, .085, .093, .087, .008, .03));
+    return { P, muzzle: .64, boreY: .056, grip: [-.12, -.03], fore: [.34, 0], cls: 'rifle', sight: [.63, .0832], adsZ: -.22 };
   },
   sr() {
     const P = []; const a = (m, g) => Array.isArray(g) ? g.forEach(q => P.push([m, q])) : P.push([m, g]);
@@ -293,7 +294,7 @@ function pistolDef(len, mag, comp) {
 }
 DEF.p9 = pistolDef(.15);
 // silenciador: tubo con anillos de sujeción, alarga el cañón
-function withSuppressor(base, len, r, y) { return function () { const d = base(); const x0 = d.muzzle - .004; d.P.push(['park', cyl(r, r, x0, x0 + len, y, 0, 18)]); d.P.push(['metal', cyl(r * 1.06, r * 1.06, x0 + .006, x0 + .016, y, 0, 18)]); d.P.push(['metal', cyl(r * 1.06, r * 1.06, x0 + len - .012, x0 + len - .002, y, 0, 18)]); d.P.push(['rubber', cyl(r * .45, r * .45, x0 + len - .001, x0 + len + .002, y, 0, 12)]); d.muzzle = x0 + len; return d; }; }
+function withSuppressor(base, len, r, y) { return function () { const d = base(); if (d.cls === 'pistol') { const L = d.sight[0] + .0125; d.P.push(['metal', bx(L - .016, .0715, L - .009, .0815, .0034)], ['dotg', sph(.0013, L - .0165, .0795, 0, 1, 1, 1, 6)], ...notch(-.032, -.018, .0725, .0825, .0765, .0062, .024).map(g => ['metal', g])); d.sight = Object.assign([d.sight[0], .0795], { ret: d.sight.ret }); } const x0 = d.muzzle - .004; d.P.push(['park', cyl(r, r, x0, x0 + len, y, 0, 18)]); d.P.push(['metal', cyl(r * 1.06, r * 1.06, x0 + .006, x0 + .016, y, 0, 18)]); d.P.push(['metal', cyl(r * 1.06, r * 1.06, x0 + len - .012, x0 + len - .002, y, 0, 18)]); d.P.push(['rubber', cyl(r * .45, r * .45, x0 + len - .001, x0 + len + .002, y, 0, 12)]); d.muzzle = x0 + len; return d; }; }
 DEF.p9s = withSuppressor(pistolDef(.15), .13, .0135, .046);
 DEF.ars = withSuppressor(DEF.ar, .19, .018, .045); DEF.r50 = pistolDef(.2); DEF.ap18 = pistolDef(.155, true, true);
 DEF.b3 = pistolDef(.17, false, true);
@@ -387,7 +388,9 @@ DEF.pump = function () {
   a('wood', ex([[.26, .006], [.45, .006], [.46, .016], [.46, .05], [.45, .06], [.26, .06]], .064, 0, .006)); for (let x = .28; x < .44; x += .018) a('poly', bx(x, .006, x + .005, .06, .067));
   a('wood', ex([[-.1, .066], [-.1, .004], [-.125, -.03], [-.16, -.048], [-.42, -.07], [-.435, -.055], [-.435, .052], [-.415, .062], [-.18, .062]], .046, 0, .005));
   a('rubber', bx(-.45, -.073, -.435, .057, .048)); a('metal', trig(-.07)); a('metal', bx(-.02, .02, .05, .05, .05));
-  return { P, muzzle: .68, boreY: .058, grip: [-.12, -.03], fore: [.36, .0], cls: 'rifle', sight: [.67, .0735], adsZ: -.16 };
+  // mira elevada (poste con punto) para que al apuntar el cajón quede bajo la línea de vista y no tape la pantalla
+  a('metal', bx(.664, .068, .676, .082, .006)); a('dotw', sph(.0032, .67, .0852, 0, 1, 1, 1, 10)); a('park', notch(-.08, -.064, .085, .095, .089, .008, .03));
+  return { P, muzzle: .68, boreY: .058, grip: [-.12, -.03], fore: [.36, .0], cls: 'rifle', sight: [.67, .0852], adsZ: -.22 };
 };
 // BP-9 Escorpión: bullpup (cargador detrás de la empuñadura)
 DEF.bp9 = function () {

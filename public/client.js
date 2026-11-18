@@ -3596,7 +3596,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, TUT, sendMsg, drawPlayers, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, TUT, skin(c) { prof.camo = c; rebuildVMs(); }, get vm() { return vm; }, net, sendMsg, drawPlayers, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
@@ -3747,7 +3747,7 @@ function updateVM(dt) {
   if (kc && kc.cine && kcActive()) { vm.group.visible = false; return; }
   if (!me.alive || (kc && kc.hl)) { updateSpecVM(dt); return; }
   if (vm.spec) { vm.spec = null; vm.specTeam = null; PCM.setFpTeam(me.team, myOutfit()); showVM(me.cur); }
-  const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5 && !magOn;
+  const g = vm.cur; if (!g) return; vm.group.visible = me.alive && me.scopeK < .5 && !magOn && !(window.PCDBG && PCDBG.vmHide);
   vm.kick = lerp(vm.kick, 0, 1 - Math.exp(-dt * 18)); vm.swing = Math.max(0, vm.swing - dt * 3); vm.throwT = Math.max(0, vm.throwT - dt * 2.5);
   // humo del cañón: tras una ráfaga larga o un disparo de escopeta o francotirador, sale un hilo de humo que sube
   vm.heat = Math.max(0, (vm.heat || 0) - dt * 1.4);
