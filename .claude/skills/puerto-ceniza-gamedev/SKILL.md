@@ -76,6 +76,16 @@ Ya existen: control de spray con patrones, imprecisión al moverse, saltar y ate
 - **Chat**: `cleanChat` en `core.js` (normaliza tildes, números por letras y letras repetidas; evita palabras ambiguas como «pico» o «cono»). Menú de pausa → Jugadores: silenciar (local: chat y radio) y reportar (`t: 'report'`); 2 reportes por insultos de personas distintas silencian el chat del reportado en esa partida. Los reportes quedan en el registro del servidor como `[reporte]`.
 - **Errores del cliente**: `window` `error` y `unhandledrejection` se envían a `/api/err` (máximo 5 por sesión, 20 cada 10 minutos por conexión) y aparecen en el registro del servidor como `[cliente]`. Revísalos tras cada publicación.
 
+## Tutorial
+
+- `TUT_STEPS` en `client.js`: pasos en el campo de tiro (moverse, mirar, disparar, apuntar, recargar, agacharse, saltar, comprar, puntería), cada uno con texto para PC (`pc`) y celular (`tc`) y una condición `ok` que se revisa cada cuadro (`tutTick`). Al terminar o saltarlo se guarda `prefs.tutDone`.
+- La primera vez aparece la tarjeta «¿Primera vez?» en Jugar (`#tutCard`, `prefs.tutAsked`). También hay un enlace «Tutorial» junto a «Campo de tiro».
+- Si cambias un control, actualiza el texto del paso correspondiente.
+
+## Red
+
+- Medido: con la compresión del servidor (permessage-deflate con contexto) cada jugador recibe ~1,8 KB/s (~93 bytes por actualización a 20 Hz). Cambiar el formato no vale la pena; lo que más pesa es el ping.
+
 ## Latencia (ping)
 
 - El servidor está en Render, región Virginia, plan gratuito (0,15 de CPU). Una sala con 10 bots cuesta ~0,1 ms por tick y ~17 KB/s por cliente: el ping alto es sobre todo distancia de red.

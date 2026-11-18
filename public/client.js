@@ -1041,7 +1041,7 @@ function buildDust(on) {
 }
 const boomLight = new THREE.PointLight(0xffb070, 0, 40); scene.add(boomLight);
 function updateFx(dt) {
-  updateCasings(dt); updateBoomFx(dt); updateSup(dt); updateFlare(dt);
+  updateCasings(dt); tutTick(dt); updateBoomFx(dt); updateSup(dt); updateFlare(dt);
   { const c = $('#sprayPad'); if (c && c.hidden === RG.on) { c.hidden = !RG.on; if (RG.on) drawSprayPad(); } }
   updateLife(dt);
   roofedT -= dt; if (roofedT <= 0) { roofedT = .3; roofedNow = roofed(camera.position.x, camera.position.y, camera.position.z); setReverb(roofedNow ? 'indoor' : (WORLD && WORLD.map.theme) || 'open'); }
@@ -1355,7 +1355,7 @@ function startOffline(opt = {}) {
   room.onBroadcast = m => onMsg(m); room.onSend = (cid, m) => onMsg(m);
   const a = room.addHuman('local', cleanName(prefs.name), prefs.side === 'auto' ? null : prefs.side, mySkin(), { outfit: myOutfit() });
   onMsg({ t: 'joined', code: 'LOCAL', you: a.id, team: a.team, diff: room.diffKey, pub: false, map: room.mapId, gm: room.mode });
-  onMsg(room.privateState(a)); onMsg(room.roster()); if (opt.range) rangeStart();
+  onMsg(room.privateState(a)); onMsg(room.roster()); if (opt.range) rangeStart(); if (opt.tut) tutStart();
   net.timer = setInterval(() => room.tick(.05), 50);
 }
 function leaveNet() { clearTimeout(net.joinTimer); clearTimeout(net.retryT); setBusy(false); if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch (e) { } } if (net.timer) clearInterval(net.timer); net.timer = null; net.room = null; net.mode = null; }
@@ -2312,6 +2312,9 @@ $('#joinBtn').onclick = () => { initAudio(); const c = codeEl.value.trim().toUpp
 codeEl.addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
 $('#offline').onclick = () => { initAudio(); startOffline(); };
 $('#rangeGo').onclick = () => { initAudio(); startOffline({ range: true }); };
+$('#tutGo').onclick = () => { initAudio(); startOffline({ range: true, tut: true }); };
+// primera vez: invitación al tutorial en la pestaña Jugar
+if (!prefs.tutDone && !prefs.tutAsked) { const c = $('#tutCard'); if (c) { c.hidden = false; $('#tutYes').onclick = () => { prefs.tutAsked = true; savePrefs(); c.hidden = true; initAudio(); startOffline({ range: true, tut: true }); }; $('#tutNo').onclick = () => { prefs.tutAsked = true; savePrefs(); c.hidden = true; }; } }
 if (location.protocol === 'file:') { $('#err').textContent = 'Abierto como archivo local: el modo en línea necesita el servidor. Puedes practicar sin conexión.'; }
 
 // Tarjeta de entrada a la partida: arte del mapa, nombre, descripción y un consejo
@@ -3219,10 +3222,48 @@ addEventListener('keydown', e => { if (INV.open && e.key === 'Escape') closeInv(
 const RG = { on: false, group: null, targets: [], chal: false, endT: 0, score: 0, shots: 0, hits: 0, heads: 0, kills: 0, reacts: [], nextT: 0, sug: 1 };
 const TGM = { body: std({ color: 0xd9ccae, roughness: .85 }), ring: std({ color: 0xb8322a, roughness: .7 }), head: std({ color: 0xece2c8, roughness: .85 }), post: std({ color: 0x3b4450, metalness: .6, roughness: .45 }) };
 const TGG = { body: new THREE.BoxGeometry(.56, 1.26, .05), ring: new THREE.BoxGeometry(.26, .26, .06), head: new THREE.BoxGeometry(.3, .3, .05), post: new THREE.BoxGeometry(.06, .34, .06) };
+/* ================= TUTORIAL ================= */
+// Pasos guiados en el campo de tiro: cada uno se completa solo al hacerlo. Textos distintos para PC y celular.
+const TUT_STEPS = [
+  { t: 'Muévete', pc: 'Camina con W A S D', tc: 'Arrastra el joystick de la izquierda', ok: T => T.dist > 4 },
+  { t: 'Mira alrededor', pc: 'Mueve el mouse para girar', tc: 'Desliza el dedo en la mitad derecha de la pantalla', ok: T => T.turn > 1.6 },
+  { t: 'Dispara a un blanco', pc: 'Clic izquierdo para disparar', tc: 'Toca el botón de disparo', ok: T => (RG.tHits || 0) > T.h0 },
+  { t: 'Apunta con la mira', pc: 'Mantén el clic derecho: más precisión y zoom', tc: 'Toca el botón de la mira', ok: () => (me.adsK || 0) > .8 },
+  { t: 'Recarga', pc: 'Pulsa R', tc: 'Toca el botón de recarga', ok: () => me.reloadT > 0 },
+  { t: 'Agáchate', pc: 'Mantén C: disparas más preciso y haces menos ruido', tc: 'Toca el botón de agacharse', ok: () => me.crouch },
+  { t: 'Salta', pc: 'Pulsa la barra espaciadora', tc: 'Toca el botón de salto', ok: () => !me.grounded },
+  { t: 'Compra un arma', pc: 'Pulsa B para abrir la tienda', tc: 'Toca el botón de compra ($)', ok: () => !$('#buy').hidden },
+  { t: 'Practica tu puntería', pc: 'Derriba 3 blancos más. Apunta a la cabeza: hace más daño', tc: 'Derriba 3 blancos más. Apunta a la cabeza: hace más daño', ok: T => (RG.tHits || 0) >= T.h0 + 3 }
+];
+const TUT = { on: false };
+function tutStart() {
+  Object.assign(TUT, { on: true, i: -1, last: null, dist: 0, turn: 0, yaw: me.yaw, h0: 0, wait: 0 });
+  let box = $('#tutBox'); if (!box) { box = document.createElement('div'); box.id = 'tutBox'; $('#hud').appendChild(box); }
+  box.hidden = false; document.body.classList.add('tutOn'); tutNext();
+}
+function tutNext() {
+  TUT.i++; TUT.dist = 0; TUT.turn = 0; TUT.yaw = me.yaw; TUT.h0 = RG.tHits || 0; TUT.last = me.pos ? { x: me.pos.x, z: me.pos.z } : null; TUT.wait = 0;
+  const box = $('#tutBox'); if (!box) return;
+  if (TUT.i >= TUT_STEPS.length) { tutEnd(true); return; }
+  const S = TUT_STEPS[TUT.i];
+  box.innerHTML = `<div class="tutN">Tutorial · paso ${TUT.i + 1} de ${TUT_STEPS.length}</div><div class="tutT">${S.t}</div><div class="tutD">${isTouch ? S.tc : S.pc}</div><div class="tutDots">${TUT_STEPS.map((_, k) => `<i class="${k < TUT.i ? 'ok' : k === TUT.i ? 'cur' : ''}"></i>`).join('')}</div><button type="button" class="linkbtn" id="tutSkip">Saltar tutorial</button>`;
+  $('#tutSkip').onclick = () => tutEnd(false);
+}
+function tutEnd(done) {
+  TUT.on = false; document.body.classList.remove('tutOn'); const box = $('#tutBox'); if (box) box.hidden = true; prefs.tutDone = true; savePrefs();
+  if (done) { uiSound(() => { sTone(660, .1, .14, 'triangle'); sTone(990, .16, .14, 'triangle', 0, .1); }); announce('¡Tutorial completado!', 'Ya sabes lo básico. Sal con Esc (o el botón de pausa) y juega una partida rápida o practica contra bots.', 6); }
+}
+function tutTick(dt) {
+  if (!TUT.on || !me.alive) return; const S = TUT_STEPS[TUT.i]; if (!S) return;
+  if (TUT.last && me.pos) { TUT.dist += Math.hypot(me.pos.x - TUT.last.x, me.pos.z - TUT.last.z); TUT.last = { x: me.pos.x, z: me.pos.z }; }
+  TUT.turn += Math.abs(angDiff(TUT.yaw, me.yaw)); TUT.yaw = me.yaw;
+  if (TUT.wait > 0) { TUT.wait -= dt; if (TUT.wait <= 0) tutNext(); return; }
+  if (S.ok(TUT)) { TUT.wait = .7; const b = $('#tutBox'); if (b) b.classList.add('done'); setTimeout(() => { const b2 = $('#tutBox'); if (b2) b2.classList.remove('done'); }, 700); uiSound(() => sTone(880, .08, .1, 'triangle')); }
+}
 function rangeStart() {
   rangeStop(); RG.on = true; RG.group = new THREE.Group(); scene.add(RG.group);
   for (let i = 0; i < 4; i++) spawnTarget(false);
-  setTimeout(() => { if (RG.on) announce('Campo de tiro', (isTouch ? 'Toca «Empezar desafío»' : 'Pulsa Enter') + ' para el desafío de 60 segundos. Con B compras cualquier arma gratis.', 4); }, 600);
+  setTimeout(() => { if (RG.on && !TUT.on) announce('Campo de tiro', (isTouch ? 'Toca «Empezar desafío»' : 'Pulsa Enter') + ' para el desafío de 60 segundos. Con B compras cualquier arma gratis.', 4); }, 600);
 }
 function rangeStop() { if (RG.group) scene.remove(RG.group); RG.group = null; RG.targets = []; RG.on = false; RG.chal = false; $('#rangeEnd').hidden = true; $('#rangeBtn').hidden = true; }
 function spawnTarget(chal) {
@@ -3251,6 +3292,7 @@ function rangeHit(o, d, maxT) {
   return best;
 }
 function rangeOnHit(rh, end) {
+  RG.tHits = (RG.tHits || 0) + 1;
   const t = rh.tg; if (!t.alive) return; t.alive = false; t.deadT = 0;
   const head = rh.zone === 'h'; burst(end, [0, 0, 1], [.85, .8, .7], 2, 8);
   sTone(head ? 2500 : 1700, .12, .16, 'triangle'); sNoise(.06, .2, 3200, 0, 0, 3); showHit(head, true);
@@ -3554,7 +3596,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, sendMsg, drawPlayers, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, TUT, sendMsg, drawPlayers, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
