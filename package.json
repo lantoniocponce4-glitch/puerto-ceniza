@@ -10,7 +10,8 @@
     "test:bots": "node tools/sim-bots.js",
     "test": "node tools/validate-maps.js && node tools/contact.js && node tools/sim-bots.js",
     "test:contact": "node tools/contact.js",
-    "test:balance": "node tools/balance.js"
+    "test:balance": "node tools/balance.js",
+    "test:economy": "node tools/economy.js"
   },
   "engines": {
     "node": ">=18"
