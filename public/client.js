@@ -1289,11 +1289,16 @@ const me = {
   crouchHold: false, crouchToggle: false, walkHeld: false, act: false, jumpReq: false, reloadReq: false, stepT: 0, deadT: 0, shots: 0, hits: 0, heads: 0, kills: 0, specIdx: 0
 };
 let camYaw = 0;
+// La carga en la mano: con 5 (o el botón CARGA en celular) se saca la bomba; con ella en la mano, mantener el clic planta
+// (igual que mantener F o el botón Acción). Al plantar con F con el arma en la mano, la carga también aparece en las manos.
+function carryingBomb() { return me.alive && G.bomb && G.bomb[0] === 'carried' && G.bomb[4] === me.id; }
+function takeBomb() { if (!carryingBomb() || me.bombHand) return; me.bombHand = true; me.scoped = false; me.altScope = false; me.adsToggle = false; me.reloadT = 0; me.drawT = .35; sNoise(.06, .2, 1800, 0, 0, 3); drawSlots(); }
 function sideOf(team) { return team === 0 ? G.s0 : (G.s0 === 'atk' ? 'def' : 'atk'); }
 function ensureAmmo(wid) { const w = WEAPONS[wid]; if (w && !w.melee && !me.ammo[wid]) me.ammo[wid] = { mag: w.mag, res: w.res }; }
 function refillAmmo() { me.ammo = {}; if (me.inv.p) ensureAmmo(me.inv.p); if (me.inv.s) ensureAmmo(me.inv.s); }
 function slotList() { const l = []; if (me.inv.p) l.push(me.inv.p); if (me.inv.s) l.push(me.inv.s); l.push('knife'); for (const k of NADE_IDS) if (me.inv.n[k] > 0) l.push(k); return l; }
 function setCur(wid, send = true) {
+  if (me.bombHand) { me.bombHand = false; showVM(me.cur); }
   if (!wid || me.cur === wid) return; me.lastCur = me.cur; me.cur = wid; me.burstLeft = 0; me.drawT = WEAPONS[wid] && WEAPONS[wid].melee ? .3 : .5; me.reloadT = 0; me.scoped = false; me.altScope = false; me.rescopeT = 0; me.adsToggle = false; me.adsK = 0; me.scopeK = 0; me.nadeArm = false; me.sprayI = 0; $('#bAds').classList.remove('on');
   ensureAmmo(wid); showVM(wid); if (send) sendMsg({ t: 'eq', w: wid }); drawSlots();
 }
@@ -1529,7 +1534,7 @@ function handleEvent(e) {
     case 'join': if (e.id !== me.id) toast(e.n + ' entró a la sala'); break;
     case 'leave': toast(e.n + ' salió; un bot toma su lugar'); break;
     case 'bdrop': if (sideOf(teamOf(e.v)) === sideOf(me.team) && sideOf(me.team) === 'atk') toast('La carga quedó en el suelo'); break;
-    case 'bpick': if (e.v === me.id) toast('Tienes la carga. Ve a A o B y mantén E para plantar.'); break;
+    case 'bpick': if (e.v === me.id) toast(`Tienes la carga. Ve a A o B y ${isTouch ? 'mantén el botón Acción' : 'mantén F (o saca la carga con 5 y mantén el clic)'} para plantar.`); break;
     case 'pick': if (e.v === me.id) toast('Recogiste ' + WEAPONS[e.w].name); else { const a = actors[e.v]; if (a) { const p = posAudio(a.pos.x, a.pos.z); if (p.d < 15) sNoise(.08, .2, 1500, 0, p.pan); } } break;
   }
 }
@@ -1600,9 +1605,10 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit2' && me.inv.s) setCur(me.inv.s);
   if (e.code === 'Digit3') setCur('knife');
   if (e.code === 'Digit4') cycleNade();
+  if (e.code === 'Digit5') takeBomb();
   if (e.code === 'KeyX') { if (slotList().includes(me.lastCur)) setCur(me.lastCur); }
-  if (e.code === 'KeyL' && NADES[me.cur] && me.alive) { toggleLineup(); return; }
-  if (e.code === 'KeyG') sendMsg({ t: 'drop', bomb: me.cur === 'knife' ? 1 : 0 });
+  if (e.code === 'KeyK' && NADES[me.cur] && me.alive) { toggleLineup(); return; } // alineaciones de granadas (antes la L, que también es la linterna y nunca llegaba aquí)
+  if (e.code === 'KeyG') { sendMsg({ t: 'drop', bomb: me.cur === 'knife' || me.bombHand ? 1 : 0 }); }
   if (!me.alive && (e.code === 'Space' || e.code === 'KeyD' || e.code === 'KeyA')) me.specIdx++;
 });
 addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') showBoard(false); if (e.code === 'KeyT') voiceStop(); });
@@ -1703,7 +1709,7 @@ if (isTouch) {
 const closeComms = () => { $('#touch').classList.remove('cgOpen'); $('#bMore').classList.remove('on'); };
 tapBtn($('#bMore'), el => { const open = $('#touch').classList.toggle('cgOpen'); el.classList.toggle('on', open); });
 for (const id of ['bRadio', 'bChat', 'bVoice', 'bInsp']) $('#' + id).addEventListener('pointerup', () => setTimeout(closeComms, 150));
-$('#wslots').addEventListener('pointerdown', e => { const b = e.target.closest('button[data-w]'); if (!b || HE.on) return; e.preventDefault(); e.stopPropagation(); initAudio(); if (b.dataset.w !== me.cur) setCur(b.dataset.w); if (navigator.vibrate) try { navigator.vibrate(8); } catch (_) { } });
+$('#wslots').addEventListener('pointerdown', e => { const b = e.target.closest('button[data-w]'); if (!b || HE.on) return; e.preventDefault(); e.stopPropagation(); initAudio(); if (b.dataset.w === 'bomb') { takeBomb(); return; } if (b.dataset.w !== me.cur || me.bombHand) { me.bombHand = false; setCur(b.dataset.w); drawSlots(); } if (navigator.vibrate) try { navigator.vibrate(8); } catch (_) { } });
 // vibración breve (Android) al acertar, eliminar o recibir un impacto
 const buzz = ms => { if (isTouch && prefs.vib !== false && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) { } };
 
@@ -1775,7 +1781,8 @@ function updateLocal(dt) {
   vm.bobT += dt * spd * 1.3;
   // acción (plantar / desactivar)
   if ($('#bAct').hidden) $('#bAct').classList.remove('on');
-  me.act = keys.KeyF || $('#bAct').classList.contains('on');
+  if (me.bombHand && !carryingBomb()) { me.bombHand = false; showVM(me.cur); drawSlots(); }
+  me.act = keys.KeyF || $('#bAct').classList.contains('on') || (me.bombHand && me.fireHeld);
   // armas
   me.drawT = Math.max(0, me.drawT - dt);
   me.scopeK = lerp(me.scopeK, me.scoped ? 1 : 0, 1 - Math.exp(-dt * 16));
@@ -1789,6 +1796,7 @@ function updateLocal(dt) {
   const pat = WEAPONS[me.cur] && !w.melee ? pattern(w, me.sprayI) : { p: 0, y: 0 };
   me.punchP = lerp(me.punchP, pat.p * .5, 1 - Math.exp(-dt * 20)); me.punchY = lerp(me.punchY, pat.y * .5, 1 - Math.exp(-dt * 20));
   if (!canAct()) { if (!me.fireHeld) me.trigLock = false; return; }
+  if (me.bombHand) { me.trigLock = !!me.fireHeld; return; } // con la carga en la mano no se dispara
   if (NADES[me.cur]) {
     if ((me.fireHeld || me.altHeld) && me.drawT <= 0) me.nadeArm = me.nadeArm === 'mid' || (me.fireHeld && me.altHeld) ? 'mid' : me.fireHeld ? 'far' : 'lob';
     else if (me.nadeArm && !me.fireHeld && !me.altHeld) throwNade(me.nadeArm);
@@ -2007,9 +2015,9 @@ function addFeed(e) {
   const f = $('#feed'); f.prepend(d); while (f.children.length > 6) f.lastChild.remove(); setTimeout(() => d.remove(), 7000);
 }
 function drawSlots() {
-  if (isTouch) { const el = $('#wslots'); if (el) { const l = [me.inv.p, me.inv.s, 'knife'].filter(Boolean); const html = l.map(w => `<button type="button" data-w="${w}" class="${w === me.cur ? 'cur' : ''}"><b>${esc(WEAPONS[w].name)}</b><span>${w === 'knife' ? 'Cuerpo a cuerpo' : esc(WEAPONS[w].cls || '')}</span></button>`).join(''); if (el._h !== html) { el.innerHTML = html; el._h = html; } } }
+  if (isTouch) { const el = $('#wslots'); if (el) { const l = [me.inv.p, me.inv.s, 'knife'].filter(Boolean); const html = l.map(w => `<button type="button" data-w="${w}" class="${w === me.cur && !me.bombHand ? 'cur' : ''}"><b>${esc(WEAPONS[w].name)}</b><span>${w === 'knife' ? 'Cuerpo a cuerpo' : esc(WEAPONS[w].cls || '')}</span></button>`).join('') + (carryingBomb() ? `<button type="button" data-w="bomb" class="bombBtn${me.bombHand ? ' cur' : ''}"><b>CARGA</b><span>Mantén para plantar</span></button>` : ''); if (el._h !== html) { el.innerHTML = html; el._h = html; } } }
   const l = slotList(); const lbl = { knife: 'Cuchillo', he: 'Granada HE', fl: 'Cegadora', sm: 'Humo', in: 'Incendiaria', de: 'Señuelo' };
-  $('#slots').innerHTML = l.map(w => { const key = w === me.inv.p ? 1 : w === me.inv.s ? 2 : w === 'knife' ? 3 : 4; const n = NADES[w] ? ' ×' + me.inv.n[w] : ''; return `<div class="slot${w === me.cur ? ' cur' : ''}"><span>${esc((WEAPONS[w] && WEAPONS[w].name) || lbl[w])}${n}</span><kbd>${key}</kbd></div>`; }).join('') + ((G.bomb[0] === 'carried' && G.bomb[4] === me.id) ? '<div class="slot"><span class="bombTag">CARGA</span><kbd>E</kbd></div>' : '');
+  $('#slots').innerHTML = l.map(w => { const key = w === me.inv.p ? 1 : w === me.inv.s ? 2 : w === 'knife' ? 3 : 4; const n = NADES[w] ? ' ×' + me.inv.n[w] : ''; return `<div class="slot${w === me.cur ? ' cur' : ''}"><span>${esc((WEAPONS[w] && WEAPONS[w].name) || lbl[w])}${n}</span><kbd>${key}</kbd></div>`; }).join('') + ((G.bomb[0] === 'carried' && G.bomb[4] === me.id) ? `<div class="slot${me.bombHand ? ' cur' : ''}"><span class="bombTag">CARGA</span><kbd>5</kbd></div>` : '');
 }
 const radar = $('#radar'), rctx = radar.getContext('2d');
 let radarT = 1;
@@ -2094,8 +2102,8 @@ function updateHUD(dt) {
   // pista de acción
   const B = G.bomb; let hint = '', prog = 0; const mySide = sideOf(me.team); const site = WORLD && me.alive ? siteAt(me.pos.x, me.pos.z) : null;
   const myA = actors[me.id];
-  if (me.alive && mySide === 'atk' && B[0] === 'carried' && B[4] === me.id) { if (site && G.phase === 'live') { hint = myA && (myA.flags & 8) ? 'Plantando la carga… no te muevas' : 'Mantén E para plantar en ' + site; prog = B[6]; } }
-  if (me.alive && mySide === 'def' && B[0] === 'planted' && Math.hypot(me.pos.x - B[1], me.pos.z - B[3]) < 1.7) { hint = myA && (myA.flags & 8) ? (me.kit ? 'Desactivando con kit…' : 'Desactivando… (10 s sin kit)') : 'Mantén E para desactivar'; prog = B[7]; }
+  if (me.alive && mySide === 'atk' && B[0] === 'carried' && B[4] === me.id) { if (site && G.phase === 'live') { hint = myA && (myA.flags & 8) ? 'Plantando la carga… no te muevas' : (isTouch ? 'Mantén el botón Acción para plantar en ' : (me.bombHand ? 'Mantén el clic o F para plantar en ' : 'Mantén F para plantar en ')) + site; prog = B[6]; } }
+  if (me.alive && mySide === 'def' && B[0] === 'planted' && Math.hypot(me.pos.x - B[1], me.pos.z - B[3]) < 1.7) { hint = myA && (myA.flags & 8) ? (me.kit ? 'Desactivando con kit…' : 'Desactivando… (10 s sin kit)') : (isTouch ? 'Mantén el botón Acción para desactivar' : 'Mantén F para desactivar'); prog = B[7]; }
   $('#hint').hidden = !hint; if (hint) { setTxt('#hintT', hint); $('#hintBar').style.width = clamp(prog, 0, 1) * 100 + '%'; }
   $('#bAct').hidden = !(isTouch && hint); $('#bBuy').hidden = !(isTouch && me.cb); $('#bBuy').classList.toggle('pulse', isTouch && me.cb && G.phase === 'buy' && $('#buy').hidden);
   $('#bAds').hidden = !(isTouch && w && (w.scope || canAds()));
@@ -3596,7 +3604,7 @@ async function sndTest(fn, dur) {
   try { fn(); const buf = await off.startRendering(); let pk = 0, sq = 0; const L = buf.getChannelData(0); for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > pk) pk = v; sq += v * v; } return { peak: +pk.toFixed(3), rms: +Math.sqrt(sq / L.length).toFixed(4) }; }
   finally { AC = keep.AC; master = keep.master; noiseBuf = keep.noiseBuf; bus.fx = keep.fx; REV.node = keep.rn; REV.send = keep.rs; }
 }
-if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, TUT, skin(c) { prof.camo = c; rebuildVMs(); }, get vm() { return vm; }, net, sendMsg, drawPlayers, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
+if (/[?&]debug=1/.test(location.search)) window.PCDBG = { me, G, camera, TUT, get bombVM() { return bombVM; }, carryingBomb, skin(c) { prof.camo = c; rebuildVMs(); }, get vm() { return vm; }, net, sendMsg, drawPlayers, setCur, showVM, boomFx, sBoom, sndTest, sShot, sStep, WEAPONS, ejectCasing, bodyHitFx, CAS, nearMiss, stepDust, skyU, get actors() { return actors; }, get perf() { return { level: perf.level, pr: renderer.getPixelRatio(), post: !!post.composer, hz: FRM.hz, cap: frameCap() }; } };
 /* ================= CICLO ================= */
 function resize() { updateForceLand(); const w = VW(), h = VH(); renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); vmCam.aspect = w / h; vmCam.updateProjectionMatrix(); resizePost(); }
 addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 120)); if (screen.orientation) screen.orientation.addEventListener('change', () => setTimeout(resize, 120)); resize();
@@ -3743,7 +3751,19 @@ function updateSpecVM(dt) {
   g.g.position.set(g.pos[0] + bx, g.pos[1] - by, g.pos[2] + vm.kick * .035); g.g.rotation.set(vm.kick * .05, 0, 0);
   vm.flashT = (vm.flashT || 0) - dt; g.flash.visible = vm.flashT > 0; jitterFlash(g.flash); g.light.intensity = vm.flashT > 0 ? 3 : 0;
 }
+const bombVM = (() => { const g = new THREE.Group(); const body = new THREE.Mesh(new THREE.BoxGeometry(.2, .085, .14), std({ color: 0x3b3a30, roughness: .8 })); g.add(body);
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(.09, .006, .07), std({ color: 0x151515, roughness: .5 })); pad.position.set(-.03, .046, 0); g.add(pad);
+  for (let i = 0; i < 9; i++) { const k = new THREE.Mesh(new THREE.BoxGeometry(.018, .006, .014), std({ color: 0x9a9a9a, roughness: .6 })); k.position.set(-.058 + (i % 3) * .026, .05, -.02 + (i / 3 | 0) * .02); g.add(k); }
+  const scr = new THREE.Mesh(new THREE.BoxGeometry(.06, .004, .03), new THREE.MeshBasicMaterial({ color: 0x5aff7a })); scr.position.set(.055, .047, -.03); g.add(scr);
+  for (const [c, z] of [[0xbb2222, -.05], [0x22aa66, -.035], [0x2266bb, -.02]]) { const w = new THREE.Mesh(new THREE.BoxGeometry(.19, .008, .008), std({ color: c, roughness: .5 })); w.position.set(0, .046, z + .07); g.add(w); }
+  for (const sx of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(.07, .06, .1), std({ color: 0x1c1c1c, roughness: .75 })); h.position.set(sx * .12, -.02, .02); g.add(h); }
+  g.visible = false; return g; })();
 function updateVM(dt) {
+  // la carga en las manos: al sacarla con 5 o mientras se planta
+  { const planting = carryingBomb() && actors[me.id] && (actors[me.id].flags & 8), show = me.alive && (me.bombHand || planting);
+    if (bombVM.parent !== vm.group) vm.group.add(bombVM); bombVM.visible = !!show;
+    if (show) { if (vm.cur) vm.cur.g.visible = false; const pr = G.bomb[6] || 0, t = nowS(), d = me.drawT > 0 ? me.drawT / .35 : 0; bombVM.position.set(.02, -.17 - pr * .14 - d * .2 + Math.sin(t * 1.7) * .003, -.42 - pr * .05); bombVM.rotation.set(.5 + pr * .45, -.15, .05); return; }
+    else if (vm.cur && !vm.cur.g.visible && !magOn && me.scopeK < .5 && me.alive) vm.cur.g.visible = true; }
   if (kc && kc.cine && kcActive()) { vm.group.visible = false; return; }
   if (!me.alive || (kc && kc.hl)) { updateSpecVM(dt); return; }
   if (vm.spec) { vm.spec = null; vm.specTeam = null; PCM.setFpTeam(me.team, myOutfit()); showVM(me.cur); }

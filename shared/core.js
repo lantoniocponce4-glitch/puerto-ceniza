@@ -1197,8 +1197,10 @@
     allowed(wid) { const w = WEAPONS[wid]; return !!w && !w.melee && ARMS_OK[this.rules.arms](w); }
     basePistol(a) { return this.side(a.team) === 'def' && this.allowed('p9s') ? 'p9s' : 'p9'; }
     rememberGuns(a) { if (a.inv && (a.inv.p || (a.inv.s && a.inv.s !== 'p9' && a.inv.s !== 'p9s'))) a.keep = { p: a.inv.p || null, s: a.inv.s || this.basePistol(a) }; }
-    resetLoadout(a, full) {
-      if (a.alive) this.rememberGuns(a); const k = a.keep;
+    // fresh: cambio de lado (medio tiempo o prórroga): se empieza de cero, sin las armas ni el kit de la mitad anterior
+    resetLoadout(a, full, fresh) {
+      if (fresh) { a.keep = null; a.kit = false; a.snap = null; }
+      if (a.alive && !fresh) this.rememberGuns(a); const k = a.keep;
       a.inv = { p: k && this.allowed(k.p) ? k.p : null, s: k && this.allowed(k.s) && (!WEAPONS[k.s] || !WEAPONS[k.s].side || WEAPONS[k.s].side === this.side(a.team)) && k.s !== 'p9' && k.s !== 'p9s' ? k.s : this.allowed('p9') ? this.basePistol(a) : null, n: { he: 0, fl: 0, sm: 0, in: 0, de: 0 } }; a.cur = a.inv.p || a.inv.s || 'knife'; a.kit = false;
       if (full) { a.armor = 0; a.helmet = false; }
       a.pdirty = true;
@@ -1207,9 +1209,9 @@
       this.round++;
       if (this.round === this.R.half + 1 || this.round === this.R.otSwap) {
         this.swap = !this.swap; this.lossStreak = { atk: 0, def: 0 };
-        for (const a of this.actors) { this.resetLoadout(a, true); a.money = this.R.ot ? 10000 : this.rules.money; }
+        for (const a of this.actors) { this.resetLoadout(a, true, true); a.money = this.R.ot ? 10000 : this.rules.money; }
         this.ev({ k: 'half' });
-      } else if (this.round === this.R.otStart) { this.lossStreak = { atk: 0, def: 0 }; for (const a of this.actors) { this.resetLoadout(a, true); a.money = 10000; } this.ev({ k: 'ot', n: this.R.ot }); }
+      } else if (this.round === this.R.otStart) { this.lossStreak = { atk: 0, def: 0 }; for (const a of this.actors) { this.resetLoadout(a, true, true); a.money = 10000; } this.ev({ k: 'ot', n: this.R.ot }); }
       this.phase = 'buy'; this.phaseEnd = this.now + (this.round === 1 || this.round === this.R.half + 1 || this.round === this.R.otStart || this.round === this.R.otSwap ? ROUND.buyFirst : ROUND.buy);
       if (this.pausePending !== null) { this.phaseEnd += 30; this.ev({ k: 'tpauseon', tm: this.pausePending }); this.pausePending = null; }
       this.drops = []; this.nades = []; this.smokes = []; this.fires = []; this.decoys = []; this.liveStart = 1e9; this.reveal = [0, 0]; this.restoreBreakables(true);
@@ -1371,7 +1373,7 @@
         case 'shot': this.humanShot(a, m); break;
         case 'eq': { const w = String(m.w || ''); if (a.rlW && a.rlW !== w) a.rlW = null; if (w === 'knife' || a.inv.p === w || a.inv.s === w || (has(NADES, w) && a.inv.n[w] > 0)) a.cur = w; break; }
         case 'buy': if (this.buy(a, String(m.i || ''))) this.ev({ k: 'bought', v: a.id, i: String(m.i) }); break;
-        case 'drop': if (this.mode === 'gg' || this.mode === 'tdm') return; if (a.alive && (a.cur === a.inv.p || a.cur === a.inv.s)) this.dropWeapon(a, a.cur, true); else if (a.alive && this.bomb.st === 'carried' && this.bomb.by === a.id && m.bomb) this.dropBomb(a, true); break;
+        case 'drop': if (this.mode === 'gg' || this.mode === 'tdm') return; if (a.alive && this.bomb.st === 'carried' && this.bomb.by === a.id && m.bomb) this.dropBomb(a, true); else if (a.alive && (a.cur === a.inv.p || a.cur === a.inv.s)) this.dropWeapon(a, a.cur, true); break; // primero la carga si se pidió soltarla (con la carga en la mano el arma sigue equipada en el servidor)
         case 'nade': this.throwNade(a, m); break;
         case 'order': { if (this.now - (a.orderT === undefined ? -9 : a.orderT) < .8) return; const c = String(m.c || ''); if (!has(ORDERS, c)) return; a.orderT = this.now; this.giveOrder(a, c, Array.isArray(m.p) ? [num(m.p[0]), num(m.p[1])] : null); break; }
         case 'rl': { const w = WEAPONS[a.cur]; const mg = a.mags || {}, rs = a.resv || {}; if (a.alive && w && w.mag && !w.melee && (mg[a.cur] === undefined || (mg[a.cur] < w.mag && rs[a.cur] > 0))) { a.rlW = a.cur; a.rlEnd = this.now + w.reload * .8; } break; }

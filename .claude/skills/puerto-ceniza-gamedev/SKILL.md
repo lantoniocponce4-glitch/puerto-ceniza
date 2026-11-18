@@ -76,6 +76,14 @@ Ya existen: control de spray con patrones, imprecisión al moverse, saltar y ate
 - **Chat**: `cleanChat` en `core.js` (normaliza tildes, números por letras y letras repetidas; evita palabras ambiguas como «pico» o «cono»). Menú de pausa → Jugadores: silenciar (local: chat y radio) y reportar (`t: 'report'`); 2 reportes por insultos de personas distintas silencian el chat del reportado en esa partida. Los reportes quedan en el registro del servidor como `[reporte]`.
 - **Errores del cliente**: `window` `error` y `unhandledrejection` se envían a `/api/err` (máximo 5 por sesión, 20 cada 10 minutos por conexión) y aparecen en el registro del servidor como `[cliente]`. Revísalos tras cada publicación.
 
+## Controles de PC (fuente de verdad: el `keydown` en `client.js` y `#keysHelp` en `index.html`)
+
+WASD mover · Shift caminar · C agacharse · Espacio saltar · clic disparar · clic derecho apuntar · R recargar · 1-4 armas y granadas · **5 sacar la carga** · X arma anterior · **F plantar/desactivar** (con la carga en la mano, también el clic) · G soltar (con cuchillo o carga en la mano: la carga) · Q/E asomarse · B comprar · Tab marcador · Z radio · V marcar · Y chat · **L linterna** · I inspeccionar · **K guardar/borrar posición de granada** · T voz. Si cambias una tecla, cambia también todos los textos que la nombran (búscalos con grep) y `#keysHelp`.
+
+## Economía
+
+- `MONEY` en `core.js`. Al cambiar de lado (medio tiempo o prórroga) `resetLoadout(a, true, true)` borra las armas guardadas, el kit y el estado de reconexión: todos empiezan de cero con el dinero inicial. Prueba de regresión: el script de economía en el historial de esta skill (medio tiempo sin armas conservadas, dinero nunca negativo ni sobre el tope, precios exactos, bono por derrotas 1400-3400).
+
 ## Tutorial
 
 - `TUT_STEPS` en `client.js`: pasos en el campo de tiro (moverse, mirar, disparar, apuntar, recargar, agacharse, saltar, comprar, puntería), cada uno con texto para PC (`pc`) y celular (`tc`) y una condición `ok` que se revisa cada cuadro (`tutTick`). Al terminar o saltarlo se guarda `prefs.tutDone`.
